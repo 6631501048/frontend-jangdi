@@ -1,11 +1,13 @@
 <script setup>
 // FR-JOB-08: งานที่ประกาศ จัดกลุ่มตามสถานะ
 import { ref } from "vue";
+import TopBar from "../../components/TopBar.vue";
 const statuses = ["รอดำเนินการ", "กำลังดำเนินการ", "เสร็จสิ้น", "ยกเลิก"];
 const activeTab = ref(statuses[0]);
 </script>
 
 <template>
+  <TopBar />
   <main class="dashboard">
     <h1>งานของฉัน (ผู้ว่าจ้าง)</h1>
     <nav class="tabs">

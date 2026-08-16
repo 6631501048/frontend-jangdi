@@ -85,14 +85,33 @@ const router = createRouter({
   routes,
 });
 
-// Route guard พื้นฐาน — ต่อยอด logic จริงตอน implement auth ให้ครบ
+// Route guard:
+// 1) ต้อง login ก่อนถึงจะเข้าหน้าที่ requiresAuth ได้
+// 2) ถ้า login แล้วแต่ยังกรอกโปรไฟล์ไม่ครบ (FR-AUTH-05) บังคับไปหน้า register (กรอกโปรไฟล์) ก่อนเสมอ
+// 3) หน้าที่ผูกกับ role เฉพาะ (meta.role) ถ้า currentRole ไม่ตรง ให้เด้งไป dashboard ของ role ปัจจุบันแทน
+// 4) หน้า Admin ต้องเป็น isAdmin เท่านั้น (คง logic เดิม ครอบคลุม nested route ทุกอันใต้ /admin ด้วย)
 router.beforeEach((to) => {
   const auth = useAuthStore();
+
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     return { name: "login" };
   }
+
+  if (
+    auth.isLoggedIn &&
+    !auth.isProfileComplete &&
+    to.name !== "register" &&
+    to.name !== "login"
+  ) {
+    return { name: "register" };
+  }
+
   if (to.meta.adminOnly && !auth.user?.isAdmin) {
     return { name: "login" };
+  }
+
+  if (to.meta.role && auth.currentRole !== to.meta.role) {
+    return { name: auth.currentRole === "worker" ? "worker-dashboard" : "hirer-dashboard" };
   }
 });
 

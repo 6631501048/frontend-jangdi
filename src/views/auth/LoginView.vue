@@ -6,6 +6,7 @@ import { ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
+import { signInWithGoogle } from "../../services/googleAuth";
 
 const email = ref("");
 const password = ref("");
@@ -18,8 +19,9 @@ const auth = useAuthStore();
 const LAMDUAN_DOMAIN = "@lamduan.mfu.ac.th";
 
 // ไปหน้า dashboard ตามบทบาทของผู้ใช้ที่ล็อกอินเข้ามา (ใช้ร่วมกันทั้ง Google และ email/password)
-function redirectAfterLogin(user, isProfileComplete) {
-  if (!isProfileComplete) {
+// หมายเหตุ: isProfileComplete อยู่ใน user object เสมอ (backend ส่ง { token, user }) ไม่ใช่ field แยก
+function redirectAfterLogin(user) {
+  if (!user?.isProfileComplete) {
     router.push({ name: "register" });
     return;
   }
@@ -40,10 +42,9 @@ async function handleContinue() {
   }
   loading.value = true;
   try {
-    // TODO: POST /api/auth/login { email, password } (FR-AUTH-01/02)
     const { data } = await api.post("/auth/login", { email: email.value, password: password.value });
     auth.setSession(data.token, data.user);
-    redirectAfterLogin(data.user, data.isProfileComplete);
+    redirectAfterLogin(data.user);
   } catch (e) {
     error.value = e.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ";
   } finally {
@@ -55,15 +56,13 @@ async function handleGoogleLogin() {
   error.value = "";
   loading.value = true;
   try {
-    // TODO: เชื่อม Google Identity Services (FR-AUTH-03) — ช่องทางหลักของระบบ
-    // 1) โหลด Google Identity Services script + VITE_GOOGLE_CLIENT_ID จาก .env
-    // 2) จำกัด hd (hosted domain) = "lamduan.mfu.ac.th" ในการตั้งค่า Google client
-    // 3) ได้ idToken แล้ว POST /api/auth/google { idToken } ให้ backend ตรวจสอบ + ออก JWT ของระบบ
-    const { data } = await api.post("/auth/google", { idToken: "TODO_GOOGLE_ID_TOKEN" });
+    // FR-AUTH-03: เปิด Google Sign-In prompt จริง ได้ ID token กลับมาแล้วส่งให้ backend ตรวจสอบ + ออก JWT ของระบบ
+    const idToken = await signInWithGoogle();
+    const { data } = await api.post("/auth/google", { idToken });
     auth.setSession(data.token, data.user);
-    redirectAfterLogin(data.user, data.isProfileComplete);
+    redirectAfterLogin(data.user);
   } catch (e) {
-    error.value = e.response?.data?.message || "เข้าสู่ระบบด้วย Google ไม่สำเร็จ";
+    error.value = e.response?.data?.message || e.message || "เข้าสู่ระบบด้วย Google ไม่สำเร็จ";
   } finally {
     loading.value = false;
   }
