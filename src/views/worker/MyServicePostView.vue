@@ -71,12 +71,12 @@ function acceptRequest(req) {
 
 function viewMyOrder() {
   showSuccess.value = false;
-  // TODO: ไปหน้าติดตามงานที่แปลงมาจาก Service Request นี้ (ยังไม่มี route จริง ใช้ /worker/jobs ไปพลางก่อน)
+  // ไปหน้าติดตามงานที่แปลงมาจาก Service Request นี้
   router.push("/worker/jobs");
 }
 
 function viewDetails(req) {
-  router.push(`/worker/service-post/requests/${req.id}`);
+  router.push(`/worker/service-requests/${req.id}`);
 }
 </script>
 

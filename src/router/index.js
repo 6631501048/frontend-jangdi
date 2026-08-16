@@ -33,6 +33,54 @@ const routes = [
     component: () => import("../views/worker/JobFeedView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
+  {
+    path: "/worker/jobs",
+    name: "worker-my-jobs",
+    component: () => import("../views/worker/Myjobview.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/jobs/:id",
+    name: "worker-job-detail",
+    component: () => import("../views/worker/Jobdetail.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/jobs/:id/tracking",
+    name: "worker-job-tracking",
+    component: () => import("../views/worker/JobTrackingView.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/service-posts",
+    name: "worker-my-service-posts",
+    component: () => import("../views/worker/MyServicePostView.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/service-posts/new",
+    name: "worker-post-service",
+    component: () => import("../views/worker/Post.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/service-requests/:id",
+    name: "worker-service-request-detail",
+    component: () => import("../views/worker/ServiceRequestDetailView.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/payment",
+    name: "worker-payment",
+    component: () => import("../views/worker/Paymentview.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/profile",
+    name: "worker-profile",
+    component: () => import("../views/worker/Profileview.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
 
   // Admin (FR-ADMIN-*) — shared AdminLayout (topbar + drawer) wraps every admin screen
   {

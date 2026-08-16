@@ -33,7 +33,7 @@ function acceptOrder() {
   accepting.value = true;
   setTimeout(() => {
     accepting.value = false;
-    router.push("/worker/service-post");
+    router.push("/worker/service-posts");
   }, 300);
 }
 </script>

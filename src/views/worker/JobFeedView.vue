@@ -12,9 +12,9 @@ const auth = useAuthStore();
 const drawerOpen = ref(false);
 const drawerItems = [
   { label: "หน้าแรก", icon: "home", to: "/worker" },
-  { label: "งานของฉัน", icon: "briefcase", to: "/worker" },
-  { label: "บริการของฉัน", icon: "sparkle", to: "/worker" },
-  { label: "การชำระเงิน", icon: "wallet", to: "/worker" },
+  { label: "งานของฉัน", icon: "briefcase", to: "/worker/jobs" },
+  { label: "บริการของฉัน", icon: "sparkle", to: "/worker/service-posts" },
+  { label: "การชำระเงิน", icon: "wallet", to: "/worker/payment" },
 ];
 
 // TODO NFR-USE-04: สลับบทบาทผู้ว่าจ้าง/ผู้รับจ้าง — ต้องเรียก PATCH /api/users/me/role แล้วอัปเดต auth.user.currentRole
@@ -171,7 +171,7 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
         <span class="brand-icon">👥</span>
         <span class="brand-name">JangDi</span>
       </div>
-      <RouterLink to="/worker" class="avatar-btn" aria-label="โปรไฟล์ของฉัน">
+      <RouterLink to="/worker/profile" class="avatar-btn" aria-label="โปรไฟล์ของฉัน">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
       </RouterLink>
     </header>
@@ -257,7 +257,7 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
         </div>
         <div class="card-actions">
           <button v-if="post.type === 'hirer'" class="btn-apply" @click="applyToJob(post)">สมัคร</button>
-          <RouterLink :to="`/worker/feed/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
+          <RouterLink :to="`/worker/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
         </div>
       </article>
 
@@ -265,7 +265,7 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
     </section>
 
     <!-- ปุ่มสร้างประกาศใหม่ -->
-    <RouterLink to="/worker" class="fab" aria-label="สร้างประกาศใหม่">
+    <RouterLink to="/worker/service-posts/new" class="fab" aria-label="สร้างประกาศใหม่">
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
     </RouterLink>
 
