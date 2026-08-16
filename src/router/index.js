@@ -34,12 +34,49 @@ const routes = [
     meta: { requiresAuth: true, role: "worker" },
   },
 
-  // Admin (FR-ADMIN-*)
+  // Admin (FR-ADMIN-*) — shared AdminLayout (topbar + drawer) wraps every admin screen
   {
     path: "/admin",
-    name: "admin-dashboard",
-    component: () => import("../views/admin/AdminDashboard.vue"),
+    component: () => import("../views/admin/AdminLayout.vue"),
     meta: { requiresAuth: true, adminOnly: true },
+    children: [
+      { path: "", redirect: { name: "admin-dashboard" } },
+      {
+        path: "dashboard",
+        name: "admin-dashboard",
+        component: () => import("../views/admin/DashboardView.vue"), // FR-ADMIN-01
+      },
+      {
+        path: "jobs",
+        name: "admin-jobs",
+        component: () => import("../views/admin/BrowseJobsView.vue"), // "Home" — browse all posts
+      },
+      {
+        path: "users",
+        name: "admin-users",
+        component: () => import("../views/admin/ManageUsersView.vue"), // FR-ADMIN-03
+      },
+      {
+        path: "posts",
+        name: "admin-posts",
+        component: () => import("../views/admin/ManagePostsView.vue"), // FR-ADMIN-02
+      },
+      {
+        path: "payments",
+        name: "admin-payments",
+        component: () => import("../views/admin/ProcessPaymentView.vue"), // FR-ADMIN-04, FR-ADMIN-05
+      },
+      {
+        path: "reports",
+        name: "admin-reports",
+        component: () => import("../views/admin/HandleReportsView.vue"), // FR-ADMIN-06
+      },
+      {
+        path: "sos",
+        name: "admin-sos",
+        component: () => import("../views/admin/ReceiveSosView.vue"), // FR-ADMIN-07, FR-SOS-04
+      },
+    ],
   },
 ];
 
@@ -48,14 +85,33 @@ const router = createRouter({
   routes,
 });
 
-// Route guard พื้นฐาน — ต่อยอด logic จริงตอน implement auth ให้ครบ
+// Route guard:
+// 1) ต้อง login ก่อนถึงจะเข้าหน้าที่ requiresAuth ได้
+// 2) ถ้า login แล้วแต่ยังกรอกโปรไฟล์ไม่ครบ (FR-AUTH-05) บังคับไปหน้า register (กรอกโปรไฟล์) ก่อนเสมอ
+// 3) หน้าที่ผูกกับ role เฉพาะ (meta.role) ถ้า currentRole ไม่ตรง ให้เด้งไป dashboard ของ role ปัจจุบันแทน
+// 4) หน้า Admin ต้องเป็น isAdmin เท่านั้น (คง logic เดิม ครอบคลุม nested route ทุกอันใต้ /admin ด้วย)
 router.beforeEach((to) => {
   const auth = useAuthStore();
+
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     return { name: "login" };
   }
+
+  if (
+    auth.isLoggedIn &&
+    !auth.isProfileComplete &&
+    to.name !== "register" &&
+    to.name !== "login"
+  ) {
+    return { name: "register" };
+  }
+
   if (to.meta.adminOnly && !auth.user?.isAdmin) {
     return { name: "login" };
+  }
+
+  if (to.meta.role && auth.currentRole !== to.meta.role) {
+    return { name: auth.currentRole === "worker" ? "worker-dashboard" : "hirer-dashboard" };
   }
 });
 
