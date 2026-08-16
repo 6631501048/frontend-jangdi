@@ -77,6 +77,9 @@ function goBack() {
 function backToMyJobs() {
   router.push("/worker/jobs");
 }
+function goToReview() {
+  router.push(`/worker/jobs/${job.value.id}/review`);
+}
 </script>
 
 <template>
@@ -215,7 +218,10 @@ function backToMyJobs() {
           <button class="btn-primary" @click="backToMyJobs">Back to My Job</button>
         </template>
 
-        <!-- ===== Completed: แสดงรายละเอียดเฉย ๆ ไม่มี action เพิ่ม ===== -->
+        <!-- ===== Completed: ให้รีวิวผู้ว่าจ้าง (SRS 3.5.15 / FR-REV-01–02) ===== -->
+        <template v-if="job.status === 'completed'">
+          <button class="btn-primary" @click="goToReview">Review Hirer</button>
+        </template>
       </div>
     </main>
   </div>
