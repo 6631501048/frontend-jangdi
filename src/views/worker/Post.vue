@@ -87,8 +87,8 @@ function submit() {
 }
 
 function viewMyPosts() {
-  // TODO FR-PROF-04: ไปหน้าประวัติประกาศบริการของตนเอง (ยังไม่มี route จริง ใช้ /worker ไปพลางก่อน)
-  router.push("/worker");
+  // FR-PROF-04: ไปหน้าประวัติประกาศบริการของตนเอง
+  router.push("/worker/service-posts");
 }
 function backToHome() {
   router.push("/worker");

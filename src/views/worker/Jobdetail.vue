@@ -39,8 +39,8 @@ function applyForJob() {
 }
 
 function viewMyRequest() {
-  // TODO FR-BROWSE-07: ไปหน้าดูสถานะใบสมัครของตนเอง (ยังไม่มี route จริง ใช้ /worker ไปพลางก่อน)
-  router.push("/worker");
+  // FR-BROWSE-07: ไปหน้าดูสถานะใบสมัครของตนเอง (งานของฉัน)
+  router.push("/worker/jobs");
 }
 
 function goBack() {
