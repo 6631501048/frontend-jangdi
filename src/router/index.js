@@ -34,12 +34,49 @@ const routes = [
     meta: { requiresAuth: true, role: "worker" },
   },
 
-  // Admin (FR-ADMIN-*)
+  // Admin (FR-ADMIN-*) — shared AdminLayout (topbar + drawer) wraps every admin screen
   {
     path: "/admin",
-    name: "admin-dashboard",
-    component: () => import("../views/admin/AdminDashboard.vue"),
+    component: () => import("../views/admin/AdminLayout.vue"),
     meta: { requiresAuth: true, adminOnly: true },
+    children: [
+      { path: "", redirect: { name: "admin-dashboard" } },
+      {
+        path: "dashboard",
+        name: "admin-dashboard",
+        component: () => import("../views/admin/DashboardView.vue"), // FR-ADMIN-01
+      },
+      {
+        path: "jobs",
+        name: "admin-jobs",
+        component: () => import("../views/admin/BrowseJobsView.vue"), // "Home" — browse all posts
+      },
+      {
+        path: "users",
+        name: "admin-users",
+        component: () => import("../views/admin/ManageUsersView.vue"), // FR-ADMIN-03
+      },
+      {
+        path: "posts",
+        name: "admin-posts",
+        component: () => import("../views/admin/ManagePostsView.vue"), // FR-ADMIN-02
+      },
+      {
+        path: "payments",
+        name: "admin-payments",
+        component: () => import("../views/admin/ProcessPaymentView.vue"), // FR-ADMIN-04, FR-ADMIN-05
+      },
+      {
+        path: "reports",
+        name: "admin-reports",
+        component: () => import("../views/admin/HandleReportsView.vue"), // FR-ADMIN-06
+      },
+      {
+        path: "sos",
+        name: "admin-sos",
+        component: () => import("../views/admin/ReceiveSosView.vue"), // FR-ADMIN-07, FR-SOS-04
+      },
+    ],
   },
 ];
 
