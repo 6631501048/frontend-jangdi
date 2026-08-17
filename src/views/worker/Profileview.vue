@@ -3,50 +3,89 @@
 // FR-PROF-02: ดู/แก้ไขที่อยู่สำหรับติดต่อ/จัดส่ง (ชื่อ ที่อยู่ เบอร์โทร)
 // FR-PROF-03: แสดงคะแนนความน่าเชื่อถือปัจจุบันของผู้ใช้
 // FR-REV-04: แสดงประวัติรีวิว เรียงล่าสุดก่อน
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import api from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
 
 const auth = useAuthStore();
+const loading = ref(true);
+const errorMsg = ref("");
 
 /* ---------- รูปโปรไฟล์ ---------- */
 const avatarInput = ref(null);
-const avatarPreview = ref(null); // TODO: โหลดจาก user.avatarUrl จริงเมื่อเชื่อม backend
+const avatarPreview = ref(null);
+const uploadingAvatar = ref(false);
 
 function pickAvatar() {
   avatarInput.value?.click();
 }
-function onAvatarChange(e) {
+async function onAvatarChange(e) {
   const file = e.target.files?.[0];
   if (!file) return;
-  // TODO FR-PROF-01: อัปโหลดไฟล์ไป POST /api/users/me/avatar แล้วค่อยอัปเดต URL จริงจาก response
+
+  // แสดง preview ทันทีระหว่างอัปโหลด
   const reader = new FileReader();
   reader.onload = () => (avatarPreview.value = reader.result);
   reader.readAsDataURL(file);
+
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  uploadingAvatar.value = true;
+  try {
+    const { data } = await api.post("/users/me/avatar", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    avatarPreview.value = resolveUploadUrl(data.avatarUrl);
+    auth.updateUser({ ...auth.user, avatarUrl: data.avatarUrl });
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "อัปโหลดรูปไม่สำเร็จ";
+  } finally {
+    uploadingAvatar.value = false;
+  }
+}
+
+// avatarUrl จาก backend เป็น path สัมพัทธ์ (เช่น /uploads/avatars/...) ต้องต่อกับ base URL ของ API
+function resolveUploadUrl(pathOrUrl) {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.startsWith("http")) return pathOrUrl;
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+  return apiBase.replace(/\/api\/?$/, "") + pathOrUrl;
 }
 
 /* ---------- ข้อมูลส่วนตัว ---------- */
-// TODO: แทนที่ mock ด้วย GET /api/users/me
 const profile = ref({
-  fullName: "Thanawit Bunphom",
-  email: "66xxxxxxxx@lamduan.mfu.ac.th",
-  password: "••••••45",
-  bankAccount: "xxx-x-x5545-x",
-  phoneNumber: "000-000-0000",
-  line: "@Thanawit",
-  facebook: "Thanawit Bunphom",
-  instagram: "-",
+  fullName: "",
+  email: "",
+  bankAccount: { bankName: "", accountNumber: "", accountHolderName: "" },
+  phoneNumber: "",
+  line: "",
+  facebook: "",
+  instagram: "",
 });
 const isEditingProfile = ref(false);
 let profileDraft = null;
 
 function startEditProfile() {
-  profileDraft = { ...profile.value };
+  profileDraft = { ...profile.value, bankAccount: { ...profile.value.bankAccount } };
   isEditingProfile.value = true;
 }
-function saveProfile() {
-  // TODO FR-PROF-01: PATCH /api/users/me
-  profile.value = { ...profileDraft };
-  isEditingProfile.value = false;
+async function saveProfile() {
+  try {
+    const { data } = await api.patch(`/users/${auth.user._id}`, {
+      fullName: profileDraft.fullName,
+      phone: profileDraft.phoneNumber,
+      lineId: profileDraft.line,
+      facebook: profileDraft.facebook,
+      instagram: profileDraft.instagram,
+      bankAccount: profileDraft.bankAccount,
+    });
+    auth.updateUser(data.user);
+    applyUserToProfile(data.user);
+    isEditingProfile.value = false;
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "บันทึกโปรไฟล์ไม่สำเร็จ";
+  }
 }
 function cancelEditProfile() {
   isEditingProfile.value = false;
@@ -55,24 +94,26 @@ function cancelEditProfile() {
 /* ---------- เปลี่ยนรหัสผ่าน ---------- */
 const showPasswordModal = ref(false);
 const passwordForm = ref({ current: "", next: "", confirm: "" });
-function submitPasswordChange() {
+async function submitPasswordChange() {
   if (!passwordForm.value.next || passwordForm.value.next !== passwordForm.value.confirm) {
     alert("รหัสผ่านใหม่และการยืนยันไม่ตรงกัน");
     return;
   }
-  // TODO FR-PROF-01: PATCH /api/users/me/password { current, next }
-  alert("TODO: ส่งคำขอเปลี่ยนรหัสผ่านไป backend");
-  showPasswordModal.value = false;
-  passwordForm.value = { current: "", next: "", confirm: "" };
+  try {
+    await api.patch("/auth/password", {
+      current: passwordForm.value.current,
+      next: passwordForm.value.next,
+    });
+    alert("เปลี่ยนรหัสผ่านสำเร็จ");
+    showPasswordModal.value = false;
+    passwordForm.value = { current: "", next: "", confirm: "" };
+  } catch (err) {
+    alert(err.response?.data?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
+  }
 }
 
 /* ---------- ที่อยู่ ---------- */
-// TODO: GET /api/users/me/address
-const address = ref({
-  fullName: "Thanawit Bunphom",
-  address: "",
-  phoneNumber: "000-000-0000",
-});
+const address = ref({ fullName: "", address: "", phoneNumber: "" });
 const isEditingAddress = ref(false);
 let addressDraft = null;
 
@@ -80,24 +121,76 @@ function startEditAddress() {
   addressDraft = { ...address.value };
   isEditingAddress.value = true;
 }
-function saveAddress() {
-  // TODO FR-PROF-02: PATCH /api/users/me/address
-  address.value = { ...addressDraft };
-  isEditingAddress.value = false;
+async function saveAddress() {
+  try {
+    const { data } = await api.patch(`/users/${auth.user._id}`, {
+      contactAddress: {
+        name: addressDraft.fullName,
+        address: addressDraft.address,
+        phone: addressDraft.phoneNumber,
+      },
+    });
+    auth.updateUser(data.user);
+    applyUserToProfile(data.user);
+    isEditingAddress.value = false;
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "บันทึกที่อยู่ไม่สำเร็จ";
+  }
 }
 function cancelEditAddress() {
   isEditingAddress.value = false;
 }
 
 /* ---------- คะแนนความน่าเชื่อถือ / รีวิว ---------- */
-// TODO FR-PROF-03/FR-REV-04: GET /api/users/me/reviews?sort=latest
-const averageRating = ref(4.8);
-const reviewCount = ref(25);
-const reviews = ref([
-  { id: "r1", reviewer: "Pitak", rating: 5, comment: "มาตรงเวลา ของครบ ประทับใจมาก", date: new Date("2026-06-01") },
-  { id: "r2", reviewer: "Chanidapa", rating: 5, comment: "ทำงานเรียบร้อย ตอบแชทไว", date: new Date("2026-05-20") },
-]);
+const averageRating = ref(0);
+const reviewCount = ref(0);
+const reviews = ref([]);
 const ratingStars = computed(() => Math.round(averageRating.value));
+
+async function loadReviews() {
+  const { data } = await api.get(`/users/${auth.user._id}/reviews`);
+  averageRating.value = data.averageRating || 0;
+  reviewCount.value = data.reviewCount || 0;
+  reviews.value = data.reviews.map((r) => ({
+    id: r._id,
+    reviewer: r.fromUser?.fullName || "ผู้ใช้",
+    rating: r.rating,
+    comment: r.comment,
+    date: new Date(r.createdAt),
+  }));
+}
+
+/* ---------- โหลดข้อมูลตอนเปิดหน้า ---------- */
+function applyUserToProfile(user) {
+  profile.value = {
+    fullName: user.fullName || "",
+    email: user.email,
+    bankAccount: user.bankAccount || { bankName: "", accountNumber: "", accountHolderName: "" },
+    phoneNumber: user.phone || "",
+    line: user.lineId || "",
+    facebook: user.facebook || "",
+    instagram: user.instagram || "",
+  };
+  address.value = {
+    fullName: user.contactAddress?.name || user.fullName || "",
+    address: user.contactAddress?.address || "",
+    phoneNumber: user.contactAddress?.phone || user.phone || "",
+  };
+  if (user.avatarUrl) avatarPreview.value = resolveUploadUrl(user.avatarUrl);
+}
+
+onMounted(async () => {
+  try {
+    const { data: me } = await api.get("/auth/me");
+    auth.updateUser(me);
+    applyUserToProfile(me);
+    await loadReviews();
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดข้อมูลโปรไฟล์ไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+});
 </script>
 
 <template>
@@ -154,7 +247,7 @@ const ratingStars = computed(() => Math.round(averageRating.value));
           </div>
           <div class="field">
             <span class="field-label">Password</span>
-            <span class="field-value">{{ profile.password }}</span>
+            <span class="field-value">••••••••</span>
           </div>
           <div class="field">
             <span class="field-label">Facebook</span>
@@ -163,8 +256,15 @@ const ratingStars = computed(() => Math.round(averageRating.value));
           </div>
           <div class="field">
             <span class="field-label">Bank account</span>
-            <input v-if="isEditingProfile" v-model="profileDraft.bankAccount" />
-            <span v-else class="field-value">{{ profile.bankAccount }}</span>
+            <template v-if="isEditingProfile">
+              <input v-model="profileDraft.bankAccount.bankName" placeholder="ชื่อธนาคาร" />
+              <input v-model="profileDraft.bankAccount.accountNumber" placeholder="เลขบัญชี" />
+              <input v-model="profileDraft.bankAccount.accountHolderName" placeholder="ชื่อบัญชี" />
+            </template>
+            <span v-else class="field-value">
+              {{ profile.bankAccount.bankName || "-" }}
+              {{ profile.bankAccount.accountNumber ? `(${profile.bankAccount.accountNumber})` : "" }}
+            </span>
           </div>
           <div class="field">
             <span class="field-label">Instagram</span>

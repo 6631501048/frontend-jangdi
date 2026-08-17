@@ -1,50 +1,90 @@
 <script setup>
 // FR-PAY-08: แสดงยอดเงินคงเหลือที่ใช้งานได้ + ประวัติธุรกรรมตามลำดับเวลา
-// FR-PAY-02: Escrow state machine (Pending -> Held -> Released) เป็นที่มาของเงินที่ถอนได้
+// FR-PAY-02: Escrow state machine (Pending -> Held -> Released)
 // FR-PAY-03: หักค่าธรรมเนียมแพลตฟอร์ม 5-10% ก่อนปล่อยเงินให้ผู้รับจ้าง (สะท้อนใน totalEarnings)
-import { ref } from "vue";
+//
+// หมายเหตุสำคัญ: ระบบนี้ไม่มี wallet กลางที่ต้องกด "ถอน" แยกต่างหาก — เงินสถานะ "released"
+// คือเงินที่ Admin โอนเข้าบัญชีธนาคารของผู้รับจ้างโดยตรงไปแล้วจริงตอนยืนยันงานเสร็จ (FR-PAY-05)
+// ปุ่ม Withdraw ด้านล่างจึงเป็นข้อความอธิบายแทนการเปิดฟอร์มถอนเงิน
+import { onMounted, ref, watch } from "vue";
+import api from "../../services/api";
+
+const loading = ref(true);
+const errorMsg = ref("");
 
 /* ---------- ยอดเงิน ---------- */
-// TODO: แทนที่ mock ด้วย GET /api/payments/wallet (ยอดคงเหลือ/พักไว้/กำลังดำเนินการ ของผู้รับจ้างคนนี้)
 const showBalance = ref(true);
-const availableBalance = ref(1157.0);
+const availableBalance = ref(0);
 const pendingBalance = ref(0);
-const inProgressBalance = ref(598.0);
+const inProgressBalance = ref(0);
 
 function formatCurrency(n) {
-  return n.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (n || 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function withdraw() {
-  // TODO FR-PAY-04: การถอนเงินต้องแนบ/อ้างอิงบัญชีธนาคารปลายทาง และ backend จะสร้างสลิป/หลักฐานการโอน
-  // POST /api/payments/withdraw { amount, bankAccountId }
-  alert("TODO: เปิดฟอร์มถอนเงินไปยังบัญชีธนาคารที่ผูกไว้");
+  alert(
+    "เงินในสถานะ Available ถูกโอนเข้าบัญชีธนาคารที่ตั้งไว้ในหน้าโปรไฟล์แล้วโดยอัตโนมัติทุกครั้งที่งานเสร็จสิ้น ไม่ต้องกดถอนเพิ่ม"
+  );
 }
 
 /* ---------- ภาพรวมรายได้ ---------- */
-// TODO: GET /api/payments/summary?period={selectedPeriod}
 const periods = [
   { value: "month", label: "เดือนนี้" },
   { value: "last-month", label: "เดือนที่แล้ว" },
   { value: "all", label: "ทั้งหมด" },
 ];
 const selectedPeriod = ref("month");
-const totalEarnings = ref(3665.0);
-const completeJobs = ref(25);
-const averageRating = ref(4.8);
+const totalEarnings = ref(0);
+const completeJobs = ref(0);
+const averageRating = ref(0);
+
+async function loadSummary() {
+  const { data } = await api.get("/payments/summary", { params: { period: selectedPeriod.value } });
+  totalEarnings.value = data.totalEarnings;
+  completeJobs.value = data.completeJobs;
+  averageRating.value = data.averageRating;
+}
 
 /* ---------- ประวัติธุรกรรม ---------- */
-// TODO: GET /api/payments/transactions?limit=3 (ดูทั้งหมดที่ /worker/payment/transactions)
-const transactions = ref([
-  { id: "t1", type: "withdraw", bank: "Kasikorn Bank", last4: "1234", amount: 598.0, date: new Date("2026-05-30T18:46:00") },
-  { id: "t2", type: "withdraw", bank: "Kasikorn Bank", last4: "1234", amount: 598.0, date: new Date("2026-02-07T18:52:00") },
-  { id: "t3", type: "withdraw", bank: "Kasikorn Bank", last4: "1234", amount: 598.0, date: new Date("2026-05-20T08:12:00") },
-]);
+const transactions = ref([]);
+
+async function loadTransactions() {
+  const { data } = await api.get("/payments/transactions", { params: { limit: 3 } });
+  transactions.value = data.map((tx) => ({
+    id: tx.id,
+    jobTitle: tx.jobTitle,
+    amount: tx.amount,
+    date: new Date(tx.date),
+  }));
+}
 
 function formatDate(d) {
   return d.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" }) +
     ", " + d.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
 }
+
+/* ---------- โหลดข้อมูลตอนเปิดหน้า ---------- */
+async function loadWallet() {
+  const { data } = await api.get("/payments/wallet");
+  availableBalance.value = data.availableBalance;
+  pendingBalance.value = data.pendingBalance;
+  inProgressBalance.value = data.inProgressBalance;
+}
+
+async function loadAll() {
+  loading.value = true;
+  try {
+    await Promise.all([loadWallet(), loadSummary(), loadTransactions()]);
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดข้อมูลการเงินไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(loadAll);
+watch(selectedPeriod, loadSummary);
 </script>
 
 <template>
@@ -136,15 +176,16 @@ function formatDate(d) {
           <li v-for="tx in transactions" :key="tx.id" class="tx-item">
             <span class="tx-icon">↓</span>
             <div class="tx-body">
-              <p class="tx-title">Withdraw</p>
-              <p class="tx-sub">To {{ tx.bank }} •••{{ tx.last4 }}</p>
+              <p class="tx-title">ได้รับเงินจากงาน</p>
+              <p class="tx-sub">{{ tx.jobTitle }}</p>
             </div>
             <div class="tx-right">
-              <p class="tx-amount">-฿{{ formatCurrency(tx.amount) }}</p>
+              <p class="tx-amount">+฿{{ formatCurrency(tx.amount) }}</p>
               <p class="tx-date">{{ formatDate(tx.date) }}</p>
             </div>
             <span class="tx-chevron">›</span>
           </li>
+          <p v-if="!transactions.length" class="empty-tx">ยังไม่มีประวัติการรับเงิน</p>
         </ul>
       </section>
     </main>
@@ -248,6 +289,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .tx-amount { margin: 0; font-size: 13px; font-weight: 700; color: #111; }
 .tx-date { margin: 2px 0 0; font-size: 10px; color: #999; }
 .tx-chevron { color: #ccc; font-size: 18px; }
+.empty-tx { text-align: center; color: #999; font-size: 12px; padding: 12px 0; margin: 0; }
 
 .fab { display: none; }
 
