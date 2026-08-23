@@ -2,40 +2,71 @@
 // FR-BROWSE-03: ดูรายละเอียดงานแบบเต็ม (คำอธิบาย ราคา ตำแหน่งที่ตั้ง ระยะเวลา หมายเหตุ) ก่อนสมัคร
 // FR-BROWSE-04: สมัครงาน โดยเพิ่มใบสมัครเข้าสู่คิวรอของงานนั้น (JOB_WAITING)
 // FR-BROWSE-05: อนุญาตให้สมัครหลายงานพร้อมกันได้
-// FR-BROWSE-06: ห้ามสมัคร Service Post ของตนเอง หรืองานที่เลือกผู้รับจ้างแล้ว (เช็คจริงตอนเรียก API)
-import { ref } from "vue";
+// FR-BROWSE-06: ห้ามสมัคร Service Post ของตนเอง หรืองานที่เลือกผู้รับจ้างแล้ว (backend ตรวจสอบจริง)
+import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import api from "../../services/api";
 
 const route = useRoute();
 const router = useRouter();
 
-/* ---------- ข้อมูลงาน ----------
-   TODO: แทนที่ mock นี้ด้วย GET /api/jobs/{route.params.id} (FR-BROWSE-03) */
+const loading = ref(true);
+const errorMsg = ref("");
+
+/* ---------- ข้อมูลงาน ---------- */
 const job = ref({
   id: route.params.id,
-  hirerName: "Thanawit",
-  title: "Buy Fresh Fruit from Bo Market",
-  description: "อยากได้คนช่วยไปซื้อผลไม้สดที่ตลาดโบใกล้ประตูมหาวิทยาลัย แล้วนำมาส่งที่หอพัก",
-  category: "delivery",
-  deliveryFee: 20,
-  price: 50,
-  duration: "1 ชม.",
-  from: "MFU Market",
-  to: "หอพักลำดวน 3",
-  notes: "None",
+  hirerName: "",
+  title: "",
+  description: "",
+  category: "",
+  deliveryFee: 0,
+  price: 0,
+  duration: "-",
+  from: "-",
+  to: "-",
+  notes: "-",
 });
+
+async function loadJob() {
+  loading.value = true;
+  try {
+    const { data } = await api.get(`/jobs/${route.params.id}`);
+    job.value = {
+      id: data._id,
+      hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
+      title: data.title,
+      description: data.description,
+      category: data.category,
+      deliveryFee: data.deliveryFee || 0,
+      price: data.price,
+      duration: data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-",
+      from: data.fromText || data.locationText || "-",
+      to: data.toText || "-",
+      notes: data.notes || "None",
+    };
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadJob);
 
 const applying = ref(false);
 const applied = ref(false);
 
-function applyForJob() {
-  // TODO FR-BROWSE-04: POST /api/jobs/{job.id}/apply → เพิ่มใบสมัครเข้าคิว JOB_WAITING
-  // TODO FR-BROWSE-06: backend ต้องปฏิเสธถ้าเป็นประกาศของตนเอง หรือมีการเลือกผู้รับจ้างไปแล้ว
+async function applyForJob() {
   applying.value = true;
-  setTimeout(() => {
-    applying.value = false;
+  errorMsg.value = "";
+  try {
+    await api.post(`/jobs/${job.value.id}/apply`); // FR-BROWSE-04
     applied.value = true;
-  }, 400);
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "สมัครงานไม่สำเร็จ";
+  } finally {
+    applying.value = false;
+  }
 }
 
 function viewMyRequest() {
@@ -123,6 +154,7 @@ function goBack() {
           <button class="btn-apply" :disabled="applying" @click="applyForJob">
             {{ applying ? "Applying..." : "Apply for the job" }}
           </button>
+          <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         </template>
       </div>
     </main>
@@ -180,6 +212,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   background: #ffc93c; color: #111; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .btn-apply:disabled { opacity: 0.6; cursor: not-allowed; }
+.error-msg { margin: 8px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
 
 /* ---------- หน้าจอสำเร็จ ---------- */
 .success { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 24px 4px 4px; }
