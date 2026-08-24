@@ -13,7 +13,7 @@ const auth = useAuthStore();
 const drawerOpen = ref(false);
 const drawerItems = [
   { label: "Home", to: "/hirer" },
-  { label: "My Job", to: null },
+  { label: "My Job", to: "/hirer/my-jobs" },
   { label: "Payment", to: null },
   { label: "History", to: null },
 ];
