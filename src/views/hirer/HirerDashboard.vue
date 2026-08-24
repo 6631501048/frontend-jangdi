@@ -256,7 +256,7 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
           </div>
         </div>
         <div class="card-actions">
-          <span v-if="post.hiring" class="status-pill">Hiring</span>
+          <button v-if="post.hiring" class="status-pill">Hiring</button>
           <RouterLink
             v-if="post.type === 'worker'"
             :to="`/hirer/hire/${post.id}`"
