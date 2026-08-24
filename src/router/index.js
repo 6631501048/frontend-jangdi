@@ -19,6 +19,49 @@ const routes = [
     component: () => import("../views/hirer/PostJobView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
+  {
+    // FR-JOB-08: งานที่ประกาศ จัดกลุ่มตามสถานะ (Waiting / In Progress / Completed / Cancelled)
+    path: "/hirer/my-jobs",
+    name: "hirer-my-jobs",
+    component: () => import("../views/hirer/MyJobView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
+    path: "/hirer/my-jobs/:id",
+    name: "hirer-job-detail",
+    component: () => import("../views/hirer/JobDetailView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
+    path: "/hirer/my-jobs/:id/applicants",
+    name: "hirer-applicants",
+    component: () => import("../views/hirer/ApplicantsView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
+    path: "/hirer/my-jobs/:id/applicants/:workerId/confirm",
+    name: "hirer-confirm-selection",
+    component: () => import("../views/hirer/ConfirmSelectionView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
+    path: "/hirer/my-jobs/:id/confirmed",
+    name: "hirer-job-confirmed",
+    component: () => import("../views/hirer/JobConfirmedView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
+    path: "/hirer/my-jobs/:id/review",
+    name: "hirer-review",
+    component: () => import("../views/hirer/ReviewView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
+    path: "/hirer/my-jobs/:id/refund",
+    name: "hirer-refund",
+    component: () => import("../views/hirer/RefundRequestView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
 
   // Worker (FR-BROWSE-*, FR-TRACK-*)
   {
