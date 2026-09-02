@@ -37,7 +37,7 @@ function openJob(job) {
   if (job.status === "waiting") {
     router.push(`/hirer/my-jobs/${job._id}/applicants`); // FR-MATCH-03
   } else {
-    router.push(`/hirer/jobs/${job._id}`); // ดูรายละเอียดอย่างเดียว
+    router.push(`/hirer/my-jobs/${job._id}`); // ดูรายละเอียด/ติดตามงานของตัวเอง
   }
 }
 
