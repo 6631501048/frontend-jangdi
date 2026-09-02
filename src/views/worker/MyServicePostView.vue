@@ -3,80 +3,110 @@
 // FR-SERV-05: เจ้าของประกาศดู ยอมรับ หรือปฏิเสธ Service Request แต่ละรายการ
 // FR-SERV-06: ปิดกั้น Service Request เพิ่มเติมเมื่อถึงจำนวนออร์เดอร์สูงสุด หรือถูกปิดไปแล้ว
 // FR-SERV-07: Service Request ที่ยอมรับแล้วจะถูกแปลงเป็นบันทึกงาน (Job) เชื่อมโยงกับ Service Post ต้นทาง
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import api from "../../services/api";
 
 const router = useRouter();
+const loading = ref(true);
+const errorMsg = ref("");
+
+function timeAgo(dateStr) {
+  const diffMin = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000));
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+}
 
 /* ---------- ข้อมูล Service Post ของตนเอง ----------
-   TODO: แทนที่ mock ด้วย GET /api/service-posts/me (หรือ /api/service-posts/{id} ถ้ามีหลายโพสต์) */
-const post = ref({
-  id: "sp1",
-  title: "Market Food Pickup",
-  description: "I can pick up food from the market.",
-  isOpen: true,
-  maxOrders: 1,
-  location: "MFU Market",
-  time: "05:00 PM",
-  serviceFee: 20,
-});
+   หมายเหตุ: หน้านี้ออกแบบไว้สำหรับ 1 โพสต์ต่อครั้ง — ถ้ามีหลายโพสต์ จะเลือกโพสต์ที่ active ล่าสุด
+   (หรือโพสต์ล่าสุดถ้าไม่มี active เลย) มาแสดง */
+const post = ref(null);
+const allRequests = ref([]);
 
-/* ---------- คำขอที่เข้ามา ----------
-   TODO: แทนที่ mock ด้วย GET /api/service-posts/{post.id}/requests?sort=latest */
-const requests = ref([
-  {
-    id: "r1",
-    requester: "Marry",
-    location: "F4 Dome",
-    postedAgo: "5m ago",
-    items: "Fried Rice 1, Fried Chicken 1",
-    total: 60,
-    status: "pending", // "pending" | "accepted"
-  },
-  {
-    id: "r2",
-    requester: "Sandy",
-    location: "Lamduan3 Dome",
-    postedAgo: "8m ago",
-    items: "Meat ball 5, Pepsi 1",
-    total: 70,
-    status: "pending",
-  },
-]);
+async function load() {
+  loading.value = true;
+  errorMsg.value = "";
+  try {
+    const { data: posts } = await api.get("/service-posts/my");
+    if (!posts.length) {
+      post.value = null;
+      return;
+    }
+    const chosen = posts.find((p) => p.status === "active") || posts[0];
+    post.value = {
+      id: chosen._id,
+      title: chosen.title,
+      description: chosen.description,
+      isOpen: chosen.status === "active",
+      maxOrders: chosen.maxSimultaneousOrders,
+      location: chosen.category,
+      time: new Date(chosen.availabilityEnd).toLocaleString("th-TH"),
+      serviceFee: chosen.fee,
+    };
 
-const pendingCount = computed(() => requests.value.filter((r) => r.status === "pending").length);
+    const { data: requests } = await api.get("/service-posts/requests/my-as-worker");
+    allRequests.value = requests
+      .filter((r) => r.servicePost?._id === chosen._id)
+      .map((r) => ({
+        id: r._id,
+        requester: r.hirer?.fullName || "ผู้ว่าจ้าง",
+        location: "-",
+        postedAgo: timeAgo(r.createdAt),
+        items: r.orderDetails,
+        total: r.servicePost?.fee || 0,
+        status: r.status === "accepted" ? "accepted" : "pending", // declined ไม่แสดงในลิสต์นี้
+      }))
+      .filter((r) => r.status !== "declined");
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดข้อมูลประกาศบริการไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(load);
+
+const pendingCount = computed(() => allRequests.value.filter((r) => r.status === "pending").length);
 const visibleRequests = computed(() => {
   // เมื่อโพสต์เต็ม/ปิดแล้ว คำขอที่ยังไม่ตอบรับจะถูกปิดกั้นออกจากลิสต์ (FR-SERV-06)
-  if (!post.value.isOpen) return requests.value.filter((r) => r.status === "accepted");
-  return requests.value;
+  if (!post.value?.isOpen) return allRequests.value.filter((r) => r.status === "accepted");
+  return allRequests.value;
 });
 
-/* ---------- ยอมรับคำขอแบบเร็ว (ปุ่ม Apply บนการ์ด) ---------- */
+/* ---------- ยอมรับคำขอ ---------- */
 const showSuccess = ref(false);
 const acceptedRequester = ref("");
+const accepting = ref(null);
 
-function acceptRequest(req) {
-  // TODO FR-SERV-05/07: POST /api/service-posts/{post.id}/requests/{req.id}/accept
-  // → backend สร้าง Job ใหม่เชื่อมโยงกับ Service Post นี้ (FR-SERV-07)
-  req.status = "accepted";
-  acceptedRequester.value = req.requester;
-  showSuccess.value = true;
-
-  // TODO FR-SERV-06: ปิด Service Post อัตโนมัติเมื่อจำนวนออร์เดอร์ที่ยอมรับถึง maxOrders
-  const acceptedCount = requests.value.filter((r) => r.status === "accepted").length;
-  if (acceptedCount >= post.value.maxOrders) {
-    post.value.isOpen = false;
+async function acceptRequest(req) {
+  accepting.value = req.id;
+  errorMsg.value = "";
+  try {
+    await api.patch(`/service-posts/requests/${req.id}`, { action: "accept" });
+    req.status = "accepted";
+    acceptedRequester.value = req.requester;
+    showSuccess.value = true;
+    await load(); // รีเฟรชสถานะโพสต์ (เผื่อปิดอัตโนมัติเพราะเต็มแล้ว — FR-SERV-06)
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "ยอมรับคำขอไม่สำเร็จ";
+  } finally {
+    accepting.value = null;
   }
 }
 
 function viewMyOrder() {
   showSuccess.value = false;
-  // ไปหน้าติดตามงานที่แปลงมาจาก Service Request นี้
   router.push("/worker/jobs");
 }
 
 function viewDetails(req) {
   router.push(`/worker/service-requests/${req.id}`);
+}
+
+function createNewPost() {
+  router.push("/worker/service-posts/new");
 }
 </script>
 
@@ -92,6 +122,15 @@ function viewDetails(req) {
     </header>
 
     <main class="content">
+      <p v-if="loading" class="empty">กำลังโหลด...</p>
+      <p v-else-if="errorMsg" class="empty error-text">{{ errorMsg }}</p>
+
+      <template v-else-if="!post">
+        <p class="empty">คุณยังไม่มีประกาศบริการ</p>
+        <button class="btn-apply" style="margin: 0 16px;" @click="createNewPost">+ สร้างประกาศบริการใหม่</button>
+      </template>
+
+      <template v-else>
       <!-- การ์ดสรุป Service Post -->
       <div class="card post-card">
         <div class="post-head">
@@ -160,12 +199,15 @@ function viewDetails(req) {
 
           <div class="request-actions" :class="{ single: req.status === 'accepted' }">
             <button class="btn-details" @click="viewDetails(req)">Details</button>
-            <button v-if="req.status === 'pending'" class="btn-apply" @click="acceptRequest(req)">Apply</button>
+            <button v-if="req.status === 'pending'" class="btn-apply" :disabled="accepting === req.id" @click="acceptRequest(req)">
+              {{ accepting === req.id ? "..." : "Apply" }}
+            </button>
           </div>
         </article>
 
         <p v-if="!visibleRequests.length" class="empty">ยังไม่มีคำขอเข้ามา</p>
       </section>
+      </template>
     </main>
 
     <!-- โมดัลสำเร็จหลังยอมรับคำขอ -->
@@ -256,6 +298,8 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .btn-apply { background: #ffc93c; border: none; color: #111; }
 
 .empty { text-align: center; color: #888; margin-top: 20px; font-size: 14px; }
+.error-text { color: #e11d48; }
+.btn-apply:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ---------- โมดัลสำเร็จ ---------- */
 .modal-backdrop {

@@ -3,40 +3,75 @@
 // FR-SERV-06: หน้านี้เช็คเบื้องต้นว่า Service Post ยังไม่เต็มจำนวนออร์เดอร์/ยังไม่ถูกปิด (เช็คจริงตอนเรียก API)
 // FR-SERV-07: เมื่อผู้รับจ้างยอมรับ Service Request นี้ ระบบจะแปลงเป็นบันทึกงาน (Job)
 // FR-PAY-01: เมื่อ Service Request ได้รับการยอมรับ เงินของผู้ว่าจ้างจะถูกนำเข้าสู่ระบบ Escrow
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import api from "../../services/api";
 
 const route = useRoute();
 const router = useRouter();
+const loadingPost = ref(true);
+const errorMsg = ref("");
 
-/* ---------- ข้อมูล Service Post ที่จะจ้าง ----------
-   TODO: แทนที่ mock นี้ด้วย GET /api/service-posts/{route.params.id} */
+function timeAgo(dateStr) {
+  const diffMin = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000));
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+}
+
 const servicePost = ref({
   id: route.params.id,
-  workerName: "Somsak",
-  postedAgo: "3m ago",
-  description: "I'm going to buy chicken rice at Ling Lin. Does anyone want some?",
-  serviceFee: 20,
-  window: "within 1 hour",
-  distance: "2 km",
-  fromLabel: "Ling Lin MFU",
-  fromDetail: "514 87 หมู่ ถนน กม.มหาวิทยาลัยแม่ฟ้าหลวง เชียงราย 57100",
+  workerName: "",
+  postedAgo: "-",
+  description: "",
+  serviceFee: 0,
+  window: "-",
+  distance: "-",
+  fromLabel: "",
+  fromDetail: "",
 });
+
+const form = ref({
+  serviceFee: 0,
+  from: "",
+  to: "",
+  estimatedDelivery: "",
+  requirements: "",
+  price: null,
+});
+
+async function loadServicePost() {
+  loadingPost.value = true;
+  try {
+    const { data } = await api.get(`/service-posts/${route.params.id}`);
+    servicePost.value = {
+      id: data._id,
+      workerName: data.worker?.fullName || "ผู้รับจ้าง",
+      postedAgo: timeAgo(data.createdAt),
+      description: data.description,
+      serviceFee: data.fee,
+      window: new Date(data.availabilityEnd).toLocaleString("th-TH"),
+      distance: `${(data.serviceRadiusMeters / 1000).toFixed(1)} กม.`,
+      fromLabel: data.title,
+      fromDetail: "",
+    };
+    form.value.serviceFee = data.fee;
+    form.value.from = data.title;
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดข้อมูลประกาศบริการไม่สำเร็จ";
+  } finally {
+    loadingPost.value = false;
+  }
+}
+onMounted(loadServicePost);
 
 /* ---------- ขั้นตอน: 1 กรอกรายละเอียด, 2 สรุปคำสั่งซื้อ, สำเร็จ ---------- */
 const step = ref(1);
 const submitting = ref(false);
 const hired = ref(false);
 const showSuccessModal = ref(false);
-
-const form = ref({
-  serviceFee: servicePost.value.serviceFee,
-  from: servicePost.value.fromLabel,
-  to: "Lamduan 4",
-  estimatedDelivery: "",
-  requirements: "",
-  price: null,
-});
 
 const step1Valid = computed(
   () =>
@@ -57,15 +92,28 @@ function back() {
   else router.back();
 }
 
-function confirmHiring() {
-  // TODO FR-SERV-04: POST /api/service-posts/{servicePost.id}/requests
-  // { to, estimatedDelivery, requirements, price, serviceFee } -> สร้าง Service Request รอผู้รับจ้างยอมรับ
+async function confirmHiring() {
+  // FR-SERV-04: ServiceRequest.orderDetails เป็น string เดียว จึงรวมรายละเอียดฟอร์มเป็นข้อความอ่านง่าย
+  const orderDetails = [
+    `ปลายทาง: ${form.value.to}`,
+    `เวลาโดยประมาณ: ${form.value.estimatedDelivery}`,
+    form.value.requirements ? `รายละเอียด: ${form.value.requirements}` : null,
+    `ราคาที่เสนอ: ${form.value.price} บาท`,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
   submitting.value = true;
-  setTimeout(() => {
-    submitting.value = false;
+  errorMsg.value = "";
+  try {
+    await api.post(`/service-posts/${servicePost.value.id}/requests`, { orderDetails });
     hired.value = true;
     showSuccessModal.value = true;
-  }, 400);
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "ส่งคำขอบริการไม่สำเร็จ";
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function closeModal() {
@@ -144,6 +192,7 @@ function closeModal() {
           <button class="btn-muted" @click="router.back()">Cancel</button>
           <button class="btn-primary" :disabled="!step1Valid" @click="goToSummary">Hiring</button>
         </div>
+        <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
       </template>
 
       <!-- ===== ขั้นตอน 2: สรุปคำสั่งซื้อ ===== -->
@@ -192,6 +241,7 @@ function closeModal() {
             {{ submitting ? "Confirming..." : "Confirm Hiring" }}
           </button>
         </div>
+        <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
       </template>
     </main>
 
@@ -277,6 +327,7 @@ textarea { resize: vertical; }
 .btn-primary { background: #ffc93c; border: none; color: #111; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-muted { background: #e5e5e5; border: none; color: #333; }
+.error-msg { margin: 10px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
 
 /* ---------- โมดัลสำเร็จ ---------- */
 .modal-backdrop {

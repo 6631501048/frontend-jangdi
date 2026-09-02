@@ -62,6 +62,19 @@ const routes = [
     component: () => import("../views/hirer/RefundRequestView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
+  {
+    // ดูรายละเอียดงาน "ของผู้ว่าจ้างรายอื่น" ในฟีด (อ่านอย่างเดียว) — คนละหน้ากับ hirer-job-detail (งานของตัวเอง)
+    path: "/hirer/jobs/:id",
+    name: "hirer-browse-job-detail",
+    component: () => import("../views/hirer/JobDetailsView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
+    path: "/hirer/hire/:id",
+    name: "hirer-hire-service",
+    component: () => import("../views/hirer/HireServiceView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
 
   // Worker (FR-BROWSE-*, FR-TRACK-*)
   {

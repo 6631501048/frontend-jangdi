@@ -2,24 +2,56 @@
 // FR-BROWSE-01: ดูรายละเอียดประกาศงาน (Job) ของผู้ว่าจ้างรายอื่นในฟีด
 // หมายเหตุ: หน้านี้เป็นแบบอ่านอย่างเดียว ไม่มีปุ่ม "สมัคร" เพราะ FR-BROWSE-04 (สมัครงาน)
 //           เป็นสิทธิ์เฉพาะของผู้รับจ้างเท่านั้น ผู้ว่าจ้างดูได้แค่ข้อมูลประกาศ
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import api from "../../services/api";
 
 const route = useRoute();
 const router = useRouter();
+const loading = ref(true);
+const errorMsg = ref("");
 
-/* ---------- ข้อมูลงาน ----------
-   TODO: แทนที่ mock นี้ด้วย GET /api/jobs/{route.params.id} */
+function timeAgo(dateStr) {
+  const diffMin = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000));
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+}
+
 const job = ref({
   id: route.params.id,
-  hirerName: "Pitak",
-  postedAgo: "1h ago",
-  description: "Pick up the package at the MFU post office and have it delivered to Building E1.",
-  serviceFee: 30,
-  from: "MFU post office",
-  to: "Building E1",
-  duration: "within 1 hour",
+  hirerName: "",
+  postedAgo: "-",
+  description: "",
+  serviceFee: 0,
+  from: "-",
+  to: "-",
+  duration: "-",
 });
+
+async function loadJob() {
+  loading.value = true;
+  try {
+    const { data } = await api.get(`/jobs/${route.params.id}`);
+    job.value = {
+      id: data._id,
+      hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
+      postedAgo: timeAgo(data.createdAt),
+      description: data.description,
+      serviceFee: data.price,
+      from: data.fromText || data.locationText || "-",
+      to: data.toText || "-",
+      duration: data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-",
+    };
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadJob);
 
 function goBack() {
   router.back();

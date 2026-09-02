@@ -1,19 +1,40 @@
 <script setup>
 // SRS 3.5.15 / FR-REV-01–02: หลังงานเสร็จสิ้น ผู้รับจ้างให้คะแนน + รีวิวผู้ว่าจ้าง
 // ระบบรีวิวสองทาง (reciprocal) ช่วยรักษาความรับผิดชอบของทั้งสองฝั่งบนแพลตฟอร์ม
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import api from "../../services/api";
 
 const route = useRoute();
 const router = useRouter();
 
-/* ---------- ข้อมูลผู้ว่าจ้างที่จะรีวิว ----------
-   TODO: แทนที่ mock นี้ด้วย GET /api/jobs/{route.params.id} (ดึงชื่อ/รูป Hirer ของงานนี้) */
-const hirer = ref({
-  jobId: route.params.id,
-  name: "Thanawit",
-  avatarUrl: null,
-});
+const hirer = ref({ jobId: route.params.id, name: "", avatarUrl: null });
+const loading = ref(true);
+const errorMsg = ref("");
+
+function resolveAvatar(pathOrUrl) {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.startsWith("http")) return pathOrUrl;
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+  return apiBase.replace(/\/api\/?$/, "") + pathOrUrl;
+}
+
+async function loadJob() {
+  loading.value = true;
+  try {
+    const { data } = await api.get(`/jobs/${route.params.id}`);
+    hirer.value = {
+      jobId: data._id,
+      name: data.hirer?.fullName || "ผู้ว่าจ้าง",
+      avatarUrl: resolveAvatar(data.hirer?.avatarUrl),
+    };
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดข้อมูลงานไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadJob);
 
 /* ---------- ฟอร์มรีวิว ---------- */
 const rating = ref(0);
@@ -40,16 +61,22 @@ const comment = ref("");
 const submitting = ref(false);
 const canSubmit = computed(() => rating.value > 0 && !submitting.value);
 
-function submitReview() {
+async function submitReview() {
   if (!canSubmit.value) return;
-  // TODO FR-REV-01/02: POST /api/jobs/{hirer.jobId}/review
-  //   { targetRole: "hirer", rating, tags: selectedTags, comment }
-  // → backend บันทึกลง FEEDBACK และอัปเดต credibility_score ของ Hirer
   submitting.value = true;
-  setTimeout(() => {
-    submitting.value = false;
+  errorMsg.value = "";
+  try {
+    await api.post(`/jobs/${hirer.value.jobId}/review`, {
+      rating: rating.value,
+      tags: selectedTags.value,
+      comment: comment.value,
+    });
     router.push("/worker/jobs");
-  }, 300);
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "ส่งรีวิวไม่สำเร็จ";
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function goBack() {
@@ -120,6 +147,7 @@ function goBack() {
         <button class="btn-primary" :disabled="!canSubmit" @click="submitReview">
           {{ submitting ? "Submitting..." : "Review" }}
         </button>
+        <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
       </div>
     </main>
   </div>
@@ -186,4 +214,5 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   background: #ffc93c; color: #111; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.error-msg { margin: 10px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
 </style>

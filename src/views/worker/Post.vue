@@ -4,6 +4,7 @@
 // FR-JOB-02 (รูปแบบเดียวกันฝั่งผู้รับจ้าง): นำทางผ่านขั้นตอน 3 ขั้นตอน (1) หมวดหมู่ (2) รายละเอียด (3) ตรวจสอบก่อนส่ง
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
+import api from "../../services/api";
 
 const router = useRouter();
 
@@ -28,11 +29,32 @@ const timeOptions = (() => {
   return out;
 })();
 const radiusOptions = ["Within 500 m.", "Within 1 km.", "Within 2 km.", "Within 3 km.", "Within 5 km."];
+const radiusToMeters = {
+  "Within 500 m.": 500,
+  "Within 1 km.": 1000,
+  "Within 2 km.": 2000,
+  "Within 3 km.": 3000,
+  "Within 5 km.": 5000,
+};
+
+// แปลง label เวลา (เช่น "05:00 PM") + วันนี้ ให้เป็น Date จริง (ถ้าเวลานั้นผ่านไปแล้ววันนี้ ให้เลื่อนเป็นพรุ่งนี้)
+function timeLabelToDate(label) {
+  const match = label.match(/^(\d{2}):(\d{2}) (AM|PM)$/);
+  if (!match) return null;
+  let [, hh, mm, period] = match;
+  hh = Number(hh) % 12;
+  if (period === "PM") hh += 12;
+  const d = new Date();
+  d.setHours(hh, Number(mm), 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  return d;
+}
 
 /* ---------- สถานะฟอร์ม ---------- */
 const step = ref(1); // 1: หมวดหมู่, 2: รายละเอียด, 3: ตรวจสอบ
 const submitting = ref(false);
 const submitted = ref(false);
+const errorMsg = ref("");
 
 const form = ref({
   category: "",
@@ -75,15 +97,46 @@ function back() {
   else router.back();
 }
 
-function submit() {
-  // TODO FR-SERV-01: POST /api/service-posts
-  // { category, name, details, feePerOrder, maxOrders, availableUntil: time, radius, notes }
-  // TODO FR-SERV-02: backend จะปิดใช้งาน Service Post อัตโนมัติเมื่อพ้นเวลาที่พร้อมให้บริการ (time)
+// ขอพิกัดปัจจุบันของผู้ใช้ (บังคับ เพราะ backend ต้องใช้ lat/lng สร้าง Service Post)
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("เบราว์เซอร์นี้ไม่รองรับการขอตำแหน่ง"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => reject(new Error("กรุณาอนุญาตให้เข้าถึงตำแหน่ง เพื่อระบุพื้นที่ให้บริการ"))
+    );
+  });
+}
+
+async function submit() {
   submitting.value = true;
-  setTimeout(() => {
-    submitting.value = false;
+  errorMsg.value = "";
+  try {
+    const { lat, lng } = await getCurrentPosition();
+    const availabilityEnd = timeLabelToDate(form.value.time);
+
+    await api.post("/service-posts", {
+      category: form.value.category,
+      title: form.value.name,
+      description: form.value.notes ? `${form.value.details}\n\nหมายเหตุ: ${form.value.notes}` : form.value.details,
+      fee: form.value.feePerOrder,
+      maxSimultaneousOrders: form.value.maxOrders,
+      availabilityStart: new Date().toISOString(),
+      availabilityEnd: availabilityEnd?.toISOString(),
+      serviceRadiusMeters: radiusToMeters[form.value.radius] || 2000,
+      lat,
+      lng,
+    });
+
     submitted.value = true;
-  }, 400);
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || err.message || "สร้างประกาศบริการไม่สำเร็จ";
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function viewMyPosts() {
@@ -251,6 +304,7 @@ function backToHome() {
               {{ submitting ? "Posting..." : "Confirm" }}
             </button>
           </div>
+          <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         </template>
       </div>
     </main>
@@ -334,6 +388,7 @@ select { appearance: none; background-image: linear-gradient(45deg, transparent 
 .btn-primary { background: #ffc93c; border: none; color: #111; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-muted { background: #e5e5e5; border: none; color: #333; }
+.error-msg { margin: 10px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
 
 /* ---------- หน้าจอสำเร็จ ---------- */
 .success { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 8px 8px; }
