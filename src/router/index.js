@@ -43,6 +43,30 @@ const routes = [
     component: () => import("../views/hirer/HireServiceView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
+  {
+  path: "/hirer/jobs/:id/review",
+  name: "hirer-review",
+  component: () => import("../views/hirer/ReviewView.vue"),
+  meta: {
+    requiresAuth: true,
+    role: "hirer",
+  },
+},
+{
+  path: "/hirer/profile",
+  name: "hirer-profile",
+  component: () => import("../views/hirer/ProfileView.vue"),
+  meta: {
+    requiresAuth: true,
+    role: "hirer",
+  },
+},
+{
+  path: "/hirer/payment",
+  name: "hirer-payment",
+  component: () => import("../views/hirer/PaymentView.vue"),
+  meta: { requiresAuth: true, role: "hirer" },
+},
 
   // Worker (FR-BROWSE-*, FR-TRACK-*)
   {

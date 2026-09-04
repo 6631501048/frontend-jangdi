@@ -12,10 +12,18 @@ const auth = useAuthStore();
 /* ---------- ส่วนบน: เมนู/โปรไฟล์ (ตาม Frame 891 — เมนูฝั่งผู้ว่าจ้าง) ---------- */
 const drawerOpen = ref(false);
 const drawerItems = [
-  { label: "Home", to: "/hirer" },
-  { label: "My Job", to: "/hirer/my-jobs" },
-  { label: "Payment", to: null },
-  { label: "History", to: null },
+  {
+    label: "Home",
+    to: "/hirer",
+  },
+  {
+    label: "My Job",
+    to: "/hirer/my-jobs",
+  },
+  {
+    label: "Payment",
+    to: "/hirer/payment",
+  },
 ];
 
 // TODO NFR-USE-04: สลับบทบาทผู้ว่าจ้าง/ผู้รับจ้าง — ต้องเรียก PATCH /api/users/me/role แล้วอัปเดต auth.user.currentRole
@@ -165,9 +173,16 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
         <span class="brand-icon">👥</span>
         <span class="brand-name">JangDi</span>
       </div>
-      <button class="avatar-btn" aria-label="โปรไฟล์ของฉัน" @click="alert('TODO: หน้าโปรไฟล์ผู้ว่าจ้าง')">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-      </button>
+      <RouterLink
+  to="/hirer/profile"
+  class="avatar-btn"
+  aria-label="โปรไฟล์ของฉัน"
+>
+  <svg viewBox="0 0 24 24">
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
+  </svg>
+</RouterLink>
     </header>
 
     <!-- Drawer เมนู (ตาม Frame 891) -->
