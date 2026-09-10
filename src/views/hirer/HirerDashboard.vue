@@ -174,7 +174,7 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
         <span class="brand-name">JangDi</span>
       </div>
       <RouterLink
-  to="/hirer/profile"
+  to="/profile"
   class="avatar-btn"
   aria-label="โปรไฟล์ของฉัน"
 >

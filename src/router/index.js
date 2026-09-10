@@ -5,6 +5,7 @@ const routes = [
   { path: "/", redirect: "/login" },
   { path: "/login", name: "login", component: () => import("../views/auth/LoginView.vue") },
   { path: "/register", name: "register", component: () => import("../views/auth/RegisterView.vue") },
+  { path: "/verify-email", name: "verify-email", component: () => import("../views/auth/VerifyEmailView.vue") },
 
   // Hirer (FR-JOB-*)
   {
@@ -84,15 +85,7 @@ const routes = [
     role: "hirer",
   },
 },
-{
-  path: "/hirer/profile",
-  name: "hirer-profile",
-  component: () => import("../views/hirer/ProfileView.vue"),
-  meta: {
-    requiresAuth: true,
-    role: "hirer",
-  },
-},
+// /profile คือหน้าโปรไฟล์กลาง ใช้ร่วมกันทั้ง hirer/worker — ดูท้ายไฟล์นี้
 {
   path: "/hirer/payment",
   name: "hirer-payment",
@@ -161,11 +154,14 @@ const routes = [
     component: () => import("../views/worker/Paymentview.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
+
+  // Profile — ใช้ร่วมกันระหว่าง Hirer และ Worker (บัญชีเดียวสลับ role ได้ตาม FR-AUTH-06)
+  // ไม่ผูก meta.role เพราะเนื้อหาในหน้าไม่มีอะไรเฉพาะ role ใดเลย (FR-PROF-01/02/03, FR-REV-04)
   {
-    path: "/worker/profile",
-    name: "worker-profile",
-    component: () => import("../views/worker/Profileview.vue"),
-    meta: { requiresAuth: true, role: "worker" },
+    path: "/profile",
+    name: "profile",
+    component: () => import("../views/ProfileView.vue"),
+    meta: { requiresAuth: true },
   },
 
   // Admin (FR-ADMIN-*) — shared AdminLayout (topbar + drawer) wraps every admin screen
