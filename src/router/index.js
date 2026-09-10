@@ -17,81 +17,72 @@ const routes = [
   {
     path: "/hirer/post-job",
     name: "post-job",
-    component: () => import("../views/hirer/PostJobView.vue"),
+    component: () => import("../views/hirer/HirerPostJobView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
     // FR-JOB-08: งานที่ประกาศ จัดกลุ่มตามสถานะ (Waiting / In Progress / Completed / Cancelled)
     path: "/hirer/my-jobs",
     name: "hirer-my-jobs",
-    component: () => import("../views/hirer/MyJobView.vue"),
+    component: () => import("../views/hirer/HirerMyJobsView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
+    // ดูรายละเอียด "งานของตัวเอง" ก่อนไปเลือกผู้สมัคร (คนละหน้ากับ hirer-browse-job-detail ด้านล่าง)
     path: "/hirer/my-jobs/:id",
     name: "hirer-job-detail",
-    component: () => import("../views/hirer/JobDetailView.vue"),
+    component: () => import("../views/hirer/HirerMyJobDetailView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
     path: "/hirer/my-jobs/:id/applicants",
     name: "hirer-applicants",
-    component: () => import("../views/hirer/ApplicantsView.vue"),
+    component: () => import("../views/hirer/HirerApplicantsView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
     path: "/hirer/my-jobs/:id/applicants/:workerId/confirm",
     name: "hirer-confirm-selection",
-    component: () => import("../views/hirer/ConfirmSelectionView.vue"),
+    component: () => import("../views/hirer/HirerConfirmSelectionView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
     path: "/hirer/my-jobs/:id/confirmed",
     name: "hirer-job-confirmed",
-    component: () => import("../views/hirer/JobConfirmedView.vue"),
+    component: () => import("../views/hirer/HirerJobConfirmedView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
     path: "/hirer/my-jobs/:id/review",
     name: "hirer-review",
-    component: () => import("../views/hirer/ReviewView.vue"),
+    component: () => import("../views/hirer/HirerReviewWorkerView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
     path: "/hirer/my-jobs/:id/refund",
     name: "hirer-refund",
-    component: () => import("../views/hirer/RefundRequestView.vue"),
+    component: () => import("../views/hirer/HirerRefundRequestView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
     // ดูรายละเอียดงาน "ของผู้ว่าจ้างรายอื่น" ในฟีด (อ่านอย่างเดียว) — คนละหน้ากับ hirer-job-detail (งานของตัวเอง)
     path: "/hirer/jobs/:id",
     name: "hirer-browse-job-detail",
-    component: () => import("../views/hirer/JobDetailsView.vue"),
+    component: () => import("../views/hirer/HirerBrowseJobDetailView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
     path: "/hirer/hire/:id",
     name: "hirer-hire-service",
-    component: () => import("../views/hirer/HireServiceView.vue"),
+    component: () => import("../views/hirer/HirerHireServiceView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
-  path: "/hirer/jobs/:id/review",
-  name: "hirer-review",
-  component: () => import("../views/hirer/ReviewView.vue"),
-  meta: {
-    requiresAuth: true,
-    role: "hirer",
+    path: "/hirer/payment",
+    name: "hirer-payment",
+    component: () => import("../views/hirer/HirerPaymentView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
   },
-},
-// /profile คือหน้าโปรไฟล์กลาง ใช้ร่วมกันทั้ง hirer/worker — ดูท้ายไฟล์นี้
-{
-  path: "/hirer/payment",
-  name: "hirer-payment",
-  component: () => import("../views/hirer/PaymentView.vue"),
-  meta: { requiresAuth: true, role: "hirer" },
-},
 
   // Worker (FR-BROWSE-*, FR-TRACK-*)
   {
@@ -103,55 +94,55 @@ const routes = [
   {
     path: "/worker/feed",
     name: "job-feed",
-    component: () => import("../views/worker/JobFeedView.vue"),
+    component: () => import("../views/worker/WorkerJobFeedView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
     path: "/worker/jobs",
     name: "worker-my-jobs",
-    component: () => import("../views/worker/Myjobview.vue"),
+    component: () => import("../views/worker/WorkerMyJobsView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
     path: "/worker/jobs/:id",
     name: "worker-job-detail",
-    component: () => import("../views/worker/Jobdetail.vue"),
+    component: () => import("../views/worker/WorkerJobDetailView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
     path: "/worker/jobs/:id/tracking",
     name: "worker-job-tracking",
-    component: () => import("../views/worker/JobTrackingView.vue"),
+    component: () => import("../views/worker/WorkerJobTrackingView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
     path: "/worker/jobs/:id/review",
     name: "worker-review-hirer",
-    component: () => import("../views/worker/ReviewHirerView.vue"),
+    component: () => import("../views/worker/WorkerReviewHirerView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
     path: "/worker/service-posts",
     name: "worker-my-service-posts",
-    component: () => import("../views/worker/MyServicePostView.vue"),
+    component: () => import("../views/worker/WorkerMyServicePostView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
     path: "/worker/service-posts/new",
     name: "worker-post-service",
-    component: () => import("../views/worker/Post.vue"),
+    component: () => import("../views/worker/WorkerCreateServicePostView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
     path: "/worker/service-requests/:id",
     name: "worker-service-request-detail",
-    component: () => import("../views/worker/ServiceRequestDetailView.vue"),
+    component: () => import("../views/worker/WorkerServiceRequestDetailView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
     path: "/worker/payment",
     name: "worker-payment",
-    component: () => import("../views/worker/Paymentview.vue"),
+    component: () => import("../views/worker/WorkerPaymentView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
 
