@@ -1,49 +1,38 @@
 <script setup>
-// FR-PAY-08: แสดงยอดเงินคงเหลือที่ใช้งานได้ + ประวัติธุรกรรมตามลำดับเวลา
+// FR-PAY-08: แสดงยอดเงินที่จ่ายออกไป + ประวัติธุรกรรมตามลำดับเวลา (มุมมองผู้ว่าจ้าง)
 // FR-PAY-02: Escrow state machine (Pending -> Held -> Released)
-// FR-PAY-03: หักค่าธรรมเนียมแพลตฟอร์ม 5-10% ก่อนปล่อยเงินให้ผู้รับจ้าง (สะท้อนใน totalEarnings)
-//
-// หมายเหตุสำคัญ: ระบบนี้ไม่มี wallet กลางที่ต้องกด "ถอน" แยกต่างหาก — เงินสถานะ "released"
-// คือเงินที่ Admin โอนเข้าบัญชีธนาคารของผู้รับจ้างโดยตรงไปแล้วจริงตอนยืนยันงานเสร็จ (FR-PAY-05)
-// ปุ่ม Withdraw ด้านล่างจึงเป็นข้อความอธิบายแทนการเปิดฟอร์มถอนเงิน
+// ยึดตาม proposal: ไม่มี wallet กลางในแอปที่ต้อง "เติมเงิน" ก่อนใช้งาน — เงินไหลผ่าน
+// Escrow ทีละงานด้วยสลิปโอนแบบ manual (FR-PAY-01–05) เท่านั้น
 import { onMounted, ref, watch } from "vue";
 import api from "../../services/api";
 
 const loading = ref(true);
 const errorMsg = ref("");
 
-/* ---------- ยอดเงิน ---------- */
+/* ---------- ยอดเงิน (มุมมอง Hirer: เงินที่จ่ายออกไป ไม่ใช่ wallet ที่เติมได้) ---------- */
 const showBalance = ref(true);
-const availableBalance = ref(0);
-const pendingBalance = ref(0);
-const inProgressBalance = ref(0);
+const totalPaid = ref(0);
+const inEscrow = ref(0);
+const pendingPayment = ref(0);
 
 function formatCurrency(n) {
   return (n || 0).toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function withdraw() {
-  alert(
-    "เงินในสถานะ Available ถูกโอนเข้าบัญชีธนาคารที่ตั้งไว้ในหน้าโปรไฟล์แล้วโดยอัตโนมัติทุกครั้งที่งานเสร็จสิ้น ไม่ต้องกดถอนเพิ่ม"
-  );
-}
-
-/* ---------- ภาพรวมรายได้ ---------- */
+/* ---------- ภาพรวมการใช้จ่าย ---------- */
 const periods = [
   { value: "month", label: "เดือนนี้" },
   { value: "last-month", label: "เดือนที่แล้ว" },
   { value: "all", label: "ทั้งหมด" },
 ];
 const selectedPeriod = ref("month");
-const totalEarnings = ref(0);
+const totalSpent = ref(0);
 const completeJobs = ref(0);
-const averageRating = ref(0);
 
 async function loadSummary() {
   const { data } = await api.get("/payments/summary", { params: { period: selectedPeriod.value } });
-  totalEarnings.value = data.totalEarnings;
+  totalSpent.value = data.totalSpent;
   completeJobs.value = data.completeJobs;
-  averageRating.value = data.averageRating;
 }
 
 /* ---------- ประวัติธุรกรรม ---------- */
@@ -67,9 +56,9 @@ function formatDate(d) {
 /* ---------- โหลดข้อมูลตอนเปิดหน้า ---------- */
 async function loadWallet() {
   const { data } = await api.get("/payments/wallet");
-  availableBalance.value = data.availableBalance;
-  pendingBalance.value = data.pendingBalance;
-  inProgressBalance.value = data.inProgressBalance;
+  totalPaid.value = data.totalPaid;
+  inEscrow.value = data.inEscrow;
+  pendingPayment.value = data.pendingPayment;
 }
 
 async function loadAll() {
@@ -89,7 +78,6 @@ watch(selectedPeriod, loadSummary);
 
 <template>
   <div class="page">
-    <!-- แถบด้านบน -->
     <header class="topbar">
       <button class="icon-btn" aria-label="เปิดเมนู">
         <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
@@ -105,63 +93,55 @@ watch(selectedPeriod, loadSummary);
 
     <main class="content">
       <h1 class="page-title">Payment</h1>
+      <p v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
 
-      <!-- ยอดเงินคงเหลือ + ถอนเงิน -->
+      <!-- ยอดที่จ่ายออกไปแล้ว -->
       <section class="card balance-card">
         <div class="balance-top">
           <div>
             <p class="label">
-              Available Balance
+              Total Paid
               <button class="eye-btn" :aria-label="showBalance ? 'ซ่อนยอดเงิน' : 'แสดงยอดเงิน'" @click="showBalance = !showBalance">
                 <svg v-if="showBalance" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></svg>
                 <svg v-else viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 10.6a3 3 0 004.24 4.24M9.9 5.1A10.6 10.6 0 0112 5c6 0 10 7 10 7a15.8 15.8 0 01-3.2 3.9M6.3 6.3A15.7 15.7 0 002 12s4 7 10 7c1.3 0 2.5-.2 3.6-.6" /></svg>
               </button>
             </p>
-            <p class="amount">฿ {{ showBalance ? formatCurrency(availableBalance) : "•••••" }}</p>
-            <p class="hint">คุณสามารถถอนเงินรายได้ของคุณ</p>
+            <p class="amount">฿ {{ showBalance ? formatCurrency(totalPaid) : "•••••" }}</p>
+            <p class="hint">เงินที่โอนเข้าบัญชีผู้รับจ้างแล้วจริง ผ่านการยืนยันงานเสร็จ</p>
           </div>
-          <button class="btn-withdraw" @click="withdraw">
-            <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18" /></svg>
-            Withdraw
-          </button>
         </div>
         <div class="balance-split">
           <div class="split-item">
-            <span>Pending Balance</span>
-            <span class="info-icon" title="ยอดเงินที่รอผู้ว่าจ้างยืนยันงานเสร็จสิ้น">ⓘ</span>
-            <strong>฿ {{ formatCurrency(pendingBalance) }}</strong>
+            <span>Pending Payment</span>
+            <span class="info-icon" title="เลือกผู้รับจ้างแล้ว แต่ยังไม่มีสลิปโอนเงินเข้า Escrow">ⓘ</span>
+            <strong>฿ {{ formatCurrency(pendingPayment) }}</strong>
           </div>
           <div class="split-item">
-            <span>In Progress Balance</span>
-            <span class="info-icon" title="ยอดเงินของงานที่กำลังดำเนินการอยู่ ยังไม่ปล่อยจาก Escrow">ⓘ</span>
-            <strong>฿ {{ formatCurrency(inProgressBalance) }}</strong>
+            <span>In Escrow</span>
+            <span class="info-icon" title="เงินอยู่ใน Escrow รองานเสร็จและคุณยืนยัน">ⓘ</span>
+            <strong>฿ {{ formatCurrency(inEscrow) }}</strong>
           </div>
         </div>
       </section>
 
-      <!-- ภาพรวมรายได้ -->
+      <!-- ภาพรวมการใช้จ่าย -->
       <section class="card">
         <div class="card-head">
-          <h2>Earnings Overview</h2>
+          <h2>Spending Overview</h2>
           <select v-model="selectedPeriod" class="period-select">
             <option v-for="p in periods" :key="p.value" :value="p.value">{{ p.label }}</option>
           </select>
         </div>
         <div class="stats">
           <div class="stat">
-            <span class="stat-icon green">💰</span>
-            <p class="stat-label">Total Earnings</p>
-            <p class="stat-value green">฿ {{ formatCurrency(totalEarnings) }}</p>
+            <span class="stat-icon blue">💸</span>
+            <p class="stat-label">Total Spent</p>
+            <p class="stat-value">฿ {{ formatCurrency(totalSpent) }}</p>
           </div>
           <div class="stat">
-            <span class="stat-icon blue">📋</span>
+            <span class="stat-icon gold">📋</span>
             <p class="stat-label">Complete Jobs</p>
             <p class="stat-value">{{ completeJobs }}</p>
-          </div>
-          <div class="stat">
-            <span class="stat-icon gold">⭐</span>
-            <p class="stat-label">Average Rating</p>
-            <p class="stat-value">{{ averageRating }} ⭐</p>
           </div>
         </div>
       </section>
@@ -170,39 +150,37 @@ watch(selectedPeriod, loadSummary);
       <section class="card">
         <div class="card-head">
           <h2>Transaction History</h2>
-          <RouterLink to="/worker/payment/transactions" class="view-all">View All ›</RouterLink>
+          <RouterLink to="/hirer/payment/transactions" class="view-all">View All ›</RouterLink>
         </div>
         <ul class="tx-list">
           <li v-for="tx in transactions" :key="tx.id" class="tx-item">
-            <span class="tx-icon">↓</span>
+            <span class="tx-icon">↑</span>
             <div class="tx-body">
-              <p class="tx-title">ได้รับเงินจากงาน</p>
+              <p class="tx-title">จ่ายเงินสำหรับงาน</p>
               <p class="tx-sub">{{ tx.jobTitle }}</p>
             </div>
             <div class="tx-right">
-              <p class="tx-amount">+฿{{ formatCurrency(tx.amount) }}</p>
+              <p class="tx-amount">-฿{{ formatCurrency(tx.amount) }}</p>
               <p class="tx-date">{{ formatDate(tx.date) }}</p>
             </div>
             <span class="tx-chevron">›</span>
           </li>
-          <p v-if="!transactions.length" class="empty-tx">ยังไม่มีประวัติการรับเงิน</p>
+          <p v-if="!transactions.length" class="empty-tx">ยังไม่มีประวัติการจ่ายเงิน</p>
         </ul>
       </section>
     </main>
 
-    <!-- แถบล่าง -->
     <footer class="bottom-nav">
       <button class="nav-item">
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
         <span>ถาม</span>
       </button>
-      <RouterLink to="/worker" class="nav-item">
+      <RouterLink to="/hirer" class="nav-item">
         <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></svg>
         <span>หน้าแรก</span>
       </RouterLink>
       <button class="nav-item">
         <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6" /><path d="M10 21a2 2 0 004 0" /></svg>
-        <span class="badge">4</span>
       </button>
     </footer>
   </div>
@@ -228,6 +206,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 
 .content { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 .page-title { margin: 0; font-size: 17px; font-weight: 700; color: #111; }
+.error-text { color: #e11d48; font-size: 13px; text-align: center; }
 
 .card { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 
@@ -237,11 +216,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .eye-btn svg { width: 15px; height: 15px; }
 .amount { margin: 4px 0 2px; font-size: 26px; font-weight: 800; color: #111; }
 .hint { margin: 0; font-size: 11px; color: #999; }
-.btn-withdraw {
-  flex-shrink: 0; display: flex; align-items: center; gap: 6px;
-  min-height: 40px; padding: 0 16px; border-radius: 8px; border: none;
-  background: #ffc93c; color: #111; font-weight: 700; font-size: 13px; cursor: pointer;
-}
 .balance-split { display: flex; margin-top: 14px; padding-top: 10px; border-top: 1px solid #eee; }
 .split-item {
   flex: 1; display: flex; flex-direction: column; gap: 2px;
@@ -259,18 +233,16 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 .view-all { font-size: 12px; color: #7a5c00; text-decoration: none; font-weight: 600; }
 
-.stats { display: flex; justify-content: space-between; text-align: center; }
+.stats { display: flex; justify-content: space-around; text-align: center; }
 .stat { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .stat-icon {
   width: 32px; height: 32px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-size: 14px;
 }
-.stat-icon.green { background: #d9f5df; }
 .stat-icon.blue { background: #dce7ff; }
 .stat-icon.gold { background: #fff1cc; }
 .stat-label { margin: 0; font-size: 11px; color: #888; }
 .stat-value { margin: 0; font-size: 13px; font-weight: 700; color: #111; }
-.stat-value.green { color: #1a9c4a; }
 
 .tx-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .tx-item {
@@ -279,7 +251,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 .tx-item:last-child { border-bottom: none; }
 .tx-icon {
-  width: 32px; height: 32px; border-radius: 50%; background: #d9f5df; color: #1a9c4a;
+  width: 32px; height: 32px; border-radius: 50%; background: #dce7ff; color: #2563eb;
   display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;
 }
 .tx-body { flex: 1; min-width: 0; }
@@ -291,8 +263,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .tx-chevron { color: #ccc; font-size: 18px; }
 .empty-tx { text-align: center; color: #999; font-size: 12px; padding: 12px 0; margin: 0; }
 
-.fab { display: none; }
-
 .bottom-nav {
   position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto;
   display: flex; justify-content: space-around; align-items: center;
@@ -302,10 +272,5 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
   min-height: 44px; min-width: 44px; border: none; background: transparent;
   color: #333; font-size: 11px; text-decoration: none; cursor: pointer;
-}
-.badge {
-  position: absolute; top: -2px; right: 8px; background: #e11d48; color: #fff;
-  font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center; padding: 0 3px;
 }
 </style>

@@ -1,8 +1,9 @@
 <script setup>
 // FR-BROWSE-07: ดูสถานะใบสมัครที่ส่งไปแล้วของตนเอง (แท็บ Waiting = คิว JOB_WAITING)
 // FR-TRACK-01/06: ดูงานที่กำลังดำเนินการ/เสร็จสิ้น/ยกเลิก และถืองานพร้อมกันได้อย่างน้อย 2 งาน
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import api from "../../services/api";
 
 const router = useRouter();
 
@@ -13,60 +14,29 @@ const tabs = [
   { value: "cancelled", label: "Cancelled" },
 ];
 const activeTab = ref("waiting");
+const loading = ref(true);
+const errorMsg = ref("");
 
-/* ---------- ข้อมูลงาน ----------
-   TODO: แทนที่ mock นี้ด้วย GET /api/jobs?worker=me&status={activeTab}
-   - แท็บ Waiting: ใบสมัครที่ยังอยู่ในคิว JOB_WAITING ของงานนั้น ๆ (ยังไม่ถูกเลือก)
-   - แท็บอื่น: งานที่ได้รับมอบหมายแล้ว (FR-MATCH-04) พร้อมชื่อผู้ว่าจ้าง */
-const jobs = ref([
-  {
-    id: "w1",
-    status: "waiting",
-    title: "Laundry Washing",
-    hirerName: null,
-    price: 100,
-    duration: "1:30 hour",
-    distance: "534 m.",
-  },
-  {
-    id: "w2",
-    status: "waiting",
-    title: "Buy food at D1",
-    hirerName: null,
-    price: 50,
-    duration: "1 hour",
-    distance: "2 km.",
-  },
-  {
-    id: "j1",
-    status: "in-progress",
-    title: "Buy food from Hachikyuu",
-    hirerName: "Thanawit",
-    price: 50,
-    duration: "30 Minutes",
-    distance: "2 km.",
-  },
-  {
-    id: "j2",
-    status: "completed",
-    title: "Buy food from Hachikyuu",
-    hirerName: "Thanawit",
-    price: 50,
-    duration: "30 Minutes",
-    distance: "2 km.",
-  },
-  {
-    id: "j3",
-    status: "cancelled",
-    title: "Buy food from Hachikyuu",
-    hirerName: "Thanawit",
-    price: 50,
-    duration: "30 Minutes",
-    distance: "2 km.",
-  },
-]);
+/* ---------- ข้อมูลงาน ---------- */
+const jobs = ref([]);
 
-const filteredJobs = computed(() => jobs.value.filter((j) => j.status === activeTab.value));
+async function loadJobs() {
+  loading.value = true;
+  errorMsg.value = "";
+  try {
+    const { data } = await api.get("/jobs/my-as-worker", { params: { status: activeTab.value } });
+    jobs.value = data.map((j) => ({ ...j, duration: j.duration || "-", distance: j.distance || "-" }));
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดรายการงานไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(loadJobs);
+watch(activeTab, loadJobs);
+
+const filteredJobs = computed(() => jobs.value); // backend กรองตาม tab ให้แล้วผ่าน query param
 
 const statusMeta = {
   waiting: { label: "Waiting for selection", class: "gold" },

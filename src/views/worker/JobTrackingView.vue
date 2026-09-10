@@ -5,37 +5,83 @@
 // FR-TRACK-04: ผู้ว่าจ้างยืนยันงานเสร็จ → ปล่อยเงิน Escrow
 // FR-TRACK-05: ทุกการเปลี่ยนสถานะถูกบันทึกลง JOB_LOG (immutable audit trail)
 // FR-SOS-01/02/03: ผู้รับจ้างกดสัญญาณฉุกเฉินได้ระหว่างงาน กำลังดำเนินอยู่ ระบบบันทึกตำแหน่ง+ส่งถึง Admin ภายใน 1 นาที
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import api from "../../services/api";
 
 const route = useRoute();
 const router = useRouter();
 
-/* ---------- ข้อมูลงาน ----------
-   TODO: แทนที่ mock นี้ด้วย GET /api/jobs/{route.params.id} */
+const loading = ref(true);
+const errorMsg = ref("");
+
+// backend status: assigned | in_progress | completed | cancelled -> UI status ที่หน้านี้ใช้
+function toUiStatus(backendStatus) {
+  if (backendStatus === "assigned" || backendStatus === "in_progress") return "in-progress";
+  return backendStatus; // completed | cancelled ใช้ชื่อเดียวกัน
+}
+
 const job = ref({
   id: route.params.id,
-  hirerName: "Thanawit",
-  title: "Buy food from Hachikyuu",
-  description: "I'm looking for someone to pick up food from Hachikyuu.",
-  status: "in-progress", // "in-progress" | "completed" | "cancelled"
-  details: "Fried rice x1",
-  duration: "1 hr",
-  price: 50,
-  serviceFee: 20,
-  from: "Hachikyuu",
-  to: "Lamduan2",
+  hirerName: "",
+  title: "",
+  description: "",
+  status: "in-progress",
+  backendStatus: "assigned",
+  details: "-",
+  duration: "-",
+  price: 0,
+  serviceFee: 0,
+  from: "-",
+  to: "-",
   notes: "-",
-  hirerPhone: "081-234-5678",
-  hirerLine: "@ThanawitBunphom",
-  timeline: [
-    { key: "start", label: "Start", timestamp: "2 May 2026, 09:24 AM", done: true },
-    { key: "in-progress", label: "In Progress", timestamp: "2 May 2026, 09:35 AM", done: true },
-    { key: "proof", label: "Submit Proof (optional)", timestamp: null, done: false },
-    { key: "complete", label: "Complete", timestamp: null, done: false },
-  ],
-  cancellation: null, // { by: "Hirer", reason: "..." } เฉพาะงานที่ถูกยกเลิก
+  hirerPhone: "-",
+  hirerLine: "-",
+  timeline: [],
+  cancellation: null,
 });
+
+function buildTimeline(backendStatus) {
+  const order = ["assigned", "in_progress", "completed"];
+  const idx = order.indexOf(backendStatus);
+  return [
+    { key: "start", label: "Start", timestamp: null, done: idx >= 0 },
+    { key: "in-progress", label: "In Progress", timestamp: null, done: idx >= 1 },
+    { key: "proof", label: "Submit Proof (optional)", timestamp: null, done: idx >= 2 },
+    { key: "complete", label: "Complete", timestamp: null, done: idx >= 2 },
+  ];
+}
+
+async function loadJob() {
+  loading.value = true;
+  try {
+    const { data } = await api.get(`/jobs/${route.params.id}`);
+    job.value = {
+      id: data._id,
+      hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
+      title: data.title,
+      description: data.description,
+      status: toUiStatus(data.status),
+      backendStatus: data.status,
+      details: data.description,
+      duration: data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-",
+      price: data.price,
+      serviceFee: data.deliveryFee || 0,
+      from: data.fromText || data.locationText || "-",
+      to: data.toText || "-",
+      notes: data.notes || "-",
+      hirerPhone: data.hirer?.phone || "-",
+      hirerLine: data.hirer?.lineId || "-",
+      timeline: buildTimeline(data.status),
+      cancellation: data.status === "cancelled" ? { by: "Hirer", reason: data.cancelReason || "-" } : null,
+    };
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadJob);
 
 const total = computed(() => job.value.price + job.value.serviceFee);
 
@@ -47,24 +93,64 @@ const statusMeta = {
 
 /* ---------- อัปเดตสถานะ / ส่งหลักฐาน ---------- */
 const updating = ref(false);
+const proofInput = ref(null);
+
+// backendStatus: assigned -> in_progress (ไม่ต้องแนบรูป) / in_progress -> completed (ต้องแนบรูป, FR-TRACK-03)
 function updateStatus() {
-  // TODO FR-TRACK-01: PATCH /api/jobs/{job.id}/status { next: "..." }
-  // TODO FR-TRACK-03: ถ้าขั้นตอนถัดไปคือ "เสร็จสิ้น" ต้องแนบไฟล์รูปภาพหลักฐานไปด้วย
-  // TODO FR-TRACK-05: backend จะบันทึกทุกการเปลี่ยนสถานะลง JOB_LOG พร้อมประทับเวลา
+  if (job.value.backendStatus === "in_progress") {
+    proofInput.value?.click(); // ต้องแนบรูปก่อนทำเครื่องหมายว่าเสร็จ
+    return;
+  }
+  submitStatusUpdate(null);
+}
+
+async function onProofSelected(e) {
+  const file = e.target.files?.[0];
+  if (file) await submitStatusUpdate(file);
+}
+
+async function submitStatusUpdate(file) {
+  const next = job.value.backendStatus === "assigned" ? "in_progress" : "completed";
   updating.value = true;
-  setTimeout(() => {
+  errorMsg.value = "";
+  try {
+    const formData = new FormData();
+    formData.append("next", next);
+    if (file) formData.append("proof", file);
+
+    await api.patch(`/jobs/${job.value.id}/status`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    await loadJob(); // โหลดสถานะล่าสุดกลับมาแสดง
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "อัปเดตสถานะไม่สำเร็จ";
+  } finally {
     updating.value = false;
-    alert("TODO: เปิดหน้าจอ/โมดัลอัปเดตสถานะถัดไป (แนบรูปหลักฐานถ้าจำเป็น)");
-  }, 300);
+  }
 }
 
 /* ---------- SOS ---------- */
 function sendSOS() {
-  // TODO FR-SOS-01/02/03: POST /api/sos { jobId, location } — ต้องขอ Geolocation ก่อนส่ง
-  // ต้องถึง Admin ภายใน 1 นาที (NFR-PERF-02)
-  if (confirm("ยืนยันการส่งสัญญาณฉุกเฉิน (SOS) ใช่หรือไม่?")) {
-    alert("TODO: ส่งสัญญาณ SOS พร้อมตำแหน่งปัจจุบันไปยัง Admin");
+  if (!confirm("ยืนยันการส่งสัญญาณฉุกเฉิน (SOS) ใช่หรือไม่?")) return;
+  if (!navigator.geolocation) {
+    alert("เบราว์เซอร์นี้ไม่รองรับการขอตำแหน่ง ไม่สามารถส่ง SOS ได้");
+    return;
   }
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      try {
+        await api.post("/sos", {
+          jobId: job.value.id,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        alert("ส่งสัญญาณ SOS สำเร็จ ผู้ดูแลระบบกำลังติดต่อกลับโดยเร็วที่สุด");
+      } catch (err) {
+        alert(err.response?.data?.message || "ส่งสัญญาณ SOS ไม่สำเร็จ");
+      }
+    },
+    () => alert("ไม่ได้รับอนุญาตให้เข้าถึงตำแหน่ง ไม่สามารถส่ง SOS ได้")
+  );
 }
 
 function callHirer() {
@@ -196,8 +282,10 @@ function goToReview() {
           </div>
 
           <button class="btn-primary" :disabled="updating" @click="updateStatus">
-            {{ updating ? "Updating..." : "Update Status" }}
+            {{ updating ? "Updating..." : (job.backendStatus === "in_progress" ? "Mark as Complete (attach photo)" : "Start Job") }}
           </button>
+          <input ref="proofInput" type="file" accept="image/*" class="hidden-input" @change="onProofSelected" />
+          <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         </template>
 
         <!-- ===== Cancelled: รายละเอียดการยกเลิก ===== -->
@@ -327,4 +415,6 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   background: #ffc93c; color: #111; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.hidden-input { display: none; }
+.error-msg { margin: 8px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
 </style>
