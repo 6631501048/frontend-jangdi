@@ -63,6 +63,8 @@ function resolveUploadUrl(pathOrUrl) {
 const profile = ref({
   fullName: "",
   email: "",
+  studentId: "",
+  shortDescription: "",
   bankAccount: { bankName: "", accountNumber: "", accountHolderName: "" },
   phoneNumber: "",
   line: "",
@@ -85,6 +87,7 @@ async function saveProfile() {
       facebook: profileDraft.facebook,
       instagram: profileDraft.instagram,
       bankAccount: profileDraft.bankAccount,
+      shortDescription: profileDraft.shortDescription,
     });
     auth.updateUser(data.user);
     applyUserToProfile(data.user);
@@ -171,6 +174,8 @@ function applyUserToProfile(user) {
   profile.value = {
     fullName: user.fullName || "",
     email: user.email,
+    studentId: user.studentId || "",
+    shortDescription: user.shortDescription || "",
     bankAccount: user.bankAccount || { bankName: "", accountNumber: "", accountHolderName: "" },
     phoneNumber: user.phone || "",
     line: user.lineId || "",
@@ -233,10 +238,36 @@ onMounted(async () => {
         <h2 class="section-title">Personal Information</h2>
         <div class="field-grid">
           <div class="field">
-            <span class="field-label">Full Name</span>
-            <input v-if="isEditingProfile" v-model="profileDraft.fullName" />
-            <span v-else class="field-value">{{ profile.fullName }}</span>
-          </div>
+  <span class="field-label">Full Name</span>
+  <input v-if="isEditingProfile" v-model="profileDraft.fullName" />
+  <span v-else class="field-value">{{ profile.fullName }}</span>
+</div>
+
+<div class="field">
+  <span class="field-label">Student ID</span>
+  <span class="field-value">{{ profile.studentId || "-" }}</span>
+</div>
+
+<div class="field">
+  <span class="field-label">Short Description</span>
+  <textarea
+    v-if="isEditingProfile"
+    v-model="profileDraft.shortDescription"
+    maxlength="300"
+    rows="2"
+    placeholder="แนะนำตัวสั้น ๆ"
+  ></textarea>
+  <span v-else class="field-value">
+    {{ profile.shortDescription || "-" }}
+  </span>
+</div>
+
+<div class="field">
+  <span class="field-label">Phone Number</span>
+  <input v-if="isEditingProfile" v-model="profileDraft.phoneNumber" />
+  <span v-else class="field-value">{{ profile.phoneNumber }}</span>
+</div>
+
           <div class="field">
             <span class="field-label">Phone Number</span>
             <input v-if="isEditingProfile" v-model="profileDraft.phoneNumber" />
