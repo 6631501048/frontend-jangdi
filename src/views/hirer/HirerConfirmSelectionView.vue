@@ -1,25 +1,46 @@
 <script setup>
 // FR-MATCH-04, FR-PAY-01/02: ยืนยันเลือกช่าง + วางเงินเข้า escrow (Pending -> Held)
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useHirerJobsStore } from "../../stores/hirerJobs";
+import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
 
 const route = useRoute();
 const router = useRouter();
-const store = useHirerJobsStore();
+const job = ref(null);
+const worker = ref(null);
+const submitting = ref(false);
+const errorMsg = ref("");
+const canConfirm = computed(() => job.value?.status === "waiting" && worker.value);
 
-const job = computed(() => store.byId(route.params.id));
-const worker = computed(() => job.value?.applicants.find((a) => a.id === route.params.workerId));
+async function loadSelection() {
+  try {
+    const [{ data: jobData }, { data: applicants }] = await Promise.all([
+      api.get(`/jobs/${route.params.id}`), api.get(`/jobs/${route.params.id}/applicants`),
+    ]);
+    job.value = { ...jobData, id: jobData._id, serviceFee: jobData.deliveryFee || 0, total: Number(jobData.price || 0) + Number(jobData.deliveryFee || 0) };
+    const match = applicants.find((item) => String(item.worker?._id || item.worker) === String(route.params.workerId));
+    worker.value = match ? { id: match.worker?._id || match.worker, name: match.worker?.fullName || "Worker", rating: match.worker?.credibilityScore ?? 0 } : null;
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "Unable to load the selection.";
+  }
+}
+onMounted(loadSelection);
 
 function cancel() {
-  store.pendingSelection = null;
   router.back();
 }
-function confirmAndPay() {
-  const updated = store.confirmSelectionAndPay(job.value.id);
-  if (updated) {
-    router.push({ name: "hirer-job-confirmed", params: { id: job.value.id } });
+async function confirmAndPay() {
+  if (!canConfirm.value || submitting.value) return;
+  submitting.value = true;
+  errorMsg.value = "";
+  try {
+    const { data } = await api.post(`/jobs/${route.params.id}/select-worker`, { workerId: worker.value.id });
+    router.push({ name: "hirer-job-confirmed", params: { id: route.params.id }, state: { job: data.job, worker: data.worker || worker.value } });
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "Unable to select this worker.";
+  } finally {
+    submitting.value = false;
   }
 }
 </script>
@@ -47,8 +68,11 @@ function confirmAndPay() {
 
       <div class="actions">
         <button class="btn outline" @click="cancel">Cancel</button>
-        <button class="btn primary" @click="confirmAndPay">Confirm &amp; Pay</button>
+        <button class="btn primary" :disabled="!canConfirm || submitting" @click="confirmAndPay">
+          {{ submitting ? "Confirming..." : "Confirm & Pay" }}
+        </button>
       </div>
+      <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
     </section>
   </main>
 </template>
@@ -71,4 +95,6 @@ function confirmAndPay() {
 .btn { flex: 1; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 14px; border: 1px solid #e5e7eb; cursor: pointer; }
 .btn.outline { background: white; color: #555; }
 .btn.primary { background: #fbbf24; color: #78350f; border: none; }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+.error-msg { color: #e11d48; text-align: center; font-size: 12px; }
 </style>

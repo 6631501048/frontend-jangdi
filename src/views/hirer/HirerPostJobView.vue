@@ -5,6 +5,7 @@
 // FR-JOB-03/05: ข้อความจะถูกกรองเนื้อหาอัตโนมัติก่อนเข้าคิวรอ Admin อนุมัติ (ทำที่ backend)
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
+import api from "../../services/api";
 
 const router = useRouter();
 
@@ -20,14 +21,19 @@ const categories = [
 const step = ref(1); // 1: หมวดหมู่, 2: รายละเอียด+ตำแหน่ง, 3: ตรวจสอบ
 const submitting = ref(false);
 const submitted = ref(false);
+const errorMsg = ref("");
+const rejectionReason = ref("");
+const location = ref({ lat: null, lng: null });
+const locating = ref(false);
 
 const form = ref({
   category: "",
   name: "",
   details: "",
   serviceFee: null,
-  startTime: "",
-  endTime: "",
+  scheduledAt: "",
+  durationStart: "",
+  durationEnd: "",
   from: "",
   to: "",
   notes: "",
@@ -37,7 +43,8 @@ const categoryLabel = computed(
   () => categories.find((c) => c.id === form.value.category)?.label || "-"
 );
 const conditionLabel = computed(() =>
-  form.value.startTime && form.value.endTime ? `${form.value.startTime} - ${form.value.endTime}` : "-"
+  form.value.durationStart && form.value.durationEnd
+    ? `${new Date(form.value.durationStart).toLocaleString("th-TH")} - ${new Date(form.value.durationEnd).toLocaleString("th-TH")}` : "-"
 );
 
 const step1Valid = computed(() => !!form.value.category);
@@ -47,8 +54,7 @@ const step2Valid = computed(
     form.value.details.trim() &&
     form.value.serviceFee !== null &&
     form.value.serviceFee !== "" &&
-    form.value.startTime &&
-    form.value.endTime &&
+    form.value.scheduledAt &&
     form.value.from.trim() &&
     form.value.to.trim()
 );
@@ -66,14 +72,42 @@ function back() {
   else router.back();
 }
 
-function submit() {
+function useCurrentLocation() {
+  if (!navigator.geolocation) return (errorMsg.value = "Location is not supported on this device.");
+  locating.value = true;
+  navigator.geolocation.getCurrentPosition(
+    ({ coords }) => { location.value = { lat: coords.latitude, lng: coords.longitude }; locating.value = false; },
+    () => { errorMsg.value = "Unable to get your location. Please allow location access and try again."; locating.value = false; },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+async function submit() {
   // TODO FR-JOB-01: POST /api/jobs { category, name(title), details(description), serviceFee(price), from, to, startTime, endTime, notes }
   // TODO FR-JOB-03/04/05: backend กรองเนื้อหาอัตโนมัติก่อน แล้วส่งต่อเข้าคิวรอ Admin อนุมัติ
+  if (location.value.lat === null || location.value.lng === null) {
+    errorMsg.value = "Please select your current location before posting.";
+    return;
+  }
   submitting.value = true;
-  setTimeout(() => {
-    submitting.value = false;
+  errorMsg.value = "";
+  rejectionReason.value = "";
+  try {
+    const { data } = await api.post("/jobs", {
+      category: form.value.category, title: form.value.name.trim(), description: form.value.details.trim(),
+      price: Number(form.value.serviceFee), scheduledAt: new Date(form.value.scheduledAt).toISOString(),
+      locationText: form.value.from.trim(), lat: location.value.lat, lng: location.value.lng,
+      fromText: form.value.from.trim(), toText: form.value.to.trim(), deliveryFee: 0, notes: form.value.notes.trim(),
+      durationStart: form.value.durationStart ? new Date(form.value.durationStart).toISOString() : null,
+      durationEnd: form.value.durationEnd ? new Date(form.value.durationEnd).toISOString() : null,
+    });
+    rejectionReason.value = data.job?.status === "rejected" ? data.job.rejectionReason || "This post was rejected during review." : "";
     submitted.value = true;
-  }, 400);
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "Unable to post this job. Please try again.";
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function viewMyPosts() {
@@ -107,6 +141,7 @@ function close() {
           </div>
           <h2 class="success-title">Post Success!</h2>
           <p class="success-sub">Your service has been posted.</p>
+          <p v-if="rejectionReason" class="error-msg">{{ rejectionReason }}</p>
           <div class="success-actions">
             <button class="btn-primary" @click="viewMyPosts">View My Posts</button>
             <button class="btn-muted" @click="backToHome">Back to Home</button>
@@ -162,16 +197,17 @@ function close() {
                 </div>
               </div>
               <div class="field-col">
-                <label class="field-label">Duration</label>
+                <label class="field-label">Scheduled time</label>
                 <div class="time-range">
-                  <input v-model="form.startTime" type="time" />
-                  <span class="dash">-</span>
-                  <input v-model="form.endTime" type="time" />
+                  <input v-model="form.scheduledAt" type="datetime-local" />
                 </div>
               </div>
             </div>
 
             <p class="location-title">Location</p>
+            <button type="button" class="location-btn" :disabled="locating" @click="useCurrentLocation">
+              {{ locating ? "Getting location..." : location.lat !== null ? "Location selected" : "Use current location" }}
+            </button>
             <!-- TODO: เพิ่ม Google Maps pin เลือกตำแหน่งที่ตั้งแทน input ข้อความ -->
             <label class="field-label">From</label>
             <div class="input-icon">
@@ -182,6 +218,13 @@ function close() {
             <div class="input-icon">
               <input v-model="form.to" type="text" placeholder="ตำแหน่งปลายทาง" />
               <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+            </div>
+
+            <label class="field-label">Duration window (Optional)</label>
+            <div class="time-range">
+              <input v-model="form.durationStart" type="datetime-local" aria-label="Duration start" />
+              <span class="dash">-</span>
+              <input v-model="form.durationEnd" type="datetime-local" aria-label="Duration end" />
             </div>
 
             <label class="field-label">Additional Notes (Optional)</label>
@@ -209,7 +252,7 @@ function close() {
                 <dd>{{ form.serviceFee !== null && form.serviceFee !== "" ? `${form.serviceFee} Baht` : "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Condition</dt>
+                <dt>Duration window</dt>
                 <dd>{{ conditionLabel }}</dd>
               </div>
               <div class="review-row">
@@ -240,6 +283,7 @@ function close() {
               {{ submitting ? "Posting..." : "Post" }}
             </button>
           </div>
+          <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         </template>
       </div>
     </main>
@@ -311,6 +355,8 @@ textarea { resize: vertical; }
 .time-range .dash { color: #999; flex-shrink: 0; }
 
 .location-title { margin: 16px 0 0; font-size: 12px; font-weight: 700; color: #111; }
+.location-btn { margin-top: 8px; min-height: 38px; border: 1px solid #fbbf24; border-radius: 8px; background: #fffbea; color: #78350f; font-weight: 600; cursor: pointer; }
+.location-btn:disabled { opacity: .65; cursor: not-allowed; }
 .input-icon { position: relative; display: flex; align-items: center; }
 .input-icon input { padding-right: 36px; }
 .input-icon .pin { position: absolute; right: 10px; width: 16px; height: 16px; color: #999; }
@@ -330,6 +376,7 @@ textarea { resize: vertical; }
 .btn-primary { background: #ffc93c; border: none; color: #111; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-muted { background: #e5e5e5; border: none; color: #333; }
+.error-msg { margin: 10px 0 0; color: #e11d48; text-align: center; font-size: 12px; }
 
 /* ---------- หน้าจอสำเร็จ ---------- */
 .success { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 8px 8px; }

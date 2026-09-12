@@ -1,18 +1,34 @@
 <script setup>
 // FR-MATCH-06: แจ้ง Hirer ว่าเลือกช่างสำเร็จ และงานเข้าสถานะ In Progress
-import { computed } from "vue";
+import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useHirerJobsStore } from "../../stores/hirerJobs";
+import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
 
 const route = useRoute();
 const router = useRouter();
-const store = useHirerJobsStore();
+const job = ref(null);
+const errorMsg = ref("");
 
-const job = computed(() => store.byId(route.params.id));
+async function loadJob() {
+  try {
+    const { data } = await api.get(`/jobs/${route.params.id}`);
+    job.value = {
+      ...data,
+      selectedWorker: data.selectedWorker || data.worker || null,
+      scheduledLabel: data.durationStart && data.durationEnd
+        ? `${new Date(data.durationStart).toLocaleString("th-TH")} - ${new Date(data.durationEnd).toLocaleString("th-TH")}`
+        : data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-",
+      total: Number(data.price || 0) + Number(data.deliveryFee || 0),
+    };
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "Unable to load the confirmed job.";
+  }
+}
+onMounted(loadJob);
 
 function goToMyJobs() {
-  router.push({ name: "hirer-dashboard" });
+  router.push({ name: "hirer-my-jobs" });
 }
 </script>
 

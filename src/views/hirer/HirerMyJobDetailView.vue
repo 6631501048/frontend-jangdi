@@ -1,19 +1,49 @@
 <script setup>
 // FR-JOB-01/08, FR-TRACK-02/03/04, FR-SOS-01, FR-JOB-07: รายละเอียดงานของ Hirer ปรับเนื้อหาตามสถานะ
-import { computed } from "vue";
+import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useHirerJobsStore } from "../../stores/hirerJobs";
+import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
 import StatusBadge from "../../components/StatusBadge.vue";
 
 const route = useRoute();
 const router = useRouter();
-const store = useHirerJobsStore();
+const job = ref(null);
+const loading = ref(true);
+const errorMsg = ref("");
 
-const job = computed(() => store.byId(route.params.id));
+function formatDuration(data) {
+  if (data.durationStart && data.durationEnd) {
+    return `${new Date(data.durationStart).toLocaleString("th-TH")} - ${new Date(data.durationEnd).toLocaleString("th-TH")}`;
+  }
+  return data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-";
+}
+
+async function loadJob() {
+  loading.value = true;
+  try {
+    const { data } = await api.get(`/jobs/${route.params.id}`);
+    job.value = {
+      ...data,
+      id: data._id,
+      durationLabel: formatDuration(data),
+      serviceFee: data.deliveryFee || 0,
+      total: Number(data.price || 0) + Number(data.deliveryFee || 0),
+      from: { label: data.fromText || data.locationText || "-" },
+      to: { label: data.toText || "-" },
+      applicants: data.applicants || [],
+      statusLabel: data.status,
+    };
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "Unable to load job details.";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadJob);
 
 function goApplicants() {
-  router.push({ name: "hirer-applicants", params: { id: job.value.id } });
+  router.push({ name: "hirer-applicants", params: { id: job.value._id } });
 }
 function goRefund() {
   router.push({ name: "hirer-refund", params: { id: job.value.id } });
@@ -23,7 +53,7 @@ function goReview() {
 }
 function confirmCompletion() {
   // FR-TRACK-04: ยืนยันงานเสร็จหลังตรวจสอบรูปหลักฐาน -> ปล่อยเงินจาก escrow
-  store.confirmCompletion(job.value.id);
+  // Completion is outside the Phase 1 hiring pipeline.
 }
 function sendSos() {
   // FR-SOS-01/02/03: ปุ่มนี้ใช้งานฝั่ง Worker เป็นหลัก แต่ Hirer เห็นสถานะ/ติดต่อฉุกเฉินได้เช่นกัน
