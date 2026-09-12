@@ -111,7 +111,7 @@ async function submit() {
 }
 
 function viewMyPosts() {
-  router.push("/hirer"); // TODO: ไปหน้ารายการประกาศของฉัน (FR-JOB-08) เมื่อสร้างหน้านี้แล้ว
+  router.push({ name: "hirer-my-jobs" });
 }
 function backToHome() {
   router.push("/hirer");
