@@ -1,14 +1,14 @@
 <script setup>
-// FR-JOB-01: สร้างประกาศงาน โดยระบุหมวดหมู่ ชื่องาน คำอธิบาย ตำแหน่งที่ตั้ง ราคา และวันเวลาที่กำหนด
-// FR-JOB-02: นำทางการสร้างประกาศงานผ่าน 3 ขั้นตอน (1) หมวดหมู่ (2) รายละเอียด+ตำแหน่ง (3) ตรวจสอบก่อนส่ง
-//            (ในไฟล์นี้แบ่งเป็น step UI 1-2-3 เหมือนเดิม + หน้าจอผลลัพธ์ "Post Success" แยกต่างหาก)
-// FR-JOB-03/05: ข้อความจะถูกกรองเนื้อหาอัตโนมัติก่อนเข้าคิวรอ Admin อนุมัติ (ทำที่ backend)
+// FR-SERV-01: สร้าง Service Post โดยระบุหมวดหมู่ ชื่อ คำอธิบาย ค่าบริการ
+//             จำนวนออร์เดอร์สูงสุดที่รับพร้อมกันได้ ช่วงเวลาที่พร้อมให้บริการ และรัศมีการให้บริการ
+// FR-JOB-02 (รูปแบบเดียวกันฝั่งผู้รับจ้าง): นำทางผ่านขั้นตอน 3 ขั้นตอน (1) หมวดหมู่ (2) รายละเอียด (3) ตรวจสอบก่อนส่ง
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
+import api from "../../services/api";
 
 const router = useRouter();
 
-/* ---------- หมวดหมู่ (เหมือนตัวกรองใน HirerDashboard เพื่อความสอดคล้องกันทั้งแอป) ---------- */
+/* ---------- หมวดหมู่ (เหมือนตัวกรองใน JobFeedView เพื่อความสอดคล้องกันทั้งแอป) ---------- */
 const categories = [
   { id: "cleaning", label: "Cleaning", icon: "🧹" },
   { id: "delivery", label: "Delivery", icon: "🛵" },
@@ -16,28 +16,59 @@ const categories = [
   { id: "it", label: "IT & Programming", icon: "💻" },
 ];
 
+/* ---------- ตัวเลือกเวลา / รัศมี ---------- */
+const timeOptions = (() => {
+  const out = [];
+  for (let h = 6; h <= 22; h++) {
+    for (const m of [0, 30]) {
+      const period = h < 12 ? "AM" : "PM";
+      const hour12 = h % 12 === 0 ? 12 : h % 12;
+      out.push(`${String(hour12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${period}`);
+    }
+  }
+  return out;
+})();
+const radiusOptions = ["Within 500 m.", "Within 1 km.", "Within 2 km.", "Within 3 km.", "Within 5 km."];
+const radiusToMeters = {
+  "Within 500 m.": 500,
+  "Within 1 km.": 1000,
+  "Within 2 km.": 2000,
+  "Within 3 km.": 3000,
+  "Within 5 km.": 5000,
+};
+
+// แปลง label เวลา (เช่น "05:00 PM") + วันนี้ ให้เป็น Date จริง (ถ้าเวลานั้นผ่านไปแล้ววันนี้ ให้เลื่อนเป็นพรุ่งนี้)
+function timeLabelToDate(label) {
+  const match = label.match(/^(\d{2}):(\d{2}) (AM|PM)$/);
+  if (!match) return null;
+  let [, hh, mm, period] = match;
+  hh = Number(hh) % 12;
+  if (period === "PM") hh += 12;
+  const d = new Date();
+  d.setHours(hh, Number(mm), 0, 0);
+  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
+  return d;
+}
+
 /* ---------- สถานะฟอร์ม ---------- */
-const step = ref(1); // 1: หมวดหมู่, 2: รายละเอียด+ตำแหน่ง, 3: ตรวจสอบ
+const step = ref(1); // 1: หมวดหมู่, 2: รายละเอียด, 3: ตรวจสอบ
 const submitting = ref(false);
 const submitted = ref(false);
+const errorMsg = ref("");
 
 const form = ref({
   category: "",
   name: "",
   details: "",
-  serviceFee: null,
-  startTime: "",
-  endTime: "",
-  from: "",
-  to: "",
+  feePerOrder: null,
+  maxOrders: null,
+  time: "",
+  radius: "",
   notes: "",
 });
 
 const categoryLabel = computed(
   () => categories.find((c) => c.id === form.value.category)?.label || "-"
-);
-const conditionLabel = computed(() =>
-  form.value.startTime && form.value.endTime ? `${form.value.startTime} - ${form.value.endTime}` : "-"
 );
 
 const step1Valid = computed(() => !!form.value.category);
@@ -45,12 +76,12 @@ const step2Valid = computed(
   () =>
     form.value.name.trim() &&
     form.value.details.trim() &&
-    form.value.serviceFee !== null &&
-    form.value.serviceFee !== "" &&
-    form.value.startTime &&
-    form.value.endTime &&
-    form.value.from.trim() &&
-    form.value.to.trim()
+    form.value.feePerOrder !== null &&
+    form.value.feePerOrder !== "" &&
+    form.value.maxOrders !== null &&
+    form.value.maxOrders !== "" &&
+    form.value.time &&
+    form.value.radius
 );
 
 function selectCategory(id) {
@@ -66,35 +97,65 @@ function back() {
   else router.back();
 }
 
-function submit() {
-  // TODO FR-JOB-01: POST /api/jobs { category, name(title), details(description), serviceFee(price), from, to, startTime, endTime, notes }
-  // TODO FR-JOB-03/04/05: backend กรองเนื้อหาอัตโนมัติก่อน แล้วส่งต่อเข้าคิวรอ Admin อนุมัติ
+// ขอพิกัดปัจจุบันของผู้ใช้ (บังคับ เพราะ backend ต้องใช้ lat/lng สร้าง Service Post)
+function getCurrentPosition() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("เบราว์เซอร์นี้ไม่รองรับการขอตำแหน่ง"));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => reject(new Error("กรุณาอนุญาตให้เข้าถึงตำแหน่ง เพื่อระบุพื้นที่ให้บริการ"))
+    );
+  });
+}
+
+async function submit() {
   submitting.value = true;
-  setTimeout(() => {
-    submitting.value = false;
+  errorMsg.value = "";
+  try {
+    const { lat, lng } = await getCurrentPosition();
+    const availabilityEnd = timeLabelToDate(form.value.time);
+
+    await api.post("/service-posts", {
+      category: form.value.category,
+      title: form.value.name,
+      description: form.value.notes ? `${form.value.details}\n\nหมายเหตุ: ${form.value.notes}` : form.value.details,
+      fee: form.value.feePerOrder,
+      maxSimultaneousOrders: form.value.maxOrders,
+      availabilityStart: new Date().toISOString(),
+      availabilityEnd: availabilityEnd?.toISOString(),
+      serviceRadiusMeters: radiusToMeters[form.value.radius] || 2000,
+      lat,
+      lng,
+    });
+
     submitted.value = true;
-  }, 400);
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || err.message || "สร้างประกาศบริการไม่สำเร็จ";
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function viewMyPosts() {
-  router.push("/hirer"); // TODO: ไปหน้ารายการประกาศของฉัน (FR-JOB-08) เมื่อสร้างหน้านี้แล้ว
+  // FR-PROF-04: ไปหน้าประวัติประกาศบริการของตนเอง
+  router.push("/worker/service-posts");
 }
 function backToHome() {
-  router.push("/hirer");
-}
-function close() {
-  submitted.value ? backToHome() : router.push("/hirer");
+  router.push("/worker");
 }
 </script>
 
 <template>
   <div class="page">
-    <!-- แถบด้านบนแบบ sub-page: ปุ่มปิด + ชื่อหน้า -->
+    <!-- แถบด้านบนแบบ sub-page: ปุ่มย้อนกลับ + ชื่อหน้า -->
     <header class="topbar">
-      <button class="icon-btn" aria-label="ปิด" @click="close">
-        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      <button class="icon-btn" aria-label="ย้อนกลับ" @click="submitted ? backToHome() : back()">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">Post Hirer</h1>
+      <h1 class="title">Post Job</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -143,45 +204,48 @@ function close() {
             </div>
           </section>
 
-          <!-- ขั้นตอน 2: รายละเอียดงาน + ตำแหน่งที่ตั้ง -->
+          <!-- ขั้นตอน 2: รายละเอียดบริการ -->
           <section v-else-if="step === 2" class="step-body">
-            <h2 class="section-title">Work Details</h2>
+            <h2 class="section-title">Details of Service</h2>
 
             <label class="field-label">Name / Service</label>
-            <input v-model="form.name" type="text" placeholder="เช่น รับส่งพัสดุ / ซื้อของฝาก" />
+            <input v-model="form.name" type="text" placeholder="เช่น รับไปซื้อของ / รับส่งพัสดุ" />
 
             <label class="field-label">Details</label>
-            <textarea v-model="form.details" rows="3" placeholder="อธิบายงานที่ต้องการให้ทำ"></textarea>
+            <textarea v-model="form.details" rows="3" placeholder="อธิบายบริการของคุณ"></textarea>
 
             <div class="field-row">
               <div class="field-col">
-                <label class="field-label">Service Fee</label>
+                <label class="field-label">Service fee / Order</label>
                 <div class="input-suffix">
-                  <input v-model.number="form.serviceFee" type="number" min="0" placeholder="0" />
+                  <input v-model.number="form.feePerOrder" type="number" min="0" placeholder="0" />
                   <span class="suffix">Baht</span>
                 </div>
               </div>
               <div class="field-col">
-                <label class="field-label">Duration</label>
-                <div class="time-range">
-                  <input v-model="form.startTime" type="time" />
-                  <span class="dash">-</span>
-                  <input v-model="form.endTime" type="time" />
+                <label class="field-label">Maximum Orders</label>
+                <div class="input-suffix">
+                  <input v-model.number="form.maxOrders" type="number" min="1" placeholder="1" />
+                  <span class="suffix">Order</span>
                 </div>
               </div>
             </div>
 
-            <p class="location-title">Location</p>
-            <!-- TODO: เพิ่ม Google Maps pin เลือกตำแหน่งที่ตั้งแทน input ข้อความ -->
-            <label class="field-label">From</label>
-            <div class="input-icon">
-              <input v-model="form.from" type="text" placeholder="ตำแหน่งต้นทาง" />
-              <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
-            </div>
-            <label class="field-label">To</label>
-            <div class="input-icon">
-              <input v-model="form.to" type="text" placeholder="ตำแหน่งปลายทาง" />
-              <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+            <div class="field-row">
+              <div class="field-col">
+                <label class="field-label">Time</label>
+                <select v-model="form.time">
+                  <option value="" disabled>เลือกเวลา</option>
+                  <option v-for="t in timeOptions" :key="t" :value="t">{{ t }}</option>
+                </select>
+              </div>
+              <div class="field-col">
+                <label class="field-label">Service Radius</label>
+                <select v-model="form.radius">
+                  <option value="" disabled>เลือกรัศมี</option>
+                  <option v-for="r in radiusOptions" :key="r" :value="r">{{ r }}</option>
+                </select>
+              </div>
             </div>
 
             <label class="field-label">Additional Notes (Optional)</label>
@@ -205,20 +269,20 @@ function close() {
                 <dd>{{ form.details || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Service Fee</dt>
-                <dd>{{ form.serviceFee !== null && form.serviceFee !== "" ? `${form.serviceFee} Baht` : "-" }}</dd>
+                <dt>Service fee / Order</dt>
+                <dd>{{ form.feePerOrder !== null && form.feePerOrder !== "" ? `${form.feePerOrder} Baht` : "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Condition</dt>
-                <dd>{{ conditionLabel }}</dd>
+                <dt>Maximum Orders</dt>
+                <dd>{{ form.maxOrders || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>From</dt>
-                <dd>{{ form.from || "-" }}</dd>
+                <dt>Time</dt>
+                <dd>{{ form.time || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>To</dt>
-                <dd>{{ form.to || "-" }}</dd>
+                <dt>Service Radius</dt>
+                <dd>{{ form.radius || "-" }}</dd>
               </div>
               <div class="review-row">
                 <dt>Additional Notes (Optional)</dt>
@@ -237,9 +301,10 @@ function close() {
               @click="next"
             >Next</button>
             <button v-else class="btn-primary" :disabled="submitting" @click="submit">
-              {{ submitting ? "Posting..." : "Post" }}
+              {{ submitting ? "Posting..." : "Confirm" }}
             </button>
           </div>
+          <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         </template>
       </div>
     </main>
@@ -301,19 +366,12 @@ input, select, textarea {
   font-size: 13px; font-family: inherit; min-height: 42px; color: #111; background: #fff;
 }
 textarea { resize: vertical; }
+select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #999 50%), linear-gradient(135deg, #999 50%, transparent 50%); background-position: calc(100% - 18px) center, calc(100% - 13px) center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
 .field-row { display: flex; gap: 10px; }
 .field-col { flex: 1; min-width: 0; }
 .input-suffix { position: relative; display: flex; align-items: center; }
 .input-suffix input { padding-right: 46px; }
 .input-suffix .suffix { position: absolute; right: 12px; font-size: 12px; color: #999; }
-.time-range { display: flex; align-items: center; gap: 6px; }
-.time-range input { min-width: 0; }
-.time-range .dash { color: #999; flex-shrink: 0; }
-
-.location-title { margin: 16px 0 0; font-size: 12px; font-weight: 700; color: #111; }
-.input-icon { position: relative; display: flex; align-items: center; }
-.input-icon input { padding-right: 36px; }
-.input-icon .pin { position: absolute; right: 10px; width: 16px; height: 16px; color: #999; }
 
 /* ---------- ขั้นตอน 3: ตรวจสอบ ---------- */
 .review-list { margin: 0; display: flex; flex-direction: column; }
@@ -330,6 +388,7 @@ textarea { resize: vertical; }
 .btn-primary { background: #ffc93c; border: none; color: #111; }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-muted { background: #e5e5e5; border: none; color: #333; }
+.error-msg { margin: 10px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
 
 /* ---------- หน้าจอสำเร็จ ---------- */
 .success { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 8px 8px; }

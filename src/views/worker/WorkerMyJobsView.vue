@@ -25,7 +25,6 @@ async function loadJobs() {
   errorMsg.value = "";
   try {
     const { data } = await api.get("/jobs/my-as-worker", { params: { status: activeTab.value } });
-    // backend ยังไม่มี duration/distance ให้ (ต้องคำนวณจาก scheduledAt/geo ทีหลัง) ใส่ placeholder ไปก่อน
     jobs.value = data.map((j) => ({ ...j, duration: j.duration || "-", distance: j.distance || "-" }));
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดรายการงานไม่สำเร็จ";

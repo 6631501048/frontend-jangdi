@@ -98,7 +98,7 @@ watch(selectedPeriod, loadSummary);
         <span class="brand-icon">👥</span>
         <span class="brand-name">JangDi</span>
       </div>
-      <RouterLink to="/worker/profile" class="avatar-btn" aria-label="โปรไฟล์ของฉัน">
+      <RouterLink to="/profile" class="avatar-btn" aria-label="โปรไฟล์ของฉัน">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
       </RouterLink>
     </header>

@@ -3,13 +3,19 @@
 // FR-PROF-02: ดู/แก้ไขที่อยู่สำหรับติดต่อ/จัดส่ง (ชื่อ ที่อยู่ เบอร์โทร)
 // FR-PROF-03: แสดงคะแนนความน่าเชื่อถือปัจจุบันของผู้ใช้
 // FR-REV-04: แสดงประวัติรีวิว เรียงล่าสุดก่อน
+//
+// หน้านี้ใช้ร่วมกันระหว่าง Hirer และ Worker (บัญชีเดียวสลับ role ได้ตาม FR-AUTH-06)
+// เนื้อหาในหน้าไม่มีอะไรเฉพาะ role ใดเลย จึงไม่ผูก route guard ด้วย meta.role (ดู router/index.js)
 import { computed, onMounted, ref } from "vue";
-import api from "../../services/api";
-import { useAuthStore } from "../../stores/auth";
+import api from "../services/api";
+import { useAuthStore } from "../stores/auth";
 
 const auth = useAuthStore();
 const loading = ref(true);
 const errorMsg = ref("");
+
+// ปุ่ม "หน้าแรก" ใน bottom nav ต้องพากลับ dashboard ของ role ปัจจุบัน ไม่ผูกตายตัวกับ role ใดรole หนึ่ง
+const homePath = computed(() => (auth.currentRole === "worker" ? "/worker" : "/hirer"));
 
 /* ---------- รูปโปรไฟล์ ---------- */
 const avatarInput = ref(null);
@@ -57,6 +63,8 @@ function resolveUploadUrl(pathOrUrl) {
 const profile = ref({
   fullName: "",
   email: "",
+  studentId: "",
+  shortDescription: "",
   bankAccount: { bankName: "", accountNumber: "", accountHolderName: "" },
   phoneNumber: "",
   line: "",
@@ -79,6 +87,7 @@ async function saveProfile() {
       facebook: profileDraft.facebook,
       instagram: profileDraft.instagram,
       bankAccount: profileDraft.bankAccount,
+      shortDescription: profileDraft.shortDescription,
     });
     auth.updateUser(data.user);
     applyUserToProfile(data.user);
@@ -165,6 +174,8 @@ function applyUserToProfile(user) {
   profile.value = {
     fullName: user.fullName || "",
     email: user.email,
+    studentId: user.studentId || "",
+    shortDescription: user.shortDescription || "",
     bankAccount: user.bankAccount || { bankName: "", accountNumber: "", accountHolderName: "" },
     phoneNumber: user.phone || "",
     line: user.lineId || "",
@@ -204,7 +215,7 @@ onMounted(async () => {
         <span class="brand-icon">👥</span>
         <span class="brand-name">JangDi</span>
       </div>
-      <RouterLink to="/worker/profile" class="avatar-btn" aria-label="โปรไฟล์ของฉัน">
+      <RouterLink to="/profile" class="avatar-btn" aria-label="โปรไฟล์ของฉัน">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
       </RouterLink>
     </header>
@@ -227,10 +238,36 @@ onMounted(async () => {
         <h2 class="section-title">Personal Information</h2>
         <div class="field-grid">
           <div class="field">
-            <span class="field-label">Full Name</span>
-            <input v-if="isEditingProfile" v-model="profileDraft.fullName" />
-            <span v-else class="field-value">{{ profile.fullName }}</span>
-          </div>
+  <span class="field-label">Full Name</span>
+  <input v-if="isEditingProfile" v-model="profileDraft.fullName" />
+  <span v-else class="field-value">{{ profile.fullName }}</span>
+</div>
+
+<div class="field">
+  <span class="field-label">Student ID</span>
+  <span class="field-value">{{ profile.studentId || "-" }}</span>
+</div>
+
+<div class="field">
+  <span class="field-label">Short Description</span>
+  <textarea
+    v-if="isEditingProfile"
+    v-model="profileDraft.shortDescription"
+    maxlength="300"
+    rows="2"
+    placeholder="แนะนำตัวสั้น ๆ"
+  ></textarea>
+  <span v-else class="field-value">
+    {{ profile.shortDescription || "-" }}
+  </span>
+</div>
+
+<div class="field">
+  <span class="field-label">Phone Number</span>
+  <input v-if="isEditingProfile" v-model="profileDraft.phoneNumber" />
+  <span v-else class="field-value">{{ profile.phoneNumber }}</span>
+</div>
+
           <div class="field">
             <span class="field-label">Phone Number</span>
             <input v-if="isEditingProfile" v-model="profileDraft.phoneNumber" />
@@ -363,7 +400,7 @@ onMounted(async () => {
         <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
         <span>ถาม</span>
       </button>
-      <RouterLink to="/worker" class="nav-item">
+      <RouterLink :to="homePath" class="nav-item">
         <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></svg>
         <span>หน้าแรก</span>
       </RouterLink>
