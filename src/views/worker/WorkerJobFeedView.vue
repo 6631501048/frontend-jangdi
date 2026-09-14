@@ -3,10 +3,13 @@
 // FR-BROWSE-02: กรองตามประเภทประกาศ (ทั้งหมด/ผู้ว่าจ้าง/ผู้รับจ้าง) และตามหมวดหมู่
 // FR-BROWSE-03/04: ดูรายละเอียดก่อนสมัคร + สมัครงาน (เฉพาะประกาศงานแบบ Job เข้าคิว JOB_WAITING)
 // FR-BROWSE-06: ห้ามสมัคร Service Post ของตัวเอง หรืองานที่เลือกผู้รับจ้างแล้ว (เช็คตอนเรียก API จริง)
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
+import api from "../../services/api";
 
 const auth = useAuthStore();
+const router = useRouter();
 
 /* ---------- ส่วนบน: เมนู/โปรไฟล์ ---------- */
 const drawerOpen = ref(false);
@@ -55,7 +58,7 @@ const activeCategory = ref("all");
 function minutesAgo(mins) {
   return new Date(Date.now() - mins * 60 * 1000);
 }
-const posts = ref([
+/* const posts = ref([
   {
     id: "j1",
     type: "hirer", // ประกาศงาน (Job) — ผู้รับจ้างสมัครได้
@@ -128,7 +131,65 @@ const posts = ref([
     eta: "12 นาที",
     status: "รับออเดอร์อยู่",
   },
-]);
+]); */
+
+const posts = ref([]);
+const loading = ref(true);
+const errorMsg = ref("");
+
+function formatWindow(start, end) {
+  if (!start && !end) return "";
+  const format = (value) => new Date(value).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" });
+  return [start && format(start), end && format(end)].filter(Boolean).join(" - ");
+}
+
+function mapJob(job) {
+  return {
+    id: job._id,
+    type: "hirer",
+    category: job.category,
+    name: job.hirer?.fullName || "ผู้ว่าจ้าง",
+    postedAt: new Date(job.createdAt),
+    description: job.description || job.title || "-",
+    price: Number(job.price || 0) + Number(job.deliveryFee || 0),
+    window: formatWindow(job.durationStart, job.durationEnd) || (job.scheduledAt ? new Date(job.scheduledAt).toLocaleString("th-TH") : "-"),
+    eta: job.locationText || job.toText || "-",
+  };
+}
+
+function mapServicePost(post) {
+  return {
+    id: post._id,
+    type: "worker",
+    category: post.category,
+    name: post.worker?.fullName || "ผู้รับจ้าง",
+    postedAt: new Date(post.createdAt),
+    description: post.description || post.title || "-",
+    price: Number(post.fee || 0),
+    window: formatWindow(post.availabilityStart, post.availabilityEnd) || "-",
+    eta: post.serviceRadiusMeters ? `รัศมี ${(post.serviceRadiusMeters / 1000).toFixed(1)} กม.` : "-",
+  };
+}
+
+async function loadFeed() {
+  loading.value = true;
+  errorMsg.value = "";
+  try {
+    const [jobsResponse, servicePostsResponse] = await Promise.all([
+      api.get("/jobs", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value, search: searchQuery.value.trim() || undefined } }),
+      api.get("/service-posts", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value } }),
+    ]);
+    const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data.jobs || [];
+    const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
+    posts.value = [...jobs.map(mapJob), ...servicePosts.map(mapServicePost)].sort((a, b) => b.postedAt - a.postedAt);
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadFeed);
+watch([activeCategory, searchQuery], loadFeed);
 
 const filteredPosts = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -239,6 +300,8 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
 
     <!-- ฟีดประกาศ -->
     <section class="feed-list">
+      <p v-if="loading" class="empty">กำลังโหลดประกาศ...</p>
+      <p v-else-if="errorMsg" class="empty error-text">{{ errorMsg }}</p>
       <article v-for="post in filteredPosts" :key="post.id" class="card">
         <div class="card-avatar" aria-hidden="true">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
@@ -256,12 +319,13 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
           </div>
         </div>
         <div class="card-actions">
-          <button v-if="post.type === 'hirer'" class="btn-apply" @click="applyToJob(post)">สมัคร</button>
-          <RouterLink :to="`/worker/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
+          <button v-if="post.type === 'hirer'" class="btn-apply" @click="router.push({ name: 'worker-job-detail', params: { id: post.id } })">สมัคร</button>
+          <RouterLink v-if="post.type === 'hirer'" :to="`/worker/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
+          <span v-else class="service-post-note">Service Post</span>
         </div>
       </article>
 
-      <p v-if="!filteredPosts.length" class="empty">ไม่พบประกาศที่ตรงกับตัวกรองของคุณ</p>
+      <p v-if="!loading && !errorMsg && !filteredPosts.length" class="empty">ไม่พบประกาศที่ตรงกับตัวกรองของคุณ</p>
     </section>
 
     <!-- ปุ่มสร้างประกาศใหม่ -->

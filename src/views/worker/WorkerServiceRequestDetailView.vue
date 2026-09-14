@@ -2,15 +2,18 @@
 // FR-SERV-04: ผู้ว่าจ้างส่ง Service Request พร้อมรายละเอียดคำสั่งซื้อ (รายการ/ที่อยู่/หมายเหตุ)
 // FR-SERV-05: เจ้าของ Service Post ดู ยอมรับ หรือปฏิเสธ Service Request แต่ละรายการ
 // FR-SERV-07: Service Request ที่ยอมรับแล้วจะถูกแปลงเป็นบันทึกงาน (Job) เชื่อมโยงกับ Service Post ต้นทาง
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import api from "../../services/api";
 
 const route = useRoute();
 const router = useRouter();
+const loading = ref(true);
+const errorMsg = ref("");
 
 /* ---------- ข้อมูลคำขอ ----------
    TODO: แทนที่ mock ด้วย GET /api/service-posts/{postId}/requests/{route.params.id} */
-const request = ref({
+/* const request = ref({
   id: route.params.id,
   requester: "Marry",
   location: "F4 Dome",
@@ -21,20 +24,61 @@ const request = ref({
   serviceFee: 20,
   address: { label: "F4 Dome", detail: "Building F4 room 204" },
   notes: "Any place is okay, you can choose for me. Thanks!",
-});
+}); */
 
-const itemsTotal = computed(() => request.value.items.reduce((sum, i) => sum + i.price, 0));
-const total = computed(() => itemsTotal.value + request.value.serviceFee);
+const request = ref(null);
+
+async function loadRequest() {
+  loading.value = true;
+  errorMsg.value = "";
+  try {
+    const { data } = await api.get("/service-posts/requests/my-as-worker");
+    const found = data.find((item) => item._id === route.params.id);
+    if (!found) {
+      errorMsg.value = "ไม่พบคำขอบริการนี้";
+      return;
+    }
+    request.value = {
+      id: found._id,
+      requester: found.hirer?.fullName || "ผู้ว่าจ้าง",
+      location: found.servicePost?.title || "-",
+      items: [{ name: found.orderDetails || "-", price: 0 }],
+      serviceFee: Number(found.servicePost?.fee || 0),
+      address: { label: found.servicePost?.title || "-", detail: found.servicePost?.description || "-" },
+      notes: found.orderDetails || "-",
+    };
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดคำขอไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadRequest);
+
+const itemsTotal = computed(() => request.value?.items.reduce((sum, i) => sum + i.price, 0) || 0);
+const total = computed(() => itemsTotal.value + (request.value?.serviceFee || 0));
 
 const accepting = ref(false);
-function acceptOrder() {
+async function acceptOrder() {
+  if (!request.value) return;
+  accepting.value = true;
+  errorMsg.value = "";
+  try {
+    await api.patch(`/service-posts/requests/${request.value.id}`, { action: "accept" });
+    router.push("/worker/service-posts");
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "ยอมรับคำขอไม่สำเร็จ";
+  } finally {
+    accepting.value = false;
+  }
+  return; /*
   // TODO FR-SERV-05/07: POST /api/service-posts/{postId}/requests/{request.id}/accept
   // → backend สร้าง Job ใหม่เชื่อมโยงกับ Service Post ต้นทาง แล้วเข้าสู่ Escrow (FR-PAY-01)
   accepting.value = true;
   setTimeout(() => {
     accepting.value = false;
     router.push("/worker/service-posts");
-  }, 300);
+  }, 300); */
 }
 </script>
 
@@ -50,6 +94,9 @@ function acceptOrder() {
     </header>
 
     <main class="content">
+      <p v-if="loading" class="empty">กำลังโหลดรายละเอียด...</p>
+      <p v-else-if="errorMsg" class="empty error-text">{{ errorMsg }}</p>
+      <template v-else-if="request">
       <!-- ผู้ขอ + รายการสินค้า -->
       <div class="card">
         <div class="requester-head">
@@ -101,6 +148,7 @@ function acceptOrder() {
           {{ accepting ? "Accepting..." : "Accept Order" }}
         </button>
       </div>
+      </template>
     </main>
   </div>
 </template>
