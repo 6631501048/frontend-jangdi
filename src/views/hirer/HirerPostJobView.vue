@@ -55,6 +55,9 @@ const step2Valid = computed(
     form.value.serviceFee !== null &&
     form.value.serviceFee !== "" &&
     form.value.scheduledAt &&
+    form.value.durationStart &&
+    form.value.durationEnd &&
+    new Date(form.value.durationEnd) > new Date(form.value.durationStart) &&
     form.value.from.trim() &&
     form.value.to.trim()
 );
@@ -111,7 +114,7 @@ async function submit() {
 }
 
 function viewMyPosts() {
-  router.push({ name: "hirer-my-jobs" });
+  router.push("/hirer"); // TODO: ไปหน้ารายการประกาศของฉัน (FR-JOB-08) เมื่อสร้างหน้านี้แล้ว
 }
 function backToHome() {
   router.push("/hirer");
