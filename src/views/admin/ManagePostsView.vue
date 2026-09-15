@@ -1,118 +1,248 @@
 <script setup>
-// FR-ADMIN-02: Allow Admin to approve or reject pending job posts, with an optional
-// rejection reason. Posts land here after passing automated content filtering (FR-JOB-05).
-import { computed, ref } from "vue";
+import { ref, computed, onMounted } from "vue";
+import api from "../../services/api";
 
+const posts = ref([]);
+const loading = ref(true);
+const actionLoading = ref(null);
+const errorMessage = ref("");
 const search = ref("");
-const activeStatus = ref("Pending"); // Pending | Approved | Rejected
-const statuses = ["Pending", "Approved", "Rejected"];
 
-// TODO: แทนที่ mock ด้วย GET /api/admin/posts?status= (FR-ADMIN-02)
-const posts = ref([
-  {
-    id: "P-501",
-    title: "Buy lunch at canteen",
-    author: "Korawan K.",
-    time: "5 min ago",
-    text: "Looking for someone to pick up and deliver lunch from the canteen to Building D.",
-    status: "Pending",
-  },
-  {
-    id: "P-500",
-    title: "Queue for course registration",
-    author: "Chanidapa W.",
-    time: "18 min ago",
-    text: "Need someone to queue online for subject registration before slots run out.",
-    status: "Pending",
-  },
-  {
-    id: "P-497",
-    title: "Weekly dorm cleaning",
-    author: "Ponlawat C.",
-    time: "1 day ago",
-    text: "Recurring cleaning job for a shared dorm room, twice a week.",
-    status: "Approved",
-  },
-  {
-    id: "P-492",
-    title: "Sell used textbooks",
-    author: "Areeya S.",
-    time: "2 days ago",
-    text: "This post was rejected for containing content outside the platform's scope.",
-    status: "Rejected",
-    rejectionReason: "Not a task/service post — resale listings are out of scope.",
-  },
-]);
+const filteredPosts = computed(() => {
+  const q = search.value.trim().toLowerCase();
 
-const filteredPosts = computed(() =>
-  posts.value.filter((p) => {
-    const matchesStatus = p.status === activeStatus.value;
-    const matchesSearch =
-      !search.value.trim() ||
-      p.title.toLowerCase().includes(search.value.toLowerCase()) ||
-      p.author.toLowerCase().includes(search.value.toLowerCase());
-    return matchesStatus && matchesSearch;
-  })
-);
+  if (!q) return posts.value;
 
-function approve(post) {
-  // TODO: PATCH /api/admin/posts/:id/approve (FR-ADMIN-02)
-  post.status = "Approved";
+  return posts.value.filter((post) => {
+    return [
+      post.title,
+      post.description,
+      post.hirer?.fullName,
+      post.hirer?.email,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(q);
+  });
+});
+
+function formatDate(value) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 }
 
-function reject(post) {
-  // TODO: PATCH /api/admin/posts/:id/reject { reason } (FR-ADMIN-02 — optional rejection reason)
-  const reason = window.prompt(`Rejection reason for "${post.title}" (optional):`, "");
-  post.status = "Rejected";
-  post.rejectionReason = reason || "No reason provided";
+function money(value) {
+  return `฿${Number(value || 0).toLocaleString("en-US")}`;
 }
+
+async function loadPosts() {
+  loading.value = true;
+  errorMessage.value = "";
+
+  try {
+    const { data } = await api.get("/admin/jobs/pending");
+    posts.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error(error);
+
+    errorMessage.value =
+      error.response?.data?.message ||
+      "ไม่สามารถโหลดประกาศที่รอตรวจสอบได้";
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function approve(post) {
+  if (actionLoading.value) return;
+
+  actionLoading.value = post._id;
+
+  try {
+    await api.post(`/admin/jobs/${post._id}/approve`);
+
+    posts.value = posts.value.filter(
+      (item) => item._id !== post._id
+    );
+  } catch (error) {
+    alert(
+      error.response?.data?.message ||
+        "ไม่สามารถอนุมัติประกาศได้"
+    );
+  } finally {
+    actionLoading.value = null;
+  }
+}
+
+async function reject(post) {
+  if (actionLoading.value) return;
+
+  const reason = window.prompt(
+    `เหตุผลที่ปฏิเสธ "${post.title}"`,
+    ""
+  );
+
+  if (reason === null) return;
+
+  actionLoading.value = post._id;
+
+  try {
+    await api.post(`/admin/jobs/${post._id}/reject`, {
+      reason,
+    });
+
+    posts.value = posts.value.filter(
+      (item) => item._id !== post._id
+    );
+  } catch (error) {
+    alert(
+      error.response?.data?.message ||
+        "ไม่สามารถปฏิเสธประกาศได้"
+    );
+  } finally {
+    actionLoading.value = null;
+  }
+}
+
+onMounted(loadPosts);
 </script>
 
 <template>
   <section class="posts">
     <div class="header-row">
-      <p class="section-title">Post</p>
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input v-model="search" type="text" placeholder="Search posts" />
+      <div>
+        <p class="section-title">Manage Posts</p>
+        <p class="subtitle">
+          ประกาศงานที่รอ Admin ตรวจสอบ
+        </p>
       </div>
+
+      <button
+        class="refresh-btn"
+        :disabled="loading"
+        @click="loadPosts"
+      >
+        {{ loading ? "Loading..." : "Refresh" }}
+      </button>
     </div>
 
-    <nav class="tabs">
-      <button
-        v-for="s in statuses"
-        :key="s"
-        :class="{ active: activeStatus === s }"
-        @click="activeStatus = s"
+    <div class="search-box">
+      <span>🔍</span>
+
+      <input
+        v-model="search"
+        type="text"
+        placeholder="Search posts"
+      />
+    </div>
+
+    <div v-if="errorMessage" class="error-box">
+      {{ errorMessage }}
+    </div>
+
+    <div v-if="loading" class="empty">
+      กำลังโหลดประกาศ...
+    </div>
+
+    <ul v-else class="post-list">
+      <li
+        v-for="post in filteredPosts"
+        :key="post._id"
+        class="post-card"
       >
-        {{ s }}
-      </button>
-    </nav>
+        <div class="post-top">
+          <div>
+            <p class="post-title">
+              {{ post.title }}
+            </p>
 
-    <ul class="post-list">
-      <li v-for="p in filteredPosts" :key="p.id" class="post-card">
-        <p class="post-title">{{ p.title }}</p>
-        <p class="post-meta">{{ p.author }} · {{ p.time }}</p>
-        <p class="post-text">{{ p.text }}</p>
+            <p class="post-meta">
+              {{ post.hirer?.fullName || "Unknown User" }}
+              ·
+              {{ formatDate(post.createdAt) }}
+            </p>
+          </div>
 
-        <div v-if="p.status === 'Pending'" class="action-row">
-          <button class="action-btn approve" @click="approve(p)">Approve</button>
-          <button class="action-btn reject" @click="reject(p)">Reject</button>
+          <span class="status-badge">
+            Pending
+          </span>
         </div>
-        <div v-else class="status-row">
-          <span class="status-badge" :class="p.status === 'Approved' ? 'green' : 'red'">{{ p.status }}</span>
-          <span v-if="p.rejectionReason" class="rejection-reason">{{ p.rejectionReason }}</span>
+
+        <p class="post-text">
+          {{ post.description || "-" }}
+        </p>
+
+        <div class="post-info">
+          <span>
+            Category: {{ post.category || "-" }}
+          </span>
+
+          <span>
+            Price: {{ money(post.price) }}
+          </span>
+        </div>
+
+        <div class="action-row">
+          <button
+            class="action-btn approve"
+            :disabled="actionLoading === post._id"
+            @click="approve(post)"
+          >
+            Approve
+          </button>
+
+          <button
+            class="action-btn reject"
+            :disabled="actionLoading === post._id"
+            @click="reject(post)"
+          >
+            Reject
+          </button>
         </div>
       </li>
-      <li v-if="!filteredPosts.length" class="empty">No {{ activeStatus.toLowerCase() }} posts.</li>
+
+      <li v-if="!filteredPosts.length" class="empty">
+        ไม่มีประกาศที่รอตรวจสอบ
+      </li>
     </ul>
   </section>
 </template>
 
 <style scoped>
-.posts { padding: 16px; }
-.header-row { margin-bottom: 12px; }
-.section-title { margin: 0 0 8px; font-weight: 700; }
+.posts {
+  padding: 16px;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 3px 0 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.refresh-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
 .search-box {
   display: flex;
   align-items: center;
@@ -121,61 +251,122 @@ function reject(post) {
   border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 8px 14px;
+  margin-bottom: 12px;
 }
-.search-box input { border: none; outline: none; flex: 1; font-size: 14px; background: transparent; }
-.search-icon { opacity: 0.6; }
 
-.tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-.tabs button {
+.search-box input {
+  border: none;
+  outline: none;
   flex: 1;
-  min-height: 44px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-.tabs button.active {
-  background: var(--color-primary);
-  color: #3a2a05;
-  border-color: var(--color-primary);
+  background: transparent;
 }
 
-.post-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.post-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .post-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 14px;
 }
-.post-title { margin: 0; font-weight: 700; font-size: 14px; }
-.post-meta { margin: 2px 0 8px; font-size: 12px; color: var(--color-text-muted); }
-.post-text { margin: 0 0 12px; font-size: 13px; opacity: 0.85; }
 
-.action-row { display: flex; gap: 10px; }
+.post-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.post-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.post-meta {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.post-text {
+  margin: 10px 0;
+  font-size: 13px;
+}
+
+.post-info {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.status-badge {
+  height: fit-content;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.action-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .action-btn {
   flex: 1;
   min-height: 40px;
-  border-radius: 8px;
   border: none;
-  font-size: 13px;
+  border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
 }
-.action-btn.approve { background: var(--color-green-bg); color: var(--color-green); }
-.action-btn.reject { background: var(--color-red-bg); color: var(--color-red); }
 
-.status-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.status-badge {
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 12px;
-  border-radius: 999px;
-  color: white;
+.action-btn:disabled {
+  opacity: 0.6;
 }
-.status-badge.green { background: var(--color-green); }
-.status-badge.red { background: var(--color-red); }
-.rejection-reason { font-size: 12px; color: var(--color-text-muted); }
 
-.empty { text-align: center; color: var(--color-text-muted); padding: 20px 0; }
+.approve {
+  background: var(--color-primary);
+  color: #3a2a05;
+}
+
+.reject {
+  background: var(--color-red-bg);
+  color: var(--color-red);
+}
+
+.error-box {
+  padding: 12px;
+  background: var(--color-red-bg);
+  color: var(--color-red);
+  border-radius: 8px;
+}
+
+.empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 24px;
+}
+
+@media (max-width: 600px) {
+  .header-row {
+    flex-direction: column;
+  }
+
+  .refresh-btn {
+    width: 100%;
+  }
+}
 </style>

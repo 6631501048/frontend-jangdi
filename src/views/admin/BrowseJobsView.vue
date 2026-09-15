@@ -1,191 +1,288 @@
 <script setup>
-// Admin "Home" — browse all job posts platform-wide, filterable by poster type and category.
-// Read-only overview that complements the moderation queue in ManagePostsView (FR-ADMIN-02).
-import { computed, ref } from "vue";
+import { ref, computed, onMounted } from "vue";
+import api from "../../services/api";
 
+const loading = ref(true);
+const actionLoading = ref(null);
+const errorMessage = ref("");
 const search = ref("");
-const activeAudience = ref("All"); // All | Hirer | Worker
-const audiences = ["All", "Hirer", "Worker"];
 
-const activeCategory = ref("All");
-const categories = ["All", "Cleaning", "Delivery", "Tutoring & Education", "Moving", "Tech Help"];
+const jobs = ref([]);
 
-// TODO: แทนที่ mock ด้วย GET /api/admin/jobs?audience=&category=&q= (ภาพรวมสำหรับ Admin)
-const jobs = ref([
-  {
-    id: "J-1042",
-    name: "Pitchaya R.",
-    postedBy: "Hirer",
-    time: "5m ago",
-    category: "Cleaning",
-    text: "Need help cleaning a 2-bedroom condo before the weekend, includes kitchen and bathroom.",
-    tags: ["Urgent", "Today"],
-  },
-  {
-    id: "J-1041",
-    name: "Thanawit K.",
-    postedBy: "Worker",
-    time: "22m ago",
-    category: "Tutoring & Education",
-    text: "Offering calculus tutoring sessions for freshmen, available evenings this week.",
-    tags: ["Remote"],
-  },
-  {
-    id: "J-1040",
-    name: "Natthapong S.",
-    postedBy: "Hirer",
-    time: "1h ago",
-    category: "Delivery",
-    text: "Pick up textbooks from the campus bookstore and deliver to the dorm before 6pm.",
-    tags: ["Deadline"],
-  },
-  {
-    id: "J-1039",
-    name: "Manaswin T.",
-    postedBy: "Hirer",
-    time: "2h ago",
-    category: "Moving",
-    text: "Looking for two people to help move furniture to a new room on the 3rd floor.",
-    tags: ["Today"],
-  },
-  {
-    id: "J-1038",
-    name: "Wichuda P.",
-    postedBy: "Worker",
-    time: "3h ago",
-    category: "Tech Help",
-    text: "Can help set up printers, Wi-Fi, or basic laptop troubleshooting for dorm residents.",
-    tags: ["Remote"],
-  },
-  {
-    id: "J-1037",
-    name: "Chanidapa W.",
-    postedBy: "Hirer",
-    time: "5h ago",
-    category: "Cleaning",
-    text: "Need someone to organize and clean a shared study room before exam week.",
-    tags: [],
-  },
-]);
+const filteredJobs = computed(() => {
+  const q = search.value.trim().toLowerCase();
 
-const filteredJobs = computed(() =>
-  jobs.value.filter((j) => {
-    const matchesAudience = activeAudience.value === "All" || j.postedBy === activeAudience.value;
-    const matchesCategory = activeCategory.value === "All" || j.category === activeCategory.value;
-    const matchesSearch =
-      !search.value.trim() ||
-      j.name.toLowerCase().includes(search.value.toLowerCase()) ||
-      j.text.toLowerCase().includes(search.value.toLowerCase());
-    return matchesAudience && matchesCategory && matchesSearch;
-  })
-);
+  if (!q) return jobs.value;
+
+  return jobs.value.filter((job) => {
+    const title = String(job.title || "").toLowerCase();
+    const description = String(job.description || "").toLowerCase();
+    const hirer = String(job.hirer?.fullName || "").toLowerCase();
+    const email = String(job.hirer?.email || "").toLowerCase();
+
+    return (
+      title.includes(q) ||
+      description.includes(q) ||
+      hirer.includes(q) ||
+      email.includes(q)
+    );
+  });
+});
 
 function initials(name) {
-  return name
+  return String(name || "U")
     .split(" ")
     .map((p) => p[0])
     .join("")
     .slice(0, 2)
     .toUpperCase();
 }
+
+function formatDate(value) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function money(value) {
+  return `฿${Number(value || 0).toLocaleString("en-US")}`;
+}
+
+async function loadJobs() {
+  loading.value = true;
+  errorMessage.value = "";
+
+  try {
+    const { data } = await api.get("/admin/jobs/pending");
+    jobs.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error(error);
+    errorMessage.value =
+      error.response?.data?.message ||
+      "ไม่สามารถโหลดประกาศงานที่รอตรวจสอบได้";
+  } finally {
+    loading.value = false;
+  }
+}
+
+async function approve(job) {
+  if (actionLoading.value) return;
+
+  actionLoading.value = job._id;
+
+  try {
+    await api.post(`/admin/jobs/${job._id}/approve`);
+    jobs.value = jobs.value.filter((item) => item._id !== job._id);
+  } catch (error) {
+    alert(
+      error.response?.data?.message ||
+        "ไม่สามารถอนุมัติประกาศงานได้"
+    );
+  } finally {
+    actionLoading.value = null;
+  }
+}
+
+async function reject(job) {
+  if (actionLoading.value) return;
+
+  const reason = window.prompt(
+    `เหตุผลที่ปฏิเสธ "${job.title}"`,
+    ""
+  );
+
+  if (reason === null) return;
+
+  actionLoading.value = job._id;
+
+  try {
+    await api.post(`/admin/jobs/${job._id}/reject`, {
+      reason,
+    });
+
+    jobs.value = jobs.value.filter((item) => item._id !== job._id);
+  } catch (error) {
+    alert(
+      error.response?.data?.message ||
+        "ไม่สามารถปฏิเสธประกาศงานได้"
+    );
+  } finally {
+    actionLoading.value = null;
+  }
+}
+
+onMounted(loadJobs);
 </script>
 
 <template>
   <section class="browse">
     <div class="header-row">
-      <p class="greeting">Hello, Admin</p>
-      <div class="search-box">
-        <span class="search-icon">🔍</span>
-        <input v-model="search" type="text" placeholder="Search jobs or posters" />
+      <div>
+        <p class="greeting">Hello, Admin</p>
+        <p class="subtitle">
+          Job posts waiting for Admin review
+        </p>
       </div>
-    </div>
 
-    <nav class="tabs">
       <button
-        v-for="a in audiences"
-        :key="a"
-        :class="{ active: activeAudience === a }"
-        @click="activeAudience = a"
+        class="refresh-btn"
+        :disabled="loading"
+        @click="loadJobs"
       >
-        <span v-if="a === 'Hirer'">🧑‍💼 </span><span v-else-if="a === 'Worker'">🧑‍🔧 </span>{{ a }}
-      </button>
-    </nav>
-
-    <div class="chip-row">
-      <button
-        v-for="c in categories"
-        :key="c"
-        class="chip"
-        :class="{ active: activeCategory === c }"
-        @click="activeCategory = c"
-      >
-        {{ c }}
+        {{ loading ? "Loading..." : "Refresh" }}
       </button>
     </div>
 
-    <ul class="job-list">
-      <li v-for="j in filteredJobs" :key="j.id" class="job-card">
-        <div class="avatar-circle">{{ initials(j.name) }}</div>
+    <div class="search-box">
+      <span>🔍</span>
+      <input
+        v-model="search"
+        type="text"
+        placeholder="Search jobs or posters"
+      />
+    </div>
+
+    <div v-if="errorMessage" class="error-box">
+      {{ errorMessage }}
+    </div>
+
+    <div v-if="loading" class="empty">
+      กำลังโหลดประกาศงาน...
+    </div>
+
+    <ul v-else class="job-list">
+      <li
+        v-for="job in filteredJobs"
+        :key="job._id"
+        class="job-card"
+      >
+        <div class="avatar-circle">
+          {{ initials(job.hirer?.fullName) }}
+        </div>
+
         <div class="job-body">
-          <p class="job-name">{{ j.name }} <span class="job-time">· {{ j.time }}</span></p>
-          <p class="job-text">{{ j.text }}</p>
-          <div class="job-tags">
-            <span class="tag category-tag">{{ j.category }}</span>
-            <span v-for="t in j.tags" :key="t" class="tag">{{ t }}</span>
+          <p class="job-name">
+            {{ job.hirer?.fullName || "Unknown User" }}
+          </p>
+
+          <p class="job-title">
+            {{ job.title || "Untitled Job" }}
+          </p>
+
+          <p class="job-text">
+            {{ job.description || "-" }}
+          </p>
+
+          <div class="job-info">
+            <span>{{ job.category || "-" }}</span>
+            <span>{{ money(job.price) }}</span>
+            <span>{{ formatDate(job.createdAt) }}</span>
+          </div>
+
+          <p class="email">
+            {{ job.hirer?.email || "-" }}
+          </p>
+
+          <div class="action-row">
+            <button
+              class="action-btn approve"
+              :disabled="actionLoading === job._id"
+              @click="approve(job)"
+            >
+              {{
+                actionLoading === job._id
+                  ? "Processing..."
+                  : "Approve"
+              }}
+            </button>
+
+            <button
+              class="action-btn reject"
+              :disabled="actionLoading === job._id"
+              @click="reject(job)"
+            >
+              Reject
+            </button>
           </div>
         </div>
-        <button class="details-btn">Details</button>
       </li>
-      <li v-if="!filteredJobs.length" class="empty">No jobs match this filter.</li>
+
+      <li v-if="!filteredJobs.length" class="empty">
+        ไม่มีประกาศงานที่รอตรวจสอบ
+      </li>
     </ul>
   </section>
 </template>
 
 <style scoped>
-.browse { padding: 16px; }
-.header-row { margin-bottom: 12px; }
-.greeting { margin: 0 0 8px; font-weight: 700; }
+.browse {
+  padding: 16px;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.greeting {
+  margin: 0;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 3px 0 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.refresh-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
 .search-box {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 8px 14px;
+  margin-bottom: 12px;
 }
-.search-box input { border: none; outline: none; flex: 1; font-size: 14px; background: transparent; }
-.search-icon { opacity: 0.6; }
 
-.tabs { display: flex; gap: 8px; margin-bottom: 10px; }
-.tabs button {
+.search-box input {
+  border: none;
+  outline: none;
   flex: 1;
-  min-height: 44px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  font-weight: 600;
-  color: var(--color-text-muted);
-}
-.tabs button.active {
-  background: var(--color-primary-light);
-  color: var(--color-primary-dark);
-  border-color: var(--color-primary);
+  background: transparent;
 }
 
-.chip-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; }
-.chip {
-  white-space: nowrap;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+.error-box {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--color-red-bg);
+  color: var(--color-red);
+  margin-bottom: 12px;
   font-size: 13px;
-  color: var(--color-text-muted);
 }
-.chip.active { background: var(--color-primary); color: #3a2a05; border-color: var(--color-primary); font-weight: 600; }
 
-.job-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.job-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .job-card {
   display: flex;
   gap: 10px;
@@ -193,11 +290,11 @@ function initials(name) {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 12px;
-  align-items: flex-start;
 }
+
 .avatar-circle {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--color-primary-light);
   color: var(--color-primary-dark);
@@ -205,34 +302,90 @@ function initials(name) {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 13px;
   flex-shrink: 0;
 }
-.job-body { flex: 1; min-width: 0; }
-.job-name { margin: 0; font-weight: 700; font-size: 14px; }
-.job-time { color: var(--color-text-muted); font-weight: 400; font-size: 12px; }
-.job-text { margin: 4px 0 8px; font-size: 13px; color: var(--color-text); opacity: 0.85; }
-.job-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.tag {
+
+.job-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.job-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.job-title {
+  margin: 4px 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.job-text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  opacity: 0.85;
+}
+
+.job-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.job-info span,
+.email {
   font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: var(--color-bg);
   color: var(--color-text-muted);
 }
-.category-tag { background: var(--color-primary-light); color: var(--color-primary-dark); }
 
-.details-btn {
-  align-self: center;
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  font-size: 12px;
-  font-weight: 600;
-  flex-shrink: 0;
+.email {
+  margin: 5px 0 0;
 }
 
-.empty { text-align: center; color: var(--color-text-muted); padding: 24px 0; }
+.action-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.action-btn {
+  flex: 1;
+  min-height: 40px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.action-btn:disabled {
+  opacity: 0.6;
+}
+
+.approve {
+  background: var(--color-primary);
+  color: #3a2a05;
+}
+
+.reject {
+  background: var(--color-red-bg);
+  color: var(--color-red);
+}
+
+.empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 24px 0;
+}
+
+@media (max-width: 600px) {
+  .header-row {
+    flex-direction: column;
+  }
+
+  .refresh-btn {
+    width: 100%;
+  }
+}
 </style>

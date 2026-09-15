@@ -1,115 +1,216 @@
 <script setup>
-// FR-ADMIN-01: Admin dashboard summarising total users, total posts, pending posts,
-// active SOS alerts, posting-activity trends, and a monthly finance summary.
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import api from "../../services/api";
 
-// TODO: แทนที่ mock ด้วย GET /api/admin/dashboard (FR-ADMIN-01)
+const loading = ref(true);
+const errorMessage = ref("");
+
 const stats = ref({
-  totalUsers: 47,
-  newUsersToday: 14,
-  totalPosts: 89,
-  newPostsToday: 9,
-  pendingPosts: 4,
-  activeSos: 1,
+  totalUsers: 0,
+  totalJobs: 0,
+  pendingJobs: 0,
+  openSos: 0,
 });
-
-const chartRange = ref("Weekly");
-const weeklyActivity = ref([
-  { day: "Mon", value: 40 },
-  { day: "Tue", value: 65 },
-  { day: "Wed", value: 55 },
-  { day: "Thu", value: 80 },
-  { day: "Fri", value: 22 },
-  { day: "Sat", value: 18 },
-  { day: "Sun", value: 20 },
-]);
-const maxActivity = computed(() => Math.max(...weeklyActivity.value.map((d) => d.value)));
 
 const finance = ref({
-  totalJobValue: 48350,
-  platformFeeEarned: 3680,
-  heldInEscrow: 6540,
-  refundsDisbursed: 420,
+  totalVolume: 0,
+  totalFees: 0,
+  count: 0,
 });
 
-function money(n) {
-  return `฿${n.toLocaleString("en-US")}`;
+const hasFinanceData = computed(() => {
+  return (
+    finance.value.totalVolume > 0 ||
+    finance.value.totalFees > 0 ||
+    finance.value.count > 0
+  );
+});
+
+function money(value) {
+  return `฿${Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
 }
+
+async function loadDashboard() {
+  loading.value = true;
+  errorMessage.value = "";
+
+  try {
+    const { data } = await api.get("/admin/dashboard");
+
+    stats.value = {
+      totalUsers: Number(data.totalUsers) || 0,
+      totalJobs: Number(data.totalJobs) || 0,
+      pendingJobs: Number(data.pendingJobs) || 0,
+      openSos: Number(data.openSos) || 0,
+    };
+
+    finance.value = {
+      totalVolume: Number(data.monthlyFinancials?.totalVolume) || 0,
+      totalFees: Number(data.monthlyFinancials?.totalFees) || 0,
+      count: Number(data.monthlyFinancials?.count) || 0,
+    };
+  } catch (error) {
+    console.error(error);
+
+    if (error.response?.status === 403) {
+      errorMessage.value = "คุณไม่มีสิทธิ์เข้าถึงหน้า Admin";
+    } else {
+      errorMessage.value =
+        error.response?.data?.message ||
+        "ไม่สามารถโหลดข้อมูล Dashboard ได้";
+    }
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(loadDashboard);
 </script>
 
 <template>
   <section class="dashboard">
-    <h1>Dashboard</h1>
+    <div class="page-header">
+      <div>
+        <h1>Dashboard</h1>
+        <p class="page-description">
+          ภาพรวมการทำงานของระบบ JangDi
+        </p>
+      </div>
 
-    <!-- Stat cards: All Users / All Posts / Pending / SOS Active -->
-    <div class="stat-grid">
-      <div class="stat-card fill-primary">
-        <p class="stat-label">All Users</p>
-        <p class="stat-value">{{ stats.totalUsers }}</p>
-        <p class="stat-sub">+{{ stats.newUsersToday }} today</p>
-      </div>
-      <div class="stat-card fill-muted">
-        <p class="stat-label">All Posts</p>
-        <p class="stat-value">{{ stats.totalPosts }}</p>
-        <p class="stat-sub">+{{ stats.newPostsToday }} posts</p>
-      </div>
-      <RouterLink to="/admin/posts" class="stat-card outline">
-        <p class="stat-label">Pending</p>
-        <p class="stat-value">{{ stats.pendingPosts }}</p>
-        <p class="stat-sub">Posts</p>
-      </RouterLink>
-      <RouterLink to="/admin/sos" class="stat-card outline">
-        <p class="stat-label">SOS Active</p>
-        <p class="stat-value">{{ stats.activeSos }}</p>
-        <p class="stat-sub">Alert</p>
-      </RouterLink>
+      <button
+        class="refresh-button"
+        :disabled="loading"
+        @click="loadDashboard"
+      >
+        {{ loading ? "Loading..." : "Refresh" }}
+      </button>
     </div>
 
-    <!-- Posting-activity trend chart -->
-    <div class="card">
-      <div class="card-header">
+    <div v-if="loading" class="state-card">
+      กำลังโหลดข้อมูล Dashboard...
+    </div>
+
+    <div v-else-if="errorMessage" class="state-card error-card">
+      <p>{{ errorMessage }}</p>
+
+      <button class="retry-button" @click="loadDashboard">
+        ลองใหม่
+      </button>
+    </div>
+
+    <template v-else>
+      <div class="stat-grid">
+        <div class="stat-card fill-primary">
+          <p class="stat-label">All Users</p>
+          <p class="stat-value">{{ stats.totalUsers }}</p>
+          <p class="stat-sub">Users</p>
+        </div>
+
+        <div class="stat-card fill-muted">
+          <p class="stat-label">All Jobs</p>
+          <p class="stat-value">{{ stats.totalJobs }}</p>
+          <p class="stat-sub">Jobs</p>
+        </div>
+
+        <RouterLink
+          to="/admin/posts"
+          class="stat-card outline"
+        >
+          <p class="stat-label">Pending</p>
+          <p class="stat-value">{{ stats.pendingJobs }}</p>
+          <p class="stat-sub">Jobs waiting for review</p>
+        </RouterLink>
+
+        <RouterLink
+          to="/admin/sos"
+          class="stat-card outline"
+        >
+          <p class="stat-label">SOS Active</p>
+          <p class="stat-value">{{ stats.openSos }}</p>
+          <p class="stat-sub">Active alerts</p>
+        </RouterLink>
+      </div>
+
+      <div class="card">
         <p class="card-title">Work Chart</p>
-        <select v-model="chartRange" class="range-select">
-          <option>Weekly</option>
-          <option>Monthly</option>
-        </select>
-      </div>
-      <div class="bars">
-        <div v-for="d in weeklyActivity" :key="d.day" class="bar-col">
-          <div class="bar" :style="{ height: (d.value / maxActivity) * 100 + '%' }"></div>
-          <span class="bar-label">{{ d.day }}</span>
-        </div>
-      </div>
-    </div>
 
-    <!-- Monthly finance summary -->
-    <div class="card">
-      <p class="card-title">Monthly Finance Summary</p>
-      <dl class="finance-list">
-        <div class="finance-row">
-          <dt>Total job value</dt>
-          <dd>{{ money(finance.totalJobValue) }}</dd>
+        <div class="chart-placeholder">
+          <p>ยังไม่มีข้อมูลกราฟรายวัน/รายสัปดาห์</p>
+          <small>
+            Backend Dashboard ปัจจุบันยังไม่ได้ส่งข้อมูลส่วนนี้
+          </small>
         </div>
-        <div class="finance-row">
-          <dt>Platform fee earned</dt>
-          <dd class="positive">+{{ money(finance.platformFeeEarned) }}</dd>
-        </div>
-        <div class="finance-row">
-          <dt>Held in escrow</dt>
-          <dd class="neutral">{{ money(finance.heldInEscrow) }}</dd>
-        </div>
-        <div class="finance-row">
-          <dt>Refunds disbursed</dt>
-          <dd class="negative">-{{ money(finance.refundsDisbursed) }}</dd>
-        </div>
-      </dl>
-    </div>
+      </div>
+
+      <div class="card">
+        <p class="card-title">Monthly Finance Summary</p>
+
+        <dl class="finance-list">
+          <div class="finance-row">
+            <dt>Total job value</dt>
+            <dd>{{ money(finance.totalVolume) }}</dd>
+          </div>
+
+          <div class="finance-row">
+            <dt>Platform fee earned</dt>
+            <dd class="positive">
+              +{{ money(finance.totalFees) }}
+            </dd>
+          </div>
+
+          <div class="finance-row">
+            <dt>Released jobs</dt>
+            <dd>{{ finance.count }}</dd>
+          </div>
+        </dl>
+
+        <p v-if="!hasFinanceData" class="empty">
+          ยังไม่มีข้อมูลการเงินของเดือนนี้
+        </p>
+      </div>
+    </template>
   </section>
 </template>
 
 <style scoped>
-.dashboard { padding: 16px; }
-h1 { font-size: 20px; margin: 4px 0 16px; }
+.dashboard {
+  padding: 16px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 4px 0;
+}
+
+.page-description {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.refresh-button,
+.retry-button {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.refresh-button:disabled {
+  opacity: 0.6;
+}
 
 .stat-grid {
   display: grid;
@@ -117,61 +218,81 @@ h1 { font-size: 20px; margin: 4px 0 16px; }
   gap: 10px;
   margin-bottom: 16px;
 }
+
 .stat-card {
   border-radius: var(--radius-lg);
   padding: 14px;
   text-decoration: none;
   color: inherit;
-  display: block;
 }
-.stat-label { margin: 0; font-size: 13px; opacity: 0.85; }
-.stat-value { margin: 6px 0 2px; font-size: 26px; font-weight: 800; }
-.stat-sub { margin: 0; font-size: 12px; opacity: 0.75; }
 
-.fill-primary { background: var(--color-primary); color: #3a2a05; }
-.fill-muted { background: #8b8f98; color: white; }
+.stat-label {
+  margin: 0;
+  font-size: 13px;
+}
+
+.stat-value {
+  margin: 6px 0 2px;
+  font-size: 26px;
+  font-weight: 800;
+}
+
+.stat-sub {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.fill-primary {
+  background: var(--color-primary);
+  color: #3a2a05;
+}
+
+.fill-muted {
+  background: #8b8f98;
+  color: white;
+}
+
 .outline {
   background: var(--color-surface);
   border: 1.5px solid var(--color-primary);
-  color: var(--color-text);
 }
 
-.card {
+.card,
+.state-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 14px;
   margin-bottom: 14px;
 }
-.card-header { display: flex; align-items: center; justify-content: space-between; }
-.card-title { font-weight: 700; margin: 0 0 10px; font-size: 14px; }
-.range-select {
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 4px 6px;
-  font-size: 12px;
-  background: var(--color-surface);
+
+.card-title {
+  font-weight: 700;
+  margin: 0 0 10px;
+  font-size: 14px;
 }
 
-.bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  height: 110px;
-  padding-top: 8px;
+.chart-placeholder {
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--color-text-muted);
 }
-.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
-.bar {
-  width: 100%;
-  max-width: 26px;
-  background: var(--color-primary);
-  border-radius: 6px 6px 2px 2px;
-  min-height: 4px;
-  transition: height 0.3s ease;
-}
-.bar-label { margin-top: 6px; font-size: 11px; color: var(--color-text-muted); }
 
-.finance-list { margin: 0; }
+.chart-placeholder p {
+  margin: 0 0 5px;
+}
+
+.chart-placeholder small {
+  font-size: 11px;
+}
+
+.finance-list {
+  margin: 0;
+}
+
 .finance-row {
   display: flex;
   justify-content: space-between;
@@ -179,10 +300,48 @@ h1 { font-size: 20px; margin: 4px 0 16px; }
   border-bottom: 1px solid var(--color-border);
   font-size: 14px;
 }
-.finance-row:last-child { border-bottom: none; }
-.finance-row dt { color: var(--color-text-muted); font-weight: 400; }
-.finance-row dd { margin: 0; font-weight: 700; }
-.positive { color: var(--color-green); }
-.negative { color: var(--color-red); }
-.neutral { color: var(--color-primary-dark); }
+
+.finance-row:last-child {
+  border-bottom: none;
+}
+
+.finance-row dt {
+  color: var(--color-text-muted);
+}
+
+.finance-row dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.positive {
+  color: var(--color-green);
+}
+
+.error-card {
+  text-align: center;
+}
+
+.error-card p {
+  margin: 0 0 12px;
+}
+
+.empty {
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .page-header {
+    flex-direction: column;
+  }
+
+  .refresh-button {
+    width: 100%;
+  }
+
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

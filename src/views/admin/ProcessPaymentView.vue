@@ -1,166 +1,283 @@
 <script setup>
-// FR-ADMIN-04: Allow Admin to review, transfer, and audit escrow payments awaiting release.
-// FR-ADMIN-05: Allow Admin to review and adjudicate refund requests submitted by Hirers.
-// NFR-SEC-03: Escrowed funds shall not be released to a Worker until both Hirer confirmation
-// and Admin verification are recorded.
-import { computed, ref } from "vue";
+import { onMounted, ref } from "vue";
+import api from "../../services/api";
 
-const activeTab = ref("Pending"); // Pending | Paid | Refund
-const tabs = ["Pending", "Paid", "Refund"];
+const activeTab = ref("Held");
 
-// TODO: แทนที่ mock ด้วย GET /api/admin/payments?status=pending (FR-ADMIN-04)
-const pendingPayments = ref([
-  {
-    id: "PAY-8891",
-    name: "Korawan Kongkerd",
-    subtitle: "Bought lunch at canteen",
-    note: "Worker requested payment · Hirer confirmed completion",
-    amount: 75,
-    slip: "payment_slip_04.jpg",
-  },
-  {
-    id: "PAY-8887",
-    name: "Wanlapa Mongkol",
-    subtitle: "Dorm room cleaning",
-    note: "Worker requested payment · awaiting Admin verification",
-    amount: 220,
-    slip: "payment_slip_02.jpg",
-  },
-]);
+const tabs = [
+  { label: "Held", status: "held" },
+  { label: "Released", status: "released" },
+  { label: "Disputed", status: "disputed" },
+];
 
-// TODO: แทนที่ mock ด้วย GET /api/admin/payments?status=paid (FR-ADMIN-04 — audit trail)
-const paidPayments = ref([
-  {
-    id: "PAY-8870",
-    name: "Korawan Kongkerd",
-    subtitle: "Bought lunch at canteen",
-    amount: 75,
-    transferDate: "14 Aug 2026, 09:40",
-    slip: "payment_slip_01.jpg",
-  },
-]);
+const payments = ref([]);
+const loading = ref(true);
+const errorMessage = ref("");
+const actionLoading = ref(null);
 
-// TODO: แทนที่ mock ด้วย GET /api/admin/refunds?status=pending (FR-ADMIN-05)
-const refundRequests = ref([
-  {
-    id: "REF-231",
-    userRefund: "Chomdaeng M.",
-    amount: 76,
-    reason: "Misdirected the job",
-    job: "Bought hardware at the hardware store",
-  },
-]);
+function money(value) {
+  return `฿${Number(value || 0).toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
-function transfer(payment) {
-  // TODO: POST /api/admin/payments/:id/transfer — release escrow to Worker (NFR-SEC-03)
-  pendingPayments.value = pendingPayments.value.filter((p) => p.id !== payment.id);
-  paidPayments.value.unshift({
-    id: payment.id,
-    name: payment.name,
-    subtitle: payment.subtitle,
-    amount: payment.amount,
-    transferDate: new Date().toLocaleString("en-GB", { hour12: false }),
-    slip: payment.slip,
+function formatDate(value) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
   });
 }
 
-function approveRefund(req) {
-  // TODO: PATCH /api/admin/refunds/:id/approve (FR-ADMIN-05, FR-PAY-07)
-  refundRequests.value = refundRequests.value.filter((r) => r.id !== req.id);
+async function loadPayments() {
+  loading.value = true;
+  errorMessage.value = "";
+
+  const currentTab = tabs.find(
+    (tab) => tab.label === activeTab.value
+  );
+
+  try {
+    const { data } = await api.get(
+      "/admin/payments/escrow",
+      {
+        params: {
+          status: currentTab.status,
+        },
+      }
+    );
+
+    payments.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error(error);
+
+    errorMessage.value =
+      error.response?.data?.message ||
+      "ไม่สามารถโหลดรายการชำระเงินได้";
+  } finally {
+    loading.value = false;
+  }
 }
 
-function rejectRefund(req) {
-  // TODO: PATCH /api/admin/refunds/:id/reject (FR-ADMIN-05, FR-PAY-07)
-  refundRequests.value = refundRequests.value.filter((r) => r.id !== req.id);
+async function decideRefund(payment, decision) {
+  if (actionLoading.value) return;
+
+  const text =
+    decision === "approved"
+      ? "ยืนยันอนุมัติการคืนเงินหรือไม่?"
+      : "ยืนยันปฏิเสธการคืนเงินหรือไม่?";
+
+  if (!window.confirm(text)) return;
+
+  actionLoading.value = payment._id;
+
+  try {
+    await api.post(
+      `/admin/payments/${payment._id}/refund-decision`,
+      { decision }
+    );
+
+    await loadPayments();
+  } catch (error) {
+    alert(
+      error.response?.data?.message ||
+        "ไม่สามารถบันทึกผลการคืนเงินได้"
+    );
+  } finally {
+    actionLoading.value = null;
+  }
 }
 
-function money(n) {
-  return `฿${n.toLocaleString("en-US")}`;
+function changeTab(tab) {
+  activeTab.value = tab;
+  loadPayments();
 }
+
+onMounted(loadPayments);
 </script>
 
 <template>
   <section class="payment">
-    <p class="section-title">Payment</p>
+    <div class="header-row">
+      <div>
+        <p class="section-title">Payment</p>
+        <p class="subtitle">
+          ตรวจสอบสถานะ Escrow และรายการชำระเงิน
+        </p>
+      </div>
+
+      <button
+        class="refresh-btn"
+        :disabled="loading"
+        @click="loadPayments"
+      >
+        {{ loading ? "Loading..." : "Refresh" }}
+      </button>
+    </div>
 
     <nav class="tabs">
-      <button v-for="t in tabs" :key="t" :class="{ active: activeTab === t }" @click="activeTab = t">
-        {{ t }}
+      <button
+        v-for="tab in tabs"
+        :key="tab.label"
+        :class="{ active: activeTab === tab.label }"
+        @click="changeTab(tab.label)"
+      >
+        {{ tab.label }}
       </button>
     </nav>
 
-    <!-- Pending: awaiting escrow release -->
-    <ul v-if="activeTab === 'Pending'" class="list">
-      <li v-for="p in pendingPayments" :key="p.id" class="card">
-        <div class="card-top">
-          <div>
-            <p class="name">{{ p.name }}</p>
-            <p class="subtitle">{{ p.subtitle }}</p>
-          </div>
-          <span class="status-badge yellow">Pending</span>
-        </div>
-        <p class="note">{{ p.note }}</p>
-        <div class="slip-row">
-          <span class="slip-label">Payment slip</span>
-          <span class="slip-chip">📎 {{ p.slip }}</span>
-        </div>
-        <div class="action-row">
-          <button class="action-btn ghost">Details</button>
-          <button class="action-btn primary" @click="transfer(p)">Transfer</button>
-        </div>
-      </li>
-      <li v-if="!pendingPayments.length" class="empty">No pending payments.</li>
-    </ul>
+    <div v-if="errorMessage" class="error-box">
+      {{ errorMessage }}
+    </div>
 
-    <!-- Paid: released, kept for audit -->
-    <ul v-else-if="activeTab === 'Paid'" class="list">
-      <li v-for="p in paidPayments" :key="p.id" class="card">
-        <div class="card-top">
-          <div>
-            <p class="name">{{ p.name }}</p>
-            <p class="subtitle">{{ p.subtitle }}</p>
-          </div>
-          <span class="status-badge green">Paid</span>
-        </div>
-        <div class="detail-row">
-          <span>Platform fee earned</span>
-          <strong>{{ money(Math.round(p.amount * 0.1)) }}</strong>
-        </div>
-        <div class="detail-row">
-          <span>Transfer date</span>
-          <strong>{{ p.transferDate }}</strong>
-        </div>
-        <div class="action-row">
-          <button class="action-btn ghost-primary">View Slip</button>
-          <button class="action-btn ghost">Details</button>
-        </div>
-      </li>
-      <li v-if="!paidPayments.length" class="empty">No paid transactions yet.</li>
-    </ul>
+    <div v-if="loading" class="empty">
+      กำลังโหลดรายการชำระเงิน...
+    </div>
 
-    <!-- Refund adjudication -->
     <ul v-else class="list">
-      <li v-for="r in refundRequests" :key="r.id" class="card">
-        <p class="card-title">Refund request</p>
-        <div class="field-row"><span>User Refund</span><strong>{{ r.userRefund }}</strong></div>
-        <div class="field-row"><span>Amount</span><strong>{{ money(r.amount) }}</strong></div>
-        <div class="field-row"><span>Reason</span><strong>{{ r.reason }}</strong></div>
-        <div class="field-row"><span>Job</span><strong>{{ r.job }}</strong></div>
-        <div class="action-row">
-          <button class="action-btn primary" @click="approveRefund(r)">Approve Refund</button>
-          <button class="action-btn danger" @click="rejectRefund(r)">Reject</button>
+      <li
+        v-for="payment in payments"
+        :key="payment._id"
+        class="card"
+      >
+        <div class="card-top">
+          <div>
+            <p class="name">
+              {{ payment.job?.title || "Unknown Job" }}
+            </p>
+
+            <p class="subtitle">
+              Payment ID: {{ payment._id }}
+            </p>
+          </div>
+
+          <span
+            class="status-badge"
+            :class="activeTab.toLowerCase()"
+          >
+            {{ activeTab }}
+          </span>
+        </div>
+
+        <div class="detail-row">
+          <span>Hirer</span>
+          <strong>
+            {{ payment.hirer?.fullName || "-" }}
+          </strong>
+        </div>
+
+        <div class="detail-row">
+          <span>Worker</span>
+          <strong>
+            {{ payment.worker?.fullName || "-" }}
+          </strong>
+        </div>
+
+        <div class="detail-row">
+          <span>Amount</span>
+          <strong>
+            {{ money(payment.amount) }}
+          </strong>
+        </div>
+
+        <div class="detail-row">
+          <span>Platform fee</span>
+          <strong>
+            {{ money(payment.platformFeeAmount) }}
+          </strong>
+        </div>
+
+        <div class="detail-row">
+          <span>Worker receives</span>
+          <strong>
+            {{ money(payment.netAmountToWorker) }}
+          </strong>
+        </div>
+
+        <div class="detail-row">
+          <span>Created</span>
+          <strong>
+            {{ formatDate(payment.createdAt) }}
+          </strong>
+        </div>
+
+        <div
+          v-if="payment.refundDecision"
+          class="refund-status"
+        >
+          Refund decision:
+          <strong>
+            {{ payment.refundDecision }}
+          </strong>
+        </div>
+
+        <div
+          v-if="activeTab === 'Disputed'"
+          class="action-row"
+        >
+          <button
+            class="action-btn primary"
+            :disabled="actionLoading === payment._id"
+            @click="decideRefund(payment, 'approved')"
+          >
+            Approve Refund
+          </button>
+
+          <button
+            class="action-btn danger"
+            :disabled="actionLoading === payment._id"
+            @click="decideRefund(payment, 'rejected')"
+          >
+            Reject
+          </button>
         </div>
       </li>
-      <li v-if="!refundRequests.length" class="empty">No refund requests.</li>
+
+      <li v-if="!payments.length" class="empty">
+        ไม่มีรายการในสถานะนี้
+      </li>
     </ul>
   </section>
 </template>
 
 <style scoped>
-.payment { padding: 16px; }
-.section-title { margin: 0 0 12px; font-weight: 700; }
+.payment {
+  padding: 16px;
+}
 
-.tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.refresh-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
 .tabs button {
   flex: 1;
   min-height: 44px;
@@ -170,60 +287,135 @@ function money(n) {
   color: var(--color-primary-dark);
   font-weight: 600;
 }
-.tabs button.active { background: var(--color-primary); color: #3a2a05; }
 
-.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.tabs button.active {
+  background: var(--color-primary);
+  color: #3a2a05;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 14px;
 }
-.card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.name { margin: 0; font-weight: 700; font-size: 14px; }
-.subtitle { margin: 2px 0 0; font-size: 12px; color: var(--color-text-muted); }
-.card-title { font-weight: 700; margin: 0 0 10px; font-size: 14px; }
 
-.status-badge { font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; color: white; flex-shrink: 0; }
-.status-badge.yellow { background: var(--color-primary); color: #3a2a05; }
-.status-badge.green { background: var(--color-green); }
-
-.note { font-size: 12px; color: var(--color-text-muted); margin: 10px 0; }
-
-.slip-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.slip-label { font-size: 12px; font-weight: 600; color: var(--color-text-muted); }
-.slip-chip {
-  font-size: 12px;
-  background: var(--color-primary-light);
-  color: var(--color-primary-dark);
-  padding: 6px 10px;
-  border-radius: 8px;
-}
-
-.detail-row, .field-row {
+.card-top {
   display: flex;
   justify-content: space-between;
-  font-size: 13px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--color-border);
+  gap: 8px;
+  margin-bottom: 8px;
 }
-.detail-row:last-of-type, .field-row:last-of-type { border-bottom: none; }
-.field-row span, .detail-row span { color: var(--color-text-muted); }
 
-.action-row { display: flex; gap: 10px; margin-top: 12px; }
+.name {
+  margin: 0;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.subtitle {
+  margin: 3px 0 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.status-badge {
+  height: fit-content;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+
+.status-badge.held {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.status-badge.released {
+  background: var(--color-green-bg);
+  color: var(--color-green);
+}
+
+.status-badge.disputed {
+  background: var(--color-red-bg);
+  color: var(--color-red);
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 13px;
+}
+
+.detail-row span {
+  color: var(--color-text-muted);
+}
+
+.refund-status {
+  margin-top: 10px;
+  padding: 8px;
+  background: var(--color-bg);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.action-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .action-btn {
   flex: 1;
   min-height: 40px;
-  border-radius: 8px;
   border: none;
-  font-size: 13px;
+  border-radius: 8px;
   font-weight: 700;
-  cursor: pointer;
 }
-.action-btn.ghost { background: var(--color-bg); color: var(--color-text); }
-.action-btn.ghost-primary { background: var(--color-primary-light); color: var(--color-primary-dark); }
-.action-btn.primary { background: var(--color-primary); color: #3a2a05; }
-.action-btn.danger { background: var(--color-red-bg); color: var(--color-red); }
 
-.empty { text-align: center; color: var(--color-text-muted); padding: 20px 0; }
+.primary {
+  background: var(--color-primary);
+  color: #3a2a05;
+}
+
+.danger {
+  background: var(--color-red-bg);
+  color: var(--color-red);
+}
+
+.error-box {
+  padding: 12px;
+  background: var(--color-red-bg);
+  color: var(--color-red);
+  border-radius: 8px;
+}
+
+.empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 24px;
+}
+
+@media (max-width: 600px) {
+  .header-row {
+    flex-direction: column;
+  }
+
+  .refresh-btn {
+    width: 100%;
+  }
+}
 </style>
