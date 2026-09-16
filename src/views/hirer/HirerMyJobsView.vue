@@ -8,12 +8,14 @@ import api from "../../services/api";
 const router = useRouter();
 
 const tabs = [
+  { value: "pending_review", label: "รอตรวจสอบ" },
   { value: "waiting", label: "เปิดรับสมัคร" },
   { value: "assigned", label: "กำลังดำเนินการ" },
   { value: "completed", label: "เสร็จสิ้น" },
   { value: "cancelled", label: "ยกเลิก" },
+  { value: "rejected", label: "ถูกปฏิเสธ" },
 ];
-const activeTab = ref("waiting");
+const activeTab = ref("pending_review");
 const jobs = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
@@ -71,6 +73,8 @@ function goBack() {
         <div class="card-body">
           <p class="title-text">{{ job.title }}</p>
           <p class="desc">{{ job.description }}</p>
+          <p v-if="job.status === 'pending_review'" class="status-note pending">⏳ รอ Admin ตรวจสอบก่อนเปิดรับสมัคร</p>
+          <p v-if="job.status === 'rejected'" class="status-note rejected">✕ {{ job.rejectionReason || "ไม่ผ่านการตรวจสอบเนื้อหา" }}</p>
           <div class="tags">
             <span class="tag">฿{{ job.price }}</span>
             <span class="tag">{{ job.category }}</span>
@@ -103,6 +107,9 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .card-body { flex: 1; min-width: 0; }
 .title-text { margin: 0; font-size: 14px; font-weight: 700; color: #111; }
 .desc { margin: 4px 0 8px; font-size: 12.5px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-note { margin: 0 0 8px; font-size: 12px; }
+.status-note.pending { color: #b45309; }
+.status-note.rejected { color: #b91c1c; }
 .tags { display: flex; gap: 6px; }
 .tag { background: #eee; color: #444; font-size: 11px; padding: 3px 8px; border-radius: 10px; }
 .cta { flex-shrink: 0; font-size: 12.5px; font-weight: 700; color: #d99a00; }

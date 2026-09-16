@@ -1,130 +1,359 @@
 <script setup>
-// FR-ADMIN-07: Allow Admin to receive, monitor, and respond to SOS alerts platform-wide.
-// FR-SOS-04: Allow Admin to view SOS details, contact the Worker, and mark the alert resolved.
-// NFR-PERF-02: SOS alerts shall reach Admin within 1 minute of activation
-// (this view would subscribe to a socket.io channel in the real implementation —
-// see src/services/api.js / socket.io-client dependency already in package.json).
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
+import api from "../../services/api";
 
-const period = ref("This Month");
-const periods = ["Today", "This Week", "This Month"];
-
-const activeFilter = ref("All"); // All | Pending | Complete
+const activeFilter = ref("All");
 const filters = ["All", "Pending", "Complete"];
-const expandedId = ref(null);
 
-// TODO: แทนที่ mock ด้วย GET /api/admin/sos?period= และ subscribe socket "sos:new" (FR-ADMIN-07, NFR-PERF-02)
-const alerts = ref([
-  {
-    id: "SOS-77",
-    worker: "Korawan K.",
-    message: "Reporting an incident",
-    location: "Soi 4, near the campus dorm",
-    time: "12 Aug 2026, 21:14",
-    status: "Pending",
-  },
-  {
-    id: "SOS-76",
-    worker: "Ponlawat C.",
-    message: "Vehicle broke down mid-delivery",
-    location: "Highway 118, km 12",
-    time: "10 Aug 2026, 18:02",
-    status: "Complete",
-  },
-  {
-    id: "SOS-74",
-    worker: "Areeya S.",
-    message: "Felt unsafe at job location",
-    location: "Building C, 3rd floor",
-    time: "4 Aug 2026, 20:47",
-    status: "Complete",
-  },
-]);
+const alerts = ref([]);
+const loading = ref(true);
+const errorMessage = ref("");
+const actionLoading = ref(null);
+const expandedId = ref(null);
 
 const counts = computed(() => ({
   all: alerts.value.length,
-  complete: alerts.value.filter((a) => a.status === "Complete").length,
-  pending: alerts.value.filter((a) => a.status === "Pending").length,
+
+  complete: alerts.value.filter(
+    (alert) => alert.status === "resolved"
+  ).length,
+
+  pending: alerts.value.filter(
+    (alert) => alert.status === "active"
+  ).length,
 }));
 
-const filteredAlerts = computed(() =>
-  activeFilter.value === "All" ? alerts.value : alerts.value.filter((a) => a.status === activeFilter.value)
-);
+const filteredAlerts = computed(() => {
+  if (activeFilter.value === "All") {
+    return alerts.value;
+  }
+
+  if (activeFilter.value === "Pending") {
+    return alerts.value.filter(
+      (alert) => alert.status === "active"
+    );
+  }
+
+  return alerts.value.filter(
+    (alert) => alert.status === "resolved"
+  );
+});
 
 function toggleExpand(id) {
-  expandedId.value = expandedId.value === id ? null : id;
+  expandedId.value =
+    expandedId.value === id ? null : id;
+}
+
+function statusLabel(status) {
+  return status === "active" ? "Pending" : "Complete";
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+
+  return new Date(value).toLocaleString("th-TH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function locationText(alert) {
+  const coordinates =
+    alert.location?.coordinates;
+
+  if (
+    Array.isArray(coordinates) &&
+    coordinates.length >= 2
+  ) {
+    return `${coordinates[1]}, ${coordinates[0]}`;
+  }
+
+  return "ไม่พบตำแหน่ง";
+}
+
+async function loadAlerts() {
+  loading.value = true;
+  errorMessage.value = "";
+
+  try {
+    const { data } = await api.get("/admin/sos");
+
+    alerts.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error(error);
+
+    errorMessage.value =
+      error.response?.data?.message ||
+      "ไม่สามารถโหลดข้อมูล SOS ได้";
+  } finally {
+    loading.value = false;
+  }
 }
 
 function contactWorker(alert) {
-  // TODO: เปิดช่องทางติดต่อ Worker โดยตรง (โทร/แชท) ตาม FR-SOS-04
-  console.log("Contact worker", alert.worker);
+  const phone = alert.worker?.phone;
+
+  if (!phone) {
+    alert("ผู้ใช้รายนี้ไม่มีหมายเลขโทรศัพท์");
+    return;
+  }
+
+  window.location.href = `tel:${phone}`;
 }
 
-function markResolved(alert) {
-  // TODO: PATCH /api/admin/sos/:id/resolve (FR-SOS-04)
-  alert.status = "Complete";
+async function markResolved(alert) {
+  if (actionLoading.value) return;
+
+  const notes = window.prompt(
+    "หมายเหตุสำหรับการปิดเคส SOS",
+    ""
+  );
+
+  if (notes === null) return;
+
+  actionLoading.value = alert._id;
+
+  try {
+    const { data } = await api.post(
+      `/admin/sos/${alert._id}/resolve`,
+      {
+        adminNotes: notes,
+      }
+    );
+
+    alerts.value = alerts.value.map((item) =>
+      item._id === alert._id
+        ? data.sos
+        : item
+    );
+  } catch (error) {
+    alert(
+      error.response?.data?.message ||
+        "ไม่สามารถปิดเคส SOS ได้"
+    );
+  } finally {
+    actionLoading.value = null;
+  }
 }
+
+onMounted(loadAlerts);
 </script>
 
 <template>
   <section class="sos">
-    <p class="section-title">SOS Alert</p>
+    <div class="header-row">
+      <div>
+        <p class="section-title">SOS Alert</p>
+        <p class="subtitle">
+          รับและจัดการสัญญาณ SOS จาก Worker
+        </p>
+      </div>
+
+      <button
+        class="refresh-btn"
+        :disabled="loading"
+        @click="loadAlerts"
+      >
+        {{ loading ? "Loading..." : "Refresh" }}
+      </button>
+    </div>
 
     <div class="card overview-card">
       <div class="overview-header">
-        <span class="overview-title">SOS Alert overview</span>
-        <select v-model="period" class="range-select">
-          <option v-for="p in periods" :key="p">{{ p }}</option>
-        </select>
+        <span class="overview-title">
+          SOS Alert overview
+        </span>
       </div>
+
       <div class="overview-stats">
         <div class="overview-stat">
-          <p class="overview-value">{{ counts.all }}</p>
+          <p class="overview-value">
+            {{ counts.all }}
+          </p>
           <p class="overview-label">All</p>
         </div>
+
         <div class="overview-stat">
-          <p class="overview-value">{{ counts.complete }}</p>
+          <p class="overview-value">
+            {{ counts.complete }}
+          </p>
           <p class="overview-label">Complete</p>
         </div>
+
         <div class="overview-stat">
-          <p class="overview-value danger">{{ counts.pending }}</p>
+          <p class="overview-value danger">
+            {{ counts.pending }}
+          </p>
           <p class="overview-label">Pending</p>
         </div>
       </div>
     </div>
 
     <nav class="tabs">
-      <button v-for="f in filters" :key="f" :class="{ active: activeFilter === f }" @click="activeFilter = f">
-        {{ f }}
+      <button
+        v-for="filter in filters"
+        :key="filter"
+        :class="{ active: activeFilter === filter }"
+        @click="activeFilter = filter"
+      >
+        {{ filter }}
       </button>
     </nav>
 
-    <ul class="alert-list">
-      <li v-for="a in filteredAlerts" :key="a.id" class="alert-item" :class="{ pending: a.status === 'Pending' }">
-        <button class="alert-row" @click="toggleExpand(a.id)">
-          <span class="alert-text">{{ a.worker }} <span class="dash">—</span> {{ a.message }}</span>
-          <span class="status-badge" :class="a.status === 'Pending' ? 'red' : 'green'">{{ a.status }}</span>
-          <span class="chevron" :class="{ open: expandedId === a.id }">⌄</span>
+    <div v-if="errorMessage" class="error-box">
+      {{ errorMessage }}
+    </div>
+
+    <div v-if="loading" class="empty">
+      กำลังโหลด SOS...
+    </div>
+
+    <ul v-else class="alert-list">
+      <li
+        v-for="alert in filteredAlerts"
+        :key="alert._id"
+        class="alert-item"
+        :class="{
+          pending: alert.status === 'active',
+        }"
+      >
+        <button
+          class="alert-row"
+          @click="toggleExpand(alert._id)"
+        >
+          <span class="alert-text">
+            {{ alert.worker?.fullName || "Unknown Worker" }}
+            <span class="dash">—</span>
+            {{ alert.job?.title || "Unknown Job" }}
+          </span>
+
+          <span
+            class="status-badge"
+            :class="
+              alert.status === 'active'
+                ? 'red'
+                : 'green'
+            "
+          >
+            {{ statusLabel(alert.status) }}
+          </span>
+
+          <span
+            class="chevron"
+            :class="{
+              open: expandedId === alert._id,
+            }"
+          >
+            ⌄
+          </span>
         </button>
-        <div v-if="expandedId === a.id" class="alert-detail">
-          <p class="detail-row"><span>Location</span><strong>{{ a.location }}</strong></p>
-          <p class="detail-row"><span>Time</span><strong>{{ a.time }}</strong></p>
+
+        <div
+          v-if="expandedId === alert._id"
+          class="alert-detail"
+        >
+          <p class="detail-row">
+            <span>Worker</span>
+            <strong>
+              {{ alert.worker?.fullName || "-" }}
+            </strong>
+          </p>
+
+          <p class="detail-row">
+            <span>Phone</span>
+            <strong>
+              {{ alert.worker?.phone || "-" }}
+            </strong>
+          </p>
+
+          <p class="detail-row">
+            <span>Job</span>
+            <strong>
+              {{ alert.job?.title || "-" }}
+            </strong>
+          </p>
+
+          <p class="detail-row">
+            <span>Location</span>
+            <strong>
+              {{ locationText(alert) }}
+            </strong>
+          </p>
+
+          <p class="detail-row">
+            <span>Triggered</span>
+            <strong>
+              {{ formatDate(alert.triggeredAt) }}
+            </strong>
+          </p>
+
+          <p
+            v-if="alert.adminNotes"
+            class="notes"
+          >
+            Admin notes:
+            {{ alert.adminNotes }}
+          </p>
+
           <div class="action-row">
-            <button class="action-btn ghost" @click="contactWorker(a)">Contact Worker</button>
-            <button v-if="a.status === 'Pending'" class="action-btn primary" @click="markResolved(a)">
+            <button
+              class="action-btn ghost"
+              @click.stop="contactWorker(alert)"
+            >
+              Contact Worker
+            </button>
+
+            <button
+              v-if="alert.status === 'active'"
+              class="action-btn primary"
+              :disabled="actionLoading === alert._id"
+              @click.stop="markResolved(alert)"
+            >
               Mark Resolved
             </button>
           </div>
         </div>
       </li>
-      <li v-if="!filteredAlerts.length" class="empty">No SOS alerts in this view.</li>
+
+      <li
+        v-if="!filteredAlerts.length"
+        class="empty"
+      >
+        No SOS alerts in this view.
+      </li>
     </ul>
   </section>
 </template>
 
 <style scoped>
-.sos { padding: 16px; }
-.section-title { margin: 0 0 12px; font-weight: 700; }
+.sos {
+  padding: 16px;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.refresh-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
 
 .card {
   background: var(--color-surface);
@@ -132,24 +361,57 @@ function markResolved(alert) {
   border-radius: var(--radius-lg);
   padding: 14px;
 }
-.overview-card { margin-bottom: 12px; }
-.overview-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.overview-title { font-size: 12px; color: var(--color-text-muted); font-weight: 600; }
-.range-select {
-  border: 1px solid var(--color-border);
-  border-radius: 6px;
-  padding: 4px 6px;
-  font-size: 12px;
-  background: var(--color-surface);
-}
-.overview-stats { display: flex; }
-.overview-stat { flex: 1; text-align: center; border-left: 1px solid var(--color-border); }
-.overview-stat:first-child { border-left: none; }
-.overview-value { margin: 0; font-size: 22px; font-weight: 800; }
-.overview-value.danger { color: var(--color-red); }
-.overview-label { margin: 2px 0 0; font-size: 12px; color: var(--color-text-muted); }
 
-.tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.overview-card {
+  margin-bottom: 12px;
+}
+
+.overview-header {
+  margin-bottom: 10px;
+}
+
+.overview-title {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.overview-stats {
+  display: flex;
+}
+
+.overview-stat {
+  flex: 1;
+  text-align: center;
+  border-left: 1px solid var(--color-border);
+}
+
+.overview-stat:first-child {
+  border-left: none;
+}
+
+.overview-value {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.overview-value.danger {
+  color: var(--color-red);
+}
+
+.overview-label {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .tabs button {
   flex: 1;
   min-height: 44px;
@@ -157,18 +419,33 @@ function markResolved(alert) {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   font-weight: 600;
-  color: var(--color-text-muted);
 }
-.tabs button.active { background: var(--color-primary); color: #3a2a05; border-color: var(--color-primary); }
 
-.alert-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.tabs button.active {
+  background: var(--color-primary);
+  color: #3a2a05;
+  border-color: var(--color-primary);
+}
+
+.alert-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .alert-item {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
 }
-.alert-item.pending { border-color: var(--color-primary); }
+
+.alert-item.pending {
+  border-color: var(--color-primary);
+}
 
 .alert-row {
   width: 100%;
@@ -181,29 +458,108 @@ function markResolved(alert) {
   text-align: left;
   cursor: pointer;
 }
-.alert-text { flex: 1; font-size: 13px; font-weight: 600; }
-.dash { color: var(--color-text-muted); font-weight: 400; }
-.status-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 999px; color: white; flex-shrink: 0; }
-.status-badge.red { background: var(--color-red); }
-.status-badge.green { background: var(--color-green); }
-.chevron { color: var(--color-text-muted); transition: transform 0.2s ease; }
-.chevron.open { transform: rotate(180deg); }
 
-.alert-detail { padding: 0 14px 14px; }
-.detail-row { display: flex; justify-content: space-between; font-size: 13px; margin: 0 0 6px; }
-.detail-row span { color: var(--color-text-muted); }
-.action-row { display: flex; gap: 8px; margin-top: 10px; }
+.alert-text {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dash {
+  color: var(--color-text-muted);
+}
+
+.status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: white;
+}
+
+.status-badge.red {
+  background: var(--color-red);
+}
+
+.status-badge.green {
+  background: var(--color-green);
+}
+
+.chevron {
+  color: var(--color-text-muted);
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.alert-detail {
+  padding: 0 14px 14px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  margin: 0 0 7px;
+}
+
+.detail-row span {
+  color: var(--color-text-muted);
+}
+
+.notes {
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--color-bg);
+  font-size: 12px;
+}
+
+.action-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
 .action-btn {
   flex: 1;
   min-height: 40px;
-  border-radius: 8px;
   border: none;
-  font-size: 12px;
+  border-radius: 8px;
   font-weight: 700;
-  cursor: pointer;
 }
-.action-btn.ghost { background: var(--color-bg); color: var(--color-text); }
-.action-btn.primary { background: var(--color-primary); color: #3a2a05; }
 
-.empty { text-align: center; color: var(--color-text-muted); padding: 20px 0; }
+.ghost {
+  background: var(--color-bg);
+}
+
+.primary {
+  background: var(--color-primary);
+  color: #3a2a05;
+}
+
+.error-box {
+  padding: 12px;
+  background: var(--color-red-bg);
+  color: var(--color-red);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 24px;
+}
+
+@media (max-width: 600px) {
+  .header-row {
+    flex-direction: column;
+  }
+
+  .refresh-btn {
+    width: 100%;
+  }
+}
 </style>
