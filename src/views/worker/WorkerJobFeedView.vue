@@ -20,14 +20,26 @@ const drawerItems = [
   { label: "การชำระเงิน", icon: "wallet", to: "/worker/payment" },
 ];
 
-// TODO NFR-USE-04: สลับบทบาทผู้ว่าจ้าง/ผู้รับจ้าง — ต้องเรียก PATCH /api/users/me/role แล้วอัปเดต auth.user.currentRole
-function switchRole() {
-  drawerOpen.value = false;
-  alert("TODO: สลับบทบาทเป็นผู้ว่าจ้าง");
+// NFR-USE-04: สลับบทบาทผู้ว่าจ้าง/ผู้รับจ้าง (FR-AUTH-06)
+const switching = ref(false);
+async function switchRole() {
+  if (switching.value) return;
+  switching.value = true;
+  try {
+    const { data } = await api.patch("/auth/role", { role: "hirer" });
+    auth.updateUser(data.user);
+    drawerOpen.value = false;
+    router.push({ name: "hirer-dashboard" });
+  } catch (e) {
+    alert("สลับบทบาทไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  } finally {
+    switching.value = false;
+  }
 }
 function logout() {
   auth.logout();
   drawerOpen.value = false;
+  router.push({ name: "login" });
 }
 
 /* ---------- ค้นหา / กรอง ---------- */
@@ -231,6 +243,7 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
       <div class="brand">
         <span class="brand-icon">👥</span>
         <span class="brand-name">JangDi</span>
+        <span class="role-pill" aria-label="บทบาทปัจจุบัน">🧰 Worker</span>
       </div>
       <RouterLink to="/profile" class="avatar-btn" aria-label="โปรไฟล์ของฉัน">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
@@ -247,6 +260,9 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
           <span class="brand-icon">👥</span>
           <span class="brand-name">JangDi</span>
         </div>
+        <div class="drawer-role">
+          กำลังใช้งานในบทบาท <strong>ผู้รับจ้าง (Worker)</strong>
+        </div>
         <RouterLink
           v-for="item in drawerItems"
           :key="item.label"
@@ -254,7 +270,9 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
           class="drawer-link"
           @click="drawerOpen = false"
         >{{ item.label }}</RouterLink>
-        <button class="drawer-link" @click="switchRole">สลับบทบาท</button>
+        <button class="drawer-link" :disabled="switching" @click="switchRole">
+          {{ switching ? "กำลังสลับบทบาท…" : "สลับเป็นผู้ว่าจ้าง (Hirer)" }}
+        </button>
         <button class="drawer-link logout" @click="logout">ออกจากระบบ</button>
       </nav>
     </Transition>
@@ -400,6 +418,10 @@ svg {
 .brand { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 18px; }
 .brand-icon { font-size: 18px; }
 .brand-name { color: #111; }
+.role-pill {
+  font-size: 11px; font-weight: 700; color: #14532d; background: #ecfdf5;
+  border: 1px solid #16a34a; border-radius: 10px; padding: 2px 8px; white-space: nowrap;
+}
 
 /* ---------- Drawer ---------- */
 .backdrop {
@@ -422,7 +444,9 @@ svg {
   flex-direction: column;
   box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
 }
-.drawer-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; margin-bottom: 16px; }
+.drawer-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+.drawer-role { font-size: 13px; color: #555; margin-bottom: 16px; }
+.drawer-role strong { color: #111; }
 .drawer-link {
   display: block;
   text-align: left;
@@ -437,6 +461,7 @@ svg {
   cursor: pointer;
 }
 .drawer-link.logout { color: #d33; margin-top: auto; }
+.drawer-link:disabled { opacity: 0.6; cursor: default; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .slide-enter-active, .slide-leave-active { transition: transform 0.2s; }

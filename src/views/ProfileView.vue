@@ -7,15 +7,22 @@
 // หน้านี้ใช้ร่วมกันระหว่าง Hirer และ Worker (บัญชีเดียวสลับ role ได้ตาม FR-AUTH-06)
 // เนื้อหาในหน้าไม่มีอะไรเฉพาะ role ใดเลย จึงไม่ผูก route guard ด้วย meta.role (ดู router/index.js)
 import { computed, onMounted, ref } from "vue";
+import { useRouter } from "vue-router";
 import api from "../services/api";
 import { useAuthStore } from "../stores/auth";
 
 const auth = useAuthStore();
+const router = useRouter();
 const loading = ref(true);
 const errorMsg = ref("");
 
 // ปุ่ม "หน้าแรก" ใน bottom nav ต้องพากลับ dashboard ของ role ปัจจุบัน ไม่ผูกตายตัวกับ role ใดรole หนึ่ง
 const homePath = computed(() => (auth.currentRole === "worker" ? "/worker" : "/hirer"));
+
+function logout() {
+  auth.logout();
+  router.push({ name: "login" });
+}
 
 /* ---------- รูปโปรไฟล์ ---------- */
 const avatarInput = ref(null);
@@ -407,6 +414,10 @@ onMounted(async () => {
       <button class="nav-item">
         <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6" /><path d="M10 21a2 2 0 004 0" /></svg>
         <span class="badge">4</span>
+      </button>
+      <button class="nav-item" @click="logout">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>
+        <span>ออกจากระบบ</span>
       </button>
     </footer>
   </div>

@@ -6,10 +6,13 @@ defineProps({
 });
 
 const styles = {
+  pending_review: { color: "#b45309", bg: "#fef3c7" },
   waiting: { color: "#b45309", bg: "#fef3c7" },
+  assigned: { color: "#1d4ed8", bg: "#dbeafe" },
   in_progress: { color: "#1d4ed8", bg: "#dbeafe" },
   completed: { color: "#15803d", bg: "#dcfce7" },
   cancelled: { color: "#b91c1c", bg: "#fee2e2" },
+  rejected: { color: "#b91c1c", bg: "#fee2e2" },
 };
 </script>
 

@@ -4,10 +4,13 @@
 // FR-SERV-04: ผู้ว่าจ้างเรียกดู Service Post ที่ใช้งานอยู่ และกด "Hiring" เพื่อส่ง Service Request
 // หมายเหตุ: ประกาศประเภท "ผู้ว่าจ้าง" (Job ของผู้ว่าจ้างรายอื่น) เปิดดูได้เฉพาะ "รายละเอียด" เท่านั้น
 //           เพราะการสมัครงาน (FR-BROWSE-04) เป็นสิทธิ์ของผู้รับจ้าง ไม่ใช่ผู้ว่าจ้าง
-import { computed, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
+import api from "../../services/api";
 
 const auth = useAuthStore();
+const router = useRouter();
 
 /* ---------- ส่วนบน: เมนู/โปรไฟล์ (ตาม Frame 891 — เมนูฝั่งผู้ว่าจ้าง) ---------- */
 const drawerOpen = ref(false);
@@ -26,10 +29,21 @@ const drawerItems = [
   },
 ];
 
-// TODO NFR-USE-04: สลับบทบาทผู้ว่าจ้าง/ผู้รับจ้าง — ต้องเรียก PATCH /api/users/me/role แล้วอัปเดต auth.user.currentRole
-function switchRole() {
-  drawerOpen.value = false;
-  alert("TODO: สลับบทบาทเป็นผู้รับจ้าง");
+// NFR-USE-04: สลับบทบาทผู้ว่าจ้าง/ผู้รับจ้าง (FR-AUTH-06)
+const switching = ref(false);
+async function switchRole() {
+  if (switching.value) return;
+  switching.value = true;
+  try {
+    const { data } = await api.patch("/auth/role", { role: "worker" });
+    auth.updateUser(data.user);
+    drawerOpen.value = false;
+    router.push({ name: "job-feed" });
+  } catch (e) {
+    alert("สลับบทบาทไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+  } finally {
+    switching.value = false;
+  }
 }
 function goItem(item) {
   drawerOpen.value = false;
@@ -38,6 +52,7 @@ function goItem(item) {
 function logout() {
   auth.logout();
   drawerOpen.value = false;
+  router.push({ name: "login" });
 }
 
 /* ---------- ค้นหา / กรอง ---------- */
@@ -62,82 +77,70 @@ const categories = [
 const activeCategory = ref("all");
 
 /* ---------- ข้อมูลฟีด ----------
-   TODO: แทนที่ mock นี้ด้วย GET /api/jobs?type={activeTab}&category={activeCategory}&search={searchQuery}
-   (รวมทั้งประกาศงานประเภท Job และ Service Post ตาม FR-BROWSE-01) */
-function minutesAgo(mins) {
-  return new Date(Date.now() - mins * 60 * 1000);
+   FR-BROWSE-01/02: ดึง Job (จาก hirer รายอื่น) + Service Post (จาก worker) จาก backend จริง */
+function formatWindow(start, end) {
+  if (!start && !end) return "";
+  const format = (value) => new Date(value).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" });
+  return [start && format(start), end && format(end)].filter(Boolean).join(" - ");
 }
-const posts = ref([
-  {
-    id: "j1",
+
+function mapJob(job) {
+  return {
+    id: job._id,
     type: "hirer", // ประกาศงาน (Job) ของผู้ว่าจ้างรายอื่น — ดูได้แค่รายละเอียด
-    category: "delivery",
-    name: "Pitak",
-    postedAt: minutesAgo(60),
-    description: "Pick up the package at the MFU post office and have it delivered to Building E1.",
-    price: 30,
-    window: "within 1 hour",
-    eta: "2 km",
-  },
-  {
-    id: "j2",
-    type: "hirer",
-    category: "delivery",
-    name: "Thanawit",
-    postedAt: minutesAgo(45),
-    description: "I'm looking for someone to pick up food from Hachikyu.",
-    price: 50,
-    window: "within 1 hour",
-    eta: "1 km",
-  },
-  {
-    id: "j3",
-    type: "hirer",
-    category: "writing",
-    name: "Chanidapa",
-    postedAt: minutesAgo(20),
-    description: "I need someone to print 20-page document.",
-    price: 30,
-    window: "within 1 hour",
-    eta: "800 m",
-  },
-  {
-    id: "s1",
+    category: job.category,
+    name: job.hirer?.fullName || "ผู้ว่าจ้าง",
+    postedAt: new Date(job.createdAt),
+    description: job.description || job.title || "-",
+    price: Number(job.price || 0) + Number(job.deliveryFee || 0),
+    window: formatWindow(job.durationStart, job.durationEnd) || (job.scheduledAt ? new Date(job.scheduledAt).toLocaleString("th-TH") : "-"),
+    eta: job.locationText || job.toText || "-",
+  };
+}
+
+function mapServicePost(post) {
+  return {
+    id: post._id,
     type: "worker", // Service Post ของผู้รับจ้าง — กด "Hiring" เพื่อส่ง Service Request ได้
-    category: "delivery",
-    name: "Somsak",
-    postedAt: minutesAgo(3),
-    description: "I'm going to buy chicken rice at Ling Lin. Does anyone want some?",
-    price: 20,
-    window: "within 1 hour",
-    eta: "2 km",
+    category: post.category,
+    name: post.worker?.fullName || "ผู้รับจ้าง",
+    postedAt: new Date(post.createdAt),
+    description: post.description || post.title || "-",
+    price: Number(post.fee || 0),
+    window: formatWindow(post.availabilityStart, post.availabilityEnd) || "-",
+    eta: post.serviceRadiusMeters ? `รัศมี ${(post.serviceRadiusMeters / 1000).toFixed(1)} กม.` : "-",
     hiring: true,
-  },
-  {
-    id: "s2",
-    type: "worker",
-    category: "cleaning",
-    name: "Mo",
-    postedAt: minutesAgo(9),
-    description: "I'm going to do the laundry. Does anyone want to wash theirs?",
-    price: 20,
-    window: "45 min",
-    eta: "10 min",
-    hiring: true,
-  },
-  {
-    id: "s3",
-    type: "worker",
-    category: "delivery",
-    name: "Modeng",
-    postedAt: minutesAgo(12),
-    description: "I'm going to the market in front of the university. Does anyone want me to buy anything?",
-    price: 10,
-    window: "40 min",
-    eta: "12 min",
-    hiring: true,
-  },
-]);
+  };
+}
+
+const posts = ref([]);
+const loading = ref(true);
+const errorMsg = ref("");
+
+async function loadFeed() {
+  loading.value = true;
+  errorMsg.value = "";
+  try {
+    const [jobsResponse, servicePostsResponse] = await Promise.all([
+      api.get("/jobs", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value, search: searchQuery.value.trim() || undefined } }),
+      api.get("/service-posts", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value } }),
+    ]);
+    const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data.jobs || [];
+    const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
+    // ไม่แสดงงานของตัวเอง (ดูได้ที่ "My Job" อยู่แล้ว)
+    const myId = String(auth.user?._id || "");
+    posts.value = [
+      ...jobs.filter((j) => String(j.hirer?._id || j.hirer) !== myId).map(mapJob),
+      ...servicePosts.map(mapServicePost),
+    ].sort((a, b) => b.postedAt - a.postedAt);
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadFeed);
+watch([activeCategory, searchQuery], loadFeed);
 
 const filteredPosts = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -172,6 +175,7 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
       <div class="brand">
         <span class="brand-icon">👥</span>
         <span class="brand-name">JangDi</span>
+        <span class="role-pill" aria-label="บทบาทปัจจุบัน">👤 Hirer</span>
       </div>
       <RouterLink
   to="/profile"
@@ -195,6 +199,9 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
           <span class="brand-icon">👥</span>
           <span class="brand-name">JangDi</span>
         </div>
+        <div class="drawer-role">
+          You're browsing as <strong>Hirer</strong>
+        </div>
         <RouterLink
           v-for="item in drawerItems.filter((i) => i.to)"
           :key="item.label"
@@ -208,7 +215,9 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
           class="drawer-link"
           @click="goItem(item)"
         >{{ item.label }}</button>
-        <button class="drawer-link" @click="switchRole">Switch role</button>
+        <button class="drawer-link" :disabled="switching" @click="switchRole">
+          {{ switching ? "Switching…" : "Switch to Worker role" }}
+        </button>
         <button class="drawer-link logout" @click="logout">Log out</button>
       </nav>
     </Transition>
@@ -254,6 +263,9 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
 
     <!-- ฟีดประกาศ -->
     <section class="feed-list">
+      <p v-if="loading" class="empty">Loading posts...</p>
+      <p v-else-if="errorMsg" class="empty error-text">{{ errorMsg }}</p>
+
       <article v-for="post in filteredPosts" :key="post.id" class="card">
         <div class="card-avatar" aria-hidden="true">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
@@ -281,7 +293,7 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
         </div>
       </article>
 
-      <p v-if="!filteredPosts.length" class="empty">No posts match your filters.</p>
+      <p v-if="!loading && !errorMsg && !filteredPosts.length" class="empty">No posts match your filters.</p>
     </section>
 
     <!-- ปุ่มประกาศงานใหม่ -->
@@ -327,6 +339,10 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .brand { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 18px; }
 .brand-icon { font-size: 18px; }
 .brand-name { color: #111; }
+.role-pill {
+  font-size: 11px; font-weight: 700; color: #7a5c00; background: #fff8e6;
+  border: 1px solid #ffc93c; border-radius: 10px; padding: 2px 8px; white-space: nowrap;
+}
 
 /* ---------- Drawer ---------- */
 .backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4); z-index: 20; }
@@ -335,13 +351,16 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   background: #fff; z-index: 21; padding: 16px;
   display: flex; flex-direction: column; box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
 }
-.drawer-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; margin-bottom: 16px; }
+.drawer-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; margin-bottom: 4px; }
+.drawer-role { font-size: 13px; color: #555; margin-bottom: 16px; }
+.drawer-role strong { color: #111; }
 .drawer-link {
   display: block; text-align: left; padding: 12px 8px; min-height: 44px;
   border: none; background: transparent; border-bottom: 1px solid #f2f2f2;
   color: #111; text-decoration: none; font-size: 15px; cursor: pointer;
 }
 .drawer-link.logout { color: #d33; margin-top: auto; }
+.drawer-link:disabled { opacity: 0.6; cursor: default; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .slide-enter-active, .slide-leave-active { transition: transform 0.2s; }
