@@ -10,6 +10,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../services/api";
 import { useAuthStore } from "../stores/auth";
+import StatusBadge from "../components/StatusBadge.vue";
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -176,6 +177,37 @@ async function loadReviews() {
   }));
 }
 
+/* ---------- ประวัติโพสต์ (FR-PROF-04) ---------- */
+const myJobs = ref([]);
+const myServicePosts = ref([]);
+const postsError = ref("");
+
+const JOB_STATUS_LABELS = {
+  pending_review: "รอตรวจสอบ",
+  rejected: "ถูกปฏิเสธ",
+  waiting: "เปิดรับสมัคร",
+  assigned: "เลือกผู้รับจ้างแล้ว",
+  in_progress: "กำลังดำเนินการ",
+  completed: "เสร็จสิ้น",
+  cancelled: "ยกเลิก",
+  disputed: "มีข้อพิพาท",
+};
+const SERVICE_STATUS_LABELS = { active: "เปิดอยู่", closed: "ปิดแล้ว", expired: "หมดเวลา" };
+
+async function loadPosts() {
+  postsError.value = "";
+  try {
+    const { data } = await api.get(`/users/${auth.user._id}/posts`);
+    myJobs.value = data.jobs || [];
+    myServicePosts.value = data.servicePosts || [];
+  } catch (err) {
+    postsError.value = err.response?.data?.message || "โหลดประวัติโพสต์ไม่สำเร็จ";
+  }
+}
+function formatDate(value) {
+  return value ? new Date(value).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }) : "-";
+}
+
 /* ---------- โหลดข้อมูลตอนเปิดหน้า ---------- */
 function applyUserToProfile(user) {
   profile.value = {
@@ -203,6 +235,7 @@ onMounted(async () => {
     auth.updateUser(me);
     applyUserToProfile(me);
     await loadReviews();
+    await loadPosts();
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดข้อมูลโปรไฟล์ไม่สำเร็จ";
   } finally {
@@ -380,6 +413,38 @@ onMounted(async () => {
           </li>
         </ul>
       </section>
+
+      <!-- ประวัติโพสต์ (FR-PROF-04) -->
+      <section class="card">
+        <h2 class="section-title">Post History</h2>
+        <p v-if="postsError" class="posts-empty">{{ postsError }}</p>
+        <template v-else>
+          <h3 class="posts-subtitle">งานที่ประกาศ (Hirer)</h3>
+          <p v-if="!myJobs.length" class="posts-empty">ยังไม่มีประวัติการประกาศงาน</p>
+          <ul v-else class="post-list">
+            <li v-for="j in myJobs" :key="j._id" class="post-item">
+              <div class="post-head">
+                <span class="post-title">{{ j.title }}</span>
+                <StatusBadge :status="j.status" :label="JOB_STATUS_LABELS[j.status] || j.status" />
+              </div>
+              <div class="post-meta">{{ j.category }} · {{ j.price }} บาท · {{ formatDate(j.createdAt) }}</div>
+              <div v-if="j.status === 'rejected' && j.rejectionReason" class="post-reason">{{ j.rejectionReason }}</div>
+            </li>
+          </ul>
+
+          <h3 class="posts-subtitle">บริการที่เสนอ (Worker)</h3>
+          <p v-if="!myServicePosts.length" class="posts-empty">ยังไม่มีประวัติการเสนอบริการ</p>
+          <ul v-else class="post-list">
+            <li v-for="sp in myServicePosts" :key="sp._id" class="post-item">
+              <div class="post-head">
+                <span class="post-title">{{ sp.title }}</span>
+                <StatusBadge :status="sp.status === 'active' ? 'completed' : 'cancelled'" :label="SERVICE_STATUS_LABELS[sp.status] || sp.status" />
+              </div>
+              <div class="post-meta">{{ sp.category }} · {{ sp.fee }} บาท · {{ formatDate(sp.createdAt) }}</div>
+            </li>
+          </ul>
+        </template>
+      </section>
     </main>
 
     <!-- Modal เปลี่ยนรหัสผ่าน -->
@@ -485,6 +550,16 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .review-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .review-item { padding-top: 10px; border-top: 1px solid #f2f2f2; }
 .review-item:first-child { padding-top: 0; border-top: none; }
+.posts-subtitle { margin: 12px 0 6px; font-size: 14px; font-weight: 600; }
+.posts-subtitle:first-of-type { margin-top: 0; }
+.posts-empty { margin: 0 0 8px; font-size: 13px; color: #888; }
+.post-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.post-item { padding-top: 10px; border-top: 1px solid #f2f2f2; }
+.post-item:first-child { padding-top: 0; border-top: none; }
+.post-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.post-title { font-size: 14px; font-weight: 600; }
+.post-meta { margin-top: 2px; font-size: 12px; color: #888; }
+.post-reason { margin-top: 4px; font-size: 12px; color: #b91c1c; }
 .review-head { display: flex; align-items: center; justify-content: space-between; }
 .reviewer { font-size: 13px; font-weight: 700; color: #111; }
 .review-comment { margin: 4px 0 0; font-size: 12px; color: #555; }
