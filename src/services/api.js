@@ -24,6 +24,14 @@ api.interceptors.response.use(
       auth.logout();
       router.push({ name: "login" });
     }
+    // backend ปฏิเสธเพราะยังไม่ยืนยันอีเมล -> พาไปหน้าส่งอีเมลยืนยันใหม่ (ยังคง reject ให้หน้าเดิมจัดการ loading ได้)
+    if (
+      error.response?.status === 403 &&
+      error.response?.data?.code === "EMAIL_NOT_VERIFIED" &&
+      router.currentRoute.value.name !== "verify-email-pending"
+    ) {
+      router.push({ name: "verify-email-pending" });
+    }
     return Promise.reject(error);
   }
 );
