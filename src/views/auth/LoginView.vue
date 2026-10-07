@@ -2,16 +2,17 @@
 // FR-AUTH-01/02/03: หน้า Login เดียว ใช้ร่วมกันทั้ง 3 บทบาท (Hirer / Worker / Admin)
 // ระบบใช้ Google OAuth เป็นช่องทางหลัก จำกัดเฉพาะโดเมน @lamduan.mfu.ac.th
 // (ฟอร์ม Email/Password ด้านบนคงไว้ตามดีไซน์ต้นแบบ สำหรับบัญชีที่ตั้งรหัสผ่านไว้แล้ว)
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import api from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
-import { signInWithGoogle } from "../../services/googleAuth";
+import { renderGoogleButton } from "../../services/googleAuth";
 
 const email = ref("");
 const password = ref("");
 const error = ref("");
 const loading = ref(false);
+const googleBtnEl = ref(null);
 const router = useRouter();
 const auth = useAuthStore();
 
@@ -52,12 +53,11 @@ async function handleContinue() {
   }
 }
 
-async function handleGoogleLogin() {
+// FR-AUTH-03: Google ส่ง ID token กลับมาทาง callback ของปุ่ม → ส่งให้ backend ตรวจสอบ + ออก JWT ของระบบ
+async function handleGoogleCredential(idToken) {
   error.value = "";
   loading.value = true;
   try {
-    // FR-AUTH-03: เปิด Google Sign-In prompt จริง ได้ ID token กลับมาแล้วส่งให้ backend ตรวจสอบ + ออก JWT ของระบบ
-    const idToken = await signInWithGoogle();
     const { data } = await api.post("/auth/google", { idToken });
     auth.setSession(data.token, data.user);
     redirectAfterLogin(data.user);
@@ -67,6 +67,16 @@ async function handleGoogleLogin() {
     loading.value = false;
   }
 }
+
+onMounted(async () => {
+  try {
+    await renderGoogleButton(googleBtnEl.value, handleGoogleCredential, (e) => {
+      error.value = e.message;
+    });
+  } catch (e) {
+    error.value = e.message || "โหลดปุ่ม Google ไม่สำเร็จ";
+  }
+});
 </script>
 
 <template>
@@ -106,15 +116,7 @@ async function handleGoogleLogin() {
 
       <div class="divider"><span>OR</span></div>
 
-      <button class="google-btn" :disabled="loading" @click="handleGoogleLogin">
-        <svg class="google-icon" viewBox="0 0 18 18" aria-hidden="true">
-          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9C16.66 14.2 17.64 11.9 17.64 9.2z" />
-          <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.55-1.84.86-3.06.86-2.35 0-4.34-1.58-5.05-3.71H.94v2.33A9 9 0 0 0 9 18z" />
-          <path fill="#FBBC05" d="M3.95 10.71a5.4 5.4 0 0 1 0-3.42V4.96H.94a9 9 0 0 0 0 8.08l3.01-2.33z" />
-          <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .94 4.96l3.01 2.33C4.66 5.16 6.65 3.58 9 3.58z" />
-        </svg>
-        Continue with Google
-      </button>
+      <div ref="googleBtnEl" class="google-btn-wrap" :class="{ disabled: loading }"></div>
 
       <p class="hint">ใช้ได้ทั้งบัญชีผู้ว่าจ้าง ผู้รับจ้าง และผู้ดูแลระบบ</p>
     </div>
@@ -206,23 +208,12 @@ form { display: flex; flex-direction: column; gap: 14px; text-align: left; }
   background: var(--color-border);
 }
 
-.google-btn {
-  width: 100%;
-  min-height: 48px;
-  border-radius: 10px;
-  border: none;
-  background: var(--color-primary);
-  color: #3a2a05;
-  font-weight: 700;
-  font-size: 15px;
+.google-btn-wrap {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 10px;
-  cursor: pointer;
+  min-height: 44px;
 }
-.google-btn:disabled { opacity: 0.7; cursor: default; }
-.google-icon { width: 18px; height: 18px; flex-shrink: 0; }
+.google-btn-wrap.disabled { opacity: 0.7; pointer-events: none; }
 
 .hint { margin: 18px 0 0; font-size: 12px; color: var(--color-text-muted); }
 </style>

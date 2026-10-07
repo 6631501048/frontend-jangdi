@@ -24,6 +24,12 @@ api.interceptors.response.use(
       auth.logout();
       router.push({ name: "login" });
     }
+    // บัญชีถูกระงับระหว่างใช้งาน -> เคลียร์ session แล้วพากลับหน้า login
+    if (error.response?.status === 403 && error.response?.data?.code === "ACCOUNT_SUSPENDED") {
+      const auth = useAuthStore();
+      auth.logout();
+      router.push({ name: "login" });
+    }
     // backend ปฏิเสธเพราะยังไม่ยืนยันอีเมล -> พาไปหน้าส่งอีเมลยืนยันใหม่ (ยังคง reject ให้หน้าเดิมจัดการ loading ได้)
     if (
       error.response?.status === 403 &&
