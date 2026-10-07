@@ -21,6 +21,7 @@ export const useAuthStore = defineStore("auth", {
     isLoggedIn: (state) => !!state.token,
     currentRole: (state) => state.user?.currentRole || "hirer",
     isProfileComplete: (state) => !!state.user?.isProfileComplete,
+    isEmailVerified: (state) => !!state.user?.isEmailVerified,
   },
   actions: {
     setSession(token, user) {

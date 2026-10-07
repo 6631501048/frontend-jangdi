@@ -6,6 +6,13 @@ const routes = [
   { path: "/login", name: "login", component: () => import("../views/auth/LoginView.vue") },
   { path: "/register", name: "register", component: () => import("../views/auth/RegisterView.vue") },
   { path: "/verify-email", name: "verify-email", component: () => import("../views/auth/VerifyEmailView.vue") },
+  {
+    // หน้า "ยังไม่ได้ยืนยันอีเมล" + ปุ่มส่งลิงก์ใหม่ (FR-AUTH-04)
+    path: "/verify-email/pending",
+    name: "verify-email-pending",
+    component: () => import("../views/auth/VerifyEmailPendingView.vue"),
+    meta: { requiresAuth: true },
+  },
 
   // Hirer (FR-JOB-*)
   {
