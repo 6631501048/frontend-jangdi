@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-JOB-01: สร้างประกาศงาน โดยระบุหมวดหมู่ ชื่องาน คำอธิบาย ตำแหน่งที่ตั้ง ราคา และวันเวลาที่กำหนด
 // FR-JOB-02: นำทางการสร้างประกาศงานผ่าน 3 ขั้นตอน (1) หมวดหมู่ (2) รายละเอียด+ตำแหน่ง (3) ตรวจสอบก่อนส่ง
 //            (ในไฟล์นี้แบ่งเป็น step UI 1-2-3 เหมือนเดิม + หน้าจอผลลัพธ์ "Post Success" แยกต่างหาก)
@@ -55,9 +55,9 @@ const step2Valid = computed(
     form.value.serviceFee !== null &&
     form.value.serviceFee !== "" &&
     form.value.scheduledAt &&
-    form.value.durationStart &&
-    form.value.durationEnd &&
-    new Date(form.value.durationEnd) > new Date(form.value.durationStart) &&
+    ((!form.value.durationStart && !form.value.durationEnd) ||
+      (form.value.durationStart && form.value.durationEnd &&
+        new Date(form.value.durationEnd) > new Date(form.value.durationStart))) &&
     form.value.from.trim() &&
     form.value.to.trim()
 );
