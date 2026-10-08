@@ -1,6 +1,6 @@
-<script setup>
+﻿<script setup>
 // FR-JOB-01/08, FR-TRACK-02/03/04, FR-SOS-01, FR-JOB-07: รายละเอียดงานของ Hirer ปรับเนื้อหาตามสถานะ
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
@@ -11,6 +11,10 @@ const router = useRouter();
 const job = ref(null);
 const loading = ref(true);
 const errorMsg = ref("");
+const applicants = ref([]);
+const applicantsLoaded = ref(false);
+const cancellingExpiredJob = ref(false);
+const canCancelExpiredJob = computed(() => job.value?.status === "waiting" && applicantsLoaded.value && applicants.value.length === 0 && new Date(job.value.scheduledAt).getTime() < Date.now());
 
 function formatDuration(data) {
   if (data.durationStart && data.durationEnd) {
@@ -23,6 +27,11 @@ async function loadJob() {
   loading.value = true;
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    if (data.status === "waiting") {
+      const { data: rows } = await api.get(`/jobs/${route.params.id}/applicants`);
+      applicants.value = Array.isArray(rows) ? rows : [];
+      applicantsLoaded.value = true;
+    }
     job.value = {
       ...data,
       id: data._id,
@@ -42,6 +51,23 @@ async function loadJob() {
 }
 onMounted(loadJob);
 
+async function cancelExpiredJob() {
+  if (!canCancelExpiredJob.value || cancellingExpiredJob.value) return;
+  if (!window.confirm("งานนี้เลยเวลานัดและไม่มีผู้สมัคร ต้องการยกเลิกประกาศงานหรือไม่?")) return;
+  cancellingExpiredJob.value = true;
+  try {
+    const { data } = await api.post(`/jobs/${job.value._id}/cancel`, {
+      expiredNoApplicants: true,
+      reason: "Expired: no applicants before the scheduled time.",
+    });
+    job.value = { ...job.value, ...data.job, statusLabel: data.job.status };
+    router.push({ name: "hirer-dashboard" });
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "Unable to cancel this expired job.";
+  } finally {
+    cancellingExpiredJob.value = false;
+  }
+}
 function goApplicants() {
   router.push({ name: "hirer-applicants", params: { id: job.value._id } });
 }
@@ -101,6 +127,9 @@ function sendSos() {
         <p>{{ job.notes || "-" }}</p>
       </div>
 
+      <button v-if="canCancelExpiredJob" class="btn danger" :disabled="cancellingExpiredJob" @click="cancelExpiredJob">
+        {{ cancellingExpiredJob ? "Cancelling..." : "Cancel expired job" }}
+      </button>
       <!-- FR-JOB-08 / FR-MATCH-03: ยังไม่เลือกช่าง ให้ดูผู้สมัครได้ -->
       <button v-if="job.status === 'waiting'" class="btn primary" @click="goApplicants">
         View Applicants ({{ job.applicants.length }})
@@ -216,3 +245,5 @@ function sendSos() {
 .actions .btn { margin-top: 16px; }
 .placeholder { padding: 16px; color: #888; }
 </style>
+
+

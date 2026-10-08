@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-MATCH-03: Hirer ดูผู้สมัครทั้งหมด (avatar, ชื่อ, credibility score, ระยะทาง)
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -11,6 +11,8 @@ const job = ref({ _id: route.params.id, status: "", applicants: [] });
 const applicants = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
+const cancellingExpiredJob = ref(false);
+const canCancelExpiredJob = computed(() => job.value.status === "waiting" && applicants.value.length === 0 && new Date(job.value.scheduledAt).getTime() < Date.now());
 const canSelect = computed(() => job.value.status === "waiting");
 
 async function loadApplicants() {
@@ -37,6 +39,22 @@ async function loadApplicants() {
 }
 onMounted(loadApplicants);
 
+async function cancelExpiredJob() {
+  if (!canCancelExpiredJob.value || cancellingExpiredJob.value) return;
+  if (!window.confirm("งานนี้เลยเวลานัดและไม่มีผู้สมัคร ต้องการลบประกาศงานหรือไม่?")) return;
+  cancellingExpiredJob.value = true;
+  try {
+    await api.post(`/jobs/${job.value._id}/cancel`, {
+      expiredNoApplicants: true,
+      reason: "Expired: no applicants before the scheduled time.",
+    });
+    router.push({ name: "hirer-dashboard" });
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "Unable to delete this expired job.";
+  } finally {
+    cancellingExpiredJob.value = false;
+  }
+}
 function select(workerId) {
   // FR-MATCH-04: เตรียมข้อมูลก่อนไปหน้ายืนยันเลือกช่าง + จ่ายเงิน
   router.push({ name: "hirer-confirm-selection", params: { id: job.value._id, workerId } });
@@ -58,7 +76,10 @@ function select(workerId) {
         </div>
         <button class="select-btn" :disabled="!canSelect" @click="select(a.workerId)">Select</button>
       </div>
-      <p v-if="!loading && !errorMsg && !applicants.length" class="empty">No applicants yet.</p>
+      <div v-if="!loading && !errorMsg && !applicants.length" class="empty-state">
+        <p class="empty">No applicants yet.</p>
+        <button v-if="canCancelExpiredJob" class="delete-btn" :disabled="cancellingExpiredJob" @click="cancelExpiredJob">{{ cancellingExpiredJob ? "Cancelling..." : "ลบงาน" }}</button>
+      </div>
     </section>
   </main>
 </template>
@@ -80,6 +101,10 @@ function select(workerId) {
 }
 .select-btn:hover { background: #fffbeb; }
 .select-btn:disabled { opacity: .5; cursor: not-allowed; }
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .empty { color: #888; text-align: center; padding: 32px 0; }
+.delete-btn { min-height: 40px; padding: 8px 18px; border: 1px solid #ef4444; border-radius: 20px; background: white; color: #b91c1c; font-weight: 600; cursor: pointer; }
+.delete-btn:disabled { opacity: .5; cursor: wait; }
 .error { color: #e11d48; }
 </style>
+
