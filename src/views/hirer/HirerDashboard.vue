@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-BROWSE-01: ฟีดที่เลื่อนดูได้ของ "ประกาศงาน" (Job, จากผู้ว่าจ้างรายอื่น) + "Service Post" (จากผู้รับจ้าง)
 // FR-BROWSE-02: กรองตามประเภทประกาศ (ทั้งหมด/ผู้ว่าจ้าง/ผู้รับจ้าง) และตามหมวดหมู่
 // FR-SERV-04: ผู้ว่าจ้างเรียกดู Service Post ที่ใช้งานอยู่ และกด "Hiring" เพื่อส่ง Service Request
@@ -121,16 +121,18 @@ async function loadFeed() {
   loading.value = true;
   errorMsg.value = "";
   try {
-    const [jobsResponse, servicePostsResponse] = await Promise.all([
+    const [jobsResponse, myJobsResponse, servicePostsResponse] = await Promise.all([
       api.get("/jobs", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value, search: searchQuery.value.trim() || undefined } }),
+      api.get("/jobs/my"),
       api.get("/service-posts", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value } }),
     ]);
     const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data.jobs || [];
+    const myJobs = Array.isArray(myJobsResponse.data) ? myJobsResponse.data : myJobsResponse.data.jobs || [];
     const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
-    // ไม่แสดงงานของตัวเอง (ดูได้ที่ "My Job" อยู่แล้ว)
-    const myId = String(auth.user?._id || "");
+    const myIds = new Set(myJobs.map((job) => String(job._id)));
     posts.value = [
-      ...jobs.filter((j) => String(j.hirer?._id || j.hirer) !== myId).map(mapJob),
+      ...jobs.filter((job) => !myIds.has(String(job._id))).map(mapJob),
+      ...myJobs.filter((job) => job.status !== "cancelled").map((job) => ({ ...mapJob(job), name: auth.user?.fullName || mapJob(job).name, isMine: true })),
       ...servicePosts.map(mapServicePost),
     ].sort((a, b) => b.postedAt - a.postedAt);
   } catch (err) {
@@ -289,7 +291,7 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
             :to="`/hirer/hire/${post.id}`"
             class="btn-details"
           >Details</RouterLink>
-          <RouterLink v-else :to="`/hirer/jobs/${post.id}`" class="btn-details">Details</RouterLink>
+          <RouterLink v-else :to="post.isMine ? `/hirer/my-jobs/${post.id}` : `/hirer/jobs/${post.id}`" class="btn-details">Details</RouterLink>
         </div>
       </article>
 
@@ -452,3 +454,5 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   display: flex; align-items: center; justify-content: center; padding: 0 3px;
 }
 </style>
+
+

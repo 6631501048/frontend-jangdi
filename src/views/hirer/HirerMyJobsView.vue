@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-JOB-08: ดูงานที่ตนเองประกาศ จัดกลุ่มตามสถานะ
 // เป็นจุดเข้าสู่หน้า "เลือกผู้รับจ้าง" (FR-MATCH-03/04) สำหรับงานที่เปิดรับสมัครอยู่
 import { onMounted, ref, watch } from "vue";
@@ -115,3 +115,5 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .cta { flex-shrink: 0; font-size: 12.5px; font-weight: 700; color: #d99a00; }
 .cta.muted { color: #999; }
 </style>
+
+
