@@ -77,9 +77,25 @@ function goRefund() {
 function goReview() {
   router.push({ name: "hirer-review", params: { id: job.value.id } });
 }
-function confirmCompletion() {
-  // FR-TRACK-04: ยืนยันงานเสร็จหลังตรวจสอบรูปหลักฐาน -> ปล่อยเงินจาก escrow
-  // Completion is outside the Phase 1 hiring pipeline.
+const confirmingCompletion = ref(false);
+const completionConfirmed = ref(false);
+const completionError = ref("");
+
+async function confirmCompletion() {
+  if (!job.value || job.value.status !== "completed" || confirmingCompletion.value || completionConfirmed.value) return;
+  if (!window.confirm("Confirm that this job is complete and release the held payment to the worker?")) return;
+
+  confirmingCompletion.value = true;
+  completionError.value = "";
+  try {
+    const { data } = await api.post(`/jobs/${job.value._id}/confirm-completion`);
+    job.value = { ...job.value, ...data.job, statusLabel: data.job.status };
+    completionConfirmed.value = true;
+  } catch (err) {
+    completionError.value = err.response?.data?.message || "Unable to confirm job completion.";
+  } finally {
+    confirmingCompletion.value = false;
+  }
 }
 function sendSos() {
   // FR-SOS-01/02/03: ปุ่มนี้ใช้งานฝั่ง Worker เป็นหลัก แต่ Hirer เห็นสถานะ/ติดต่อฉุกเฉินได้เช่นกัน
@@ -164,12 +180,6 @@ function sendSos() {
           </div>
         </div>
 
-        <button
-          v-if="job.proofPhoto || true"
-          class="btn primary"
-          @click="confirmCompletion"
-        >Confirm Job Completed</button>
-
         <div class="actions">
           <button class="btn outline" @click="goRefund">Cancel</button>
           <button class="btn danger" @click="goRefund">Refund</button>
@@ -177,10 +187,20 @@ function sendSos() {
       </template>
 
       <!-- FR-REV-01, FR-PAY-06: งานเสร็จแล้ว รีวิวได้ / ขอคืนเงินได้ -->
-      <div v-if="job.status === 'completed'" class="actions">
-        <button class="btn primary" @click="goReview">Review</button>
-        <button class="btn danger" @click="goRefund">Refund</button>
-      </div>
+      <template v-if="job.status === 'completed'">
+        <h2 class="section-title">Completion proof</h2>
+        <a v-if="job.completionProofUrl" class="proof-link" :href="job.completionProofUrl" target="_blank" rel="noopener noreferrer">View worker's completion photo</a>
+        <p v-else class="proof-missing">The worker has not provided a completion photo.</p>
+        <p v-if="completionError" class="completion-error" role="alert">{{ completionError }}</p>
+        <p v-if="completionConfirmed" class="completion-success" role="status">Job completion confirmed and payment released.</p>
+        <button v-if="!completionConfirmed" class="btn primary" :disabled="confirmingCompletion || !job.completionProofUrl" @click="confirmCompletion">
+          {{ confirmingCompletion ? "Confirming..." : "Confirm Job Completed" }}
+        </button>
+        <div class="actions">
+          <button class="btn primary" @click="goReview">Review</button>
+          <button class="btn danger" @click="goRefund">Refund</button>
+        </div>
+      </template>
 
       <!-- FR-JOB-07: รายละเอียดการยกเลิก -->
       <template v-if="job.status === 'cancelled' && job.cancellation">
@@ -242,6 +262,11 @@ function sendSos() {
 .btn.danger { background: #ef4444; color: white; border: none; }
 .btn.outline { background: white; color: #555; }
 .actions { display: flex; gap: 10px; }
+.proof-link { display: inline-block; color: #1d4ed8; font-size: 13px; margin: 4px 0; }
+.proof-missing, .completion-error, .completion-success { font-size: 12px; margin: 8px 0; }
+.proof-missing, .completion-error { color: #dc2626; }
+.completion-success { color: #15803d; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .actions .btn { margin-top: 16px; }
 .placeholder { padding: 16px; color: #888; }
 </style>

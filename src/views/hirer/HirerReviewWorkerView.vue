@@ -1,16 +1,17 @@
 <script setup>
-// FR-REV-01: Hirer ให้คะแนน (1-5) และรีวิว Worker หลังงานเสร็จ
-import { ref, computed } from "vue";
+// FR-REV-01: Hirer rates and reviews the selected Worker after a job is complete.
+import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { useHirerJobsStore } from "../../stores/hirerJobs";
+import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
 
 const route = useRoute();
 const router = useRouter();
-const store = useHirerJobsStore();
-
-const job = computed(() => store.byId(route.params.id));
-
+const job = ref(null);
+const workerName = ref("Worker");
+const loading = ref(true);
+const submitting = ref(false);
+const errorMsg = ref("");
 const rating = ref(4);
 const comment = ref("");
 const tagOptions = ["On time", "Fast & Efficient", "Item as Described", "Friendly", "Communicated Well", "Reliable", "Polite"];
@@ -22,23 +23,56 @@ function toggleTag(tag) {
   else selectedTags.value.splice(i, 1);
 }
 
-function submit() {
-  store.submitReview(job.value.id, {
-    rating: rating.value,
-    tags: selectedTags.value,
-    comment: comment.value,
-  });
-  router.push({ name: "hirer-dashboard" });
+async function loadJob() {
+  loading.value = true;
+  errorMsg.value = "";
+  try {
+    const { data } = await api.get(`/jobs/${route.params.id}`);
+    if (data.status !== "completed") throw new Error("You can review this worker after the job is completed.");
+    const workerId = data.selectedWorker?._id || data.selectedWorker;
+    if (!workerId) throw new Error("No worker is assigned to this job.");
+    const { data: worker } = await api.get(`/users/${workerId}`);
+    job.value = data;
+    workerName.value = worker.fullName || "Worker";
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || err.message || "Unable to load job details.";
+  } finally {
+    loading.value = false;
+  }
+}
+onMounted(loadJob);
+
+async function submit() {
+  if (!job.value || submitting.value || rating.value < 1 || rating.value > 5) return;
+  submitting.value = true;
+  errorMsg.value = "";
+  try {
+    await api.post(`/jobs/${job.value._id}/review`, {
+      rating: rating.value,
+      tags: selectedTags.value,
+      comment: comment.value.trim(),
+    });
+    router.push({ name: "hirer-dashboard" });
+  } catch (err) {
+    errorMsg.value = err.response?.data?.message || "Unable to submit review.";
+  } finally {
+    submitting.value = false;
+  }
 }
 </script>
 
 <template>
-  <main v-if="job" class="review">
+  <main v-if="loading || !job" class="review">
+    <AppHeader title="Review" />
+    <p v-if="loading" class="form-message">Loading job...</p>
+    <p v-if="errorMsg" class="form-message error" role="alert">{{ errorMsg }}</p>
+  </main>
+  <main v-else-if="job" class="review">
     <AppHeader title="Review" />
 
     <section class="content">
       <div class="avatar">👤</div>
-      <div class="name">{{ job.selectedWorker?.name }}</div>
+      <div class="name">{{ workerName }}</div>
       <div class="role">Worker</div>
 
       <div class="stars">
@@ -66,7 +100,8 @@ function submit() {
 
       <textarea v-model="comment" rows="3" placeholder="Additional feedback (optional)"></textarea>
 
-      <button class="btn primary" @click="submit">Review</button>
+      <p v-if="errorMsg" class="form-message error" role="alert">{{ errorMsg }}</p>
+      <button class="btn primary" :disabled="submitting" @click="submit">{{ submitting ? "Submitting..." : "Review" }}</button>
     </section>
   </main>
 </template>
@@ -96,4 +131,7 @@ textarea {
 }
 .btn { width: 100%; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 14px; border: none; cursor: pointer; }
 .btn.primary { background: #fbbf24; color: #78350f; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.form-message { padding: 16px; text-align: center; color: #555; }
+.form-message.error { color: #dc2626; }
 </style>

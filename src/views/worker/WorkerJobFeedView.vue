@@ -224,10 +224,28 @@ function timeAgo(date) {
 }
 
 /* ---------- การกระทำ ---------- */
-function applyToJob(post) {
-  // TODO FR-BROWSE-04: POST /api/jobs/{post.id}/apply → เพิ่มเข้าคิว JOB_WAITING
-  // FR-BROWSE-05 อนุญาตให้สมัครได้หลายงานพร้อมกัน จึงไม่ต้อง disable ปุ่มของงานอื่น
-  alert(`TODO: สมัครงาน "${post.description}"`);
+const applyingJobIds = ref(new Set());
+const appliedJobIds = ref(new Set());
+const applyErrors = ref({});
+
+async function applyToJob(post) {
+  if (applyingJobIds.value.has(post.id) || appliedJobIds.value.has(post.id)) return;
+
+  applyingJobIds.value = new Set(applyingJobIds.value).add(post.id);
+  applyErrors.value = { ...applyErrors.value, [post.id]: "" };
+  try {
+    await api.post(`/jobs/${post.id}/apply`);
+    appliedJobIds.value = new Set(appliedJobIds.value).add(post.id);
+  } catch (err) {
+    applyErrors.value = {
+      ...applyErrors.value,
+      [post.id]: err.response?.data?.message || "Could not apply for this job. Please try again.",
+    };
+  } finally {
+    const nextApplyingJobIds = new Set(applyingJobIds.value);
+    nextApplyingJobIds.delete(post.id);
+    applyingJobIds.value = nextApplyingJobIds;
+  }
 }
 
 const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/notifications/unread-count
@@ -337,7 +355,8 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
           </div>
         </div>
         <div class="card-actions">
-          <button v-if="post.type === 'hirer'" class="btn-apply" @click="router.push({ name: 'worker-job-detail', params: { id: post.id } })">สมัคร</button>
+          <button v-if="post.type === 'hirer'" class="btn-apply" :disabled="applyingJobIds.has(post.id) || appliedJobIds.has(post.id)" @click="applyToJob(post)">{{ appliedJobIds.has(post.id) ? "Applied" : applyingJobIds.has(post.id) ? "Applying..." : "Apply" }}</button>
+          <p v-if="applyErrors[post.id]" class="apply-error">{{ applyErrors[post.id] }}</p>
           <RouterLink v-if="post.type === 'hirer'" :to="`/worker/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
           <span v-else class="service-post-note">Service Post</span>
         </div>
@@ -619,6 +638,8 @@ svg {
   justify-content: center;
 }
 .btn-apply { background: #ffc93c; border: none; color: #111; }
+.btn-apply:disabled { opacity: 0.65; cursor: not-allowed; }
+.apply-error { max-width: 180px; margin: 0; color: #e11d48; font-size: 11px; text-align: center; }
 .btn-details { background: #fff; border: 1px solid #ccc; color: #111; }
 
 .empty { text-align: center; color: #888; margin-top: 40px; font-size: 14px; }
