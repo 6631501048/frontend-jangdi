@@ -1,6 +1,6 @@
 ﻿<script setup>
 // FR-JOB-01/08, FR-TRACK-02/03/04, FR-SOS-01, FR-JOB-07: รายละเอียดงานของ Hirer ปรับเนื้อหาตามสถานะ
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
@@ -13,8 +13,16 @@ const loading = ref(true);
 const errorMsg = ref("");
 const applicants = ref([]);
 const applicantsLoaded = ref(false);
+const workerProfile = ref(null);
 const cancellingExpiredJob = ref(false);
 const canCancelExpiredJob = computed(() => job.value?.status === "waiting" && applicantsLoaded.value && applicants.value.length === 0 && new Date(job.value.scheduledAt).getTime() < Date.now());
+
+function resolveUploadUrl(pathOrUrl) {
+  if (!pathOrUrl) return null;
+  if (pathOrUrl.startsWith("http")) return pathOrUrl;
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
+  return apiBase.replace(/\/api\/?$/, "") + pathOrUrl;
+}
 
 function formatDuration(data) {
   if (data.durationStart && data.durationEnd) {
@@ -27,6 +35,15 @@ async function loadJob() {
   loading.value = true;
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    const selectedWorkerId = data.selectedWorker?._id || data.selectedWorker;
+    if (selectedWorkerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
+      try {
+        const { data: profile } = await api.get(`/users/${selectedWorkerId}`);
+        workerProfile.value = profile;
+      } catch {
+        workerProfile.value = null;
+      }
+    }
     if (data.status === "waiting") {
       const { data: rows } = await api.get(`/jobs/${route.params.id}/applicants`);
       applicants.value = Array.isArray(rows) ? rows : [];
@@ -41,7 +58,7 @@ async function loadJob() {
       from: { label: data.fromText || data.locationText || "-" },
       to: { label: data.toText || "-" },
       applicants: data.applicants || [],
-      statusLabel: data.status,
+      statusLabel: ({ assigned: "Worker selected", in_progress: "In Progress", awaiting_confirmation: "Proof submitted", completed: "Complete" })[data.status] || data.status,
     };
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "Unable to load job details.";
@@ -49,7 +66,14 @@ async function loadJob() {
     loading.value = false;
   }
 }
-onMounted(loadJob);
+let statusRefreshTimer;
+onMounted(async () => {
+  await loadJob();
+  statusRefreshTimer = window.setInterval(() => {
+    if (["assigned", "in_progress", "awaiting_confirmation"].includes(job.value?.status)) loadJob();
+  }, 5000);
+});
+onUnmounted(() => window.clearInterval(statusRefreshTimer));
 
 async function cancelExpiredJob() {
   if (!canCancelExpiredJob.value || cancellingExpiredJob.value) return;
@@ -80,16 +104,26 @@ function goReview() {
 const confirmingCompletion = ref(false);
 const completionConfirmed = ref(false);
 const completionError = ref("");
+const progressSteps = computed(() => {
+  const currentStep = job.value?.status === "assigned" ? 0
+    : job.value?.status === "in_progress" ? 1
+    : job.value?.status === "awaiting_confirmation" ? 2
+    : job.value?.status === "completed" ? 4
+    : -1;
+  return ["Start", "In Progress", "Submit Proof", "Complete"].map((label, index) => ({
+    label, done: currentStep > index, current: currentStep === index,
+  }));
+});
 
 async function confirmCompletion() {
-  if (!job.value || job.value.status !== "completed" || confirmingCompletion.value || completionConfirmed.value) return;
+  if (!job.value || job.value.status !== "awaiting_confirmation" || confirmingCompletion.value || completionConfirmed.value) return;
   if (!window.confirm("Confirm that this job is complete and release the held payment to the worker?")) return;
 
   confirmingCompletion.value = true;
   completionError.value = "";
   try {
     const { data } = await api.post(`/jobs/${job.value._id}/confirm-completion`);
-    job.value = { ...job.value, ...data.job, statusLabel: data.job.status };
+    job.value = { ...job.value, ...data.job, statusLabel: "Complete" };
     completionConfirmed.value = true;
   } catch (err) {
     completionError.value = err.response?.data?.message || "Unable to confirm job completion.";
@@ -97,10 +131,7 @@ async function confirmCompletion() {
     confirmingCompletion.value = false;
   }
 }
-function sendSos() {
-  // FR-SOS-01/02/03: ปุ่มนี้ใช้งานฝั่ง Worker เป็นหลัก แต่ Hirer เห็นสถานะ/ติดต่อฉุกเฉินได้เช่นกัน
-  alert("TODO: POST /api/sos { jobId } (FR-SOS-01/02/03)");
-}
+
 </script>
 
 <template>
@@ -152,55 +183,60 @@ function sendSos() {
       </button>
 
       <!-- FR-TRACK-01/02/03, FR-SOS-01: งานกำลังดำเนินการ -->
-      <template v-if="job.status === 'in_progress'">
+      <!-- Worker contact and progress after selection -->
+      <template v-if="['assigned', 'in_progress', 'awaiting_confirmation', 'completed'].includes(job.status)">
         <h2 class="section-title">Contact</h2>
         <div class="contact-row">
-          <a class="contact-btn" :href="`tel:${job.selectedWorker?.phone || ''}`">
-            📞 <span>{{ job.selectedWorker?.name }}<br /><small>Phone call</small></span>
+          <a v-if="workerProfile?.phone" class="contact-btn" :href="`tel:${workerProfile.phone}`">
+            &#128222; <span>{{ workerProfile.phone }}<br /><small>Phone call</small></span>
           </a>
-          <button class="contact-btn" @click="alert('TODO: เปิดหน้าแชท (FR-NOTIF-01)')">
-            💬 <span>Message<br /><small>Chat</small></span>
-          </button>
+          <div v-else class="contact-btn unavailable">&#128222; <span>Phone unavailable<br /><small>Not provided in profile</small></span></div>
+          <a v-if="workerProfile?.lineId" class="contact-btn" :href="`https://line.me/R/ti/p/~${encodeURIComponent(workerProfile.lineId)}`" target="_blank" rel="noopener noreferrer">
+            &#128172; <span>@{{ workerProfile.lineId }}<br /><small>LINE ID</small></span>
+          </a>
+          <div v-else class="contact-btn unavailable">&#128172; <span>LINE ID unavailable<br /><small>Not provided in profile</small></span></div>
         </div>
 
-        <div class="progress-sos">
-          <ol class="timeline">
-            <li v-for="(t, i) in job.timeline" :key="i" :class="{ done: t.done, current: t.current }">
-              <span class="dot" />
-              <div>
-                <div class="t-label">{{ t.label }}</div>
-                <div class="t-time">{{ t.time }}</div>
-              </div>
-            </li>
-          </ol>
-          <div class="sos-box">
-            <div class="sos-title">🆘 SOS Emergency</div>
-            <p>If you feel unsafe or something is wrong with this task, alert our Admin team immediately.</p>
-            <button class="btn danger" @click="sendSos">Tap to Send SOS</button>
-          </div>
-        </div>
+        <ol class="timeline">
+          <li v-for="step in progressSteps" :key="step.label" :class="{ done: step.done, current: step.current }">
+            <span class="dot" />
+            <div>
+              <div class="t-label">{{ step.label }}</div>
+              <div v-if="step.current && step.label === 'Complete'" class="t-time">Waiting for your confirmation</div>
+              <div v-else-if="step.current && step.label === 'Start'" class="t-time">Worker has been selected</div>
+              <div v-else-if="step.current && step.label === 'In Progress'" class="t-time">Worker is doing the job</div>
+              <div v-else-if="step.current && step.label === 'Submit Proof'" class="t-time">Completion proof submitted</div>
+            </div>
+          </li>
+        </ol>
 
-        <div class="actions">
+        <div v-if="!['completed', 'awaiting_confirmation'].includes(job.status)" class="actions">
           <button class="btn outline" @click="goRefund">Cancel</button>
           <button class="btn danger" @click="goRefund">Refund</button>
         </div>
       </template>
 
       <!-- FR-REV-01, FR-PAY-06: งานเสร็จแล้ว รีวิวได้ / ขอคืนเงินได้ -->
-      <template v-if="job.status === 'completed'">
+      <template v-if="job.status === 'awaiting_confirmation'">
         <h2 class="section-title">Completion proof</h2>
-        <a v-if="job.completionProofUrl" class="proof-link" :href="job.completionProofUrl" target="_blank" rel="noopener noreferrer">View worker's completion photo</a>
+        <a v-if="job.completionProofUrl" class="proof-link" :href="resolveUploadUrl(job.completionProofUrl)" target="_blank" rel="noopener noreferrer">
+          <img class="completion-proof" :src="resolveUploadUrl(job.completionProofUrl)" alt="Worker completion proof" />
+          View worker's completion photo
+        </a>
         <p v-else class="proof-missing">The worker has not provided a completion photo.</p>
         <p v-if="completionError" class="completion-error" role="alert">{{ completionError }}</p>
         <p v-if="completionConfirmed" class="completion-success" role="status">Job completion confirmed and payment released.</p>
         <button v-if="!completionConfirmed" class="btn primary" :disabled="confirmingCompletion || !job.completionProofUrl" @click="confirmCompletion">
-          {{ confirmingCompletion ? "Confirming..." : "Confirm Job Completed" }}
+          {{ confirmingCompletion ? "Confirming..." : "Complete" }}
         </button>
         <div class="actions">
-          <button class="btn primary" @click="goReview">Review</button>
           <button class="btn danger" @click="goRefund">Refund</button>
         </div>
       </template>
+      <div v-if="job.status === 'completed'" class="actions">
+        <button class="btn primary" @click="goReview">Review</button>
+        <button class="btn danger" @click="goRefund">Refund</button>
+      </div>
 
       <!-- FR-JOB-07: รายละเอียดการยกเลิก -->
       <template v-if="job.status === 'cancelled' && job.cancellation">
@@ -242,27 +278,26 @@ function sendSos() {
 .contact-btn {
   flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px;
   border: 1px solid #e5e7eb; border-radius: 10px; background: white; font-size: 12px;
-  min-height: 44px; text-decoration: none; color: #111; cursor: pointer;
+  min-height: 48px; text-decoration: none; color: #111; cursor: pointer;
 }
-.progress-sos { display: flex; gap: 16px; margin: 16px 0; flex-wrap: wrap; }
-.timeline { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 130px; }
-.timeline li { display: flex; gap: 10px; align-items: flex-start; padding-bottom: 18px; position: relative; }
-.timeline li::before { content: ""; position: absolute; left: 5px; top: 16px; bottom: -2px; width: 2px; background: #e5e7eb; }
-.timeline li:last-child::before { display: none; }
-.timeline .dot { width: 12px; height: 12px; border-radius: 50%; background: #e5e7eb; margin-top: 2px; flex-shrink: 0; }
-.timeline li.done .dot { background: #fbbf24; }
-.t-label { font-size: 12px; font-weight: 500; }
-.timeline li.current .t-label { color: #d97706; font-weight: 700; }
-.t-time { font-size: 11px; color: #aaa; }
-.sos-box { flex: 1; min-width: 160px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 12px; }
-.sos-title { color: #dc2626; font-weight: 700; margin-bottom: 6px; font-size: 13px; }
-.sos-box p { font-size: 11px; color: #7f1d1d; margin: 0 0 10px; }
+.contact-btn span { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.contact-btn small { color: #888; font-size: 10px; }
+.contact-btn.unavailable { color: #999; cursor: default; }
+.timeline { list-style: none; margin: 18px 0 8px; padding: 0; }
+.timeline li { display: flex; gap: 10px; align-items: flex-start; padding: 0 0 18px 2px; position: relative; }
+.timeline li:not(:last-child)::before { content: ""; position: absolute; left: 7px; top: 14px; bottom: -2px; width: 2px; background: #e5e7eb; }
+.timeline .dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid #d1d5db; margin-top: 1px; flex-shrink: 0; }
+.timeline li.done .dot, .timeline li.current .dot { background: #fbbf24; border-color: #fbbf24; }
+.timeline li.current .t-label, .timeline li.done .t-label { color: #b8860b; font-weight: 700; }
+.t-label { font-size: 12px; color: #777; }
+.t-time { font-size: 11px; color: #999; }
 .btn { width: 100%; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 14px; margin-top: 10px; border: 1px solid #e5e7eb; background: white; cursor: pointer; }
 .btn.primary { background: #fbbf24; color: #78350f; border: none; }
 .btn.danger { background: #ef4444; color: white; border: none; }
 .btn.outline { background: white; color: #555; }
 .actions { display: flex; gap: 10px; }
-.proof-link { display: inline-block; color: #1d4ed8; font-size: 13px; margin: 4px 0; }
+.proof-link { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px; color: #1d4ed8; font-size: 13px; margin: 4px 0; }
+.completion-proof { display: block; max-width: 100%; max-height: 320px; border-radius: 8px; object-fit: contain; }
 .proof-missing, .completion-error, .completion-success { font-size: 12px; margin: 8px 0; }
 .proof-missing, .completion-error { color: #dc2626; }
 .completion-success { color: #15803d; }
