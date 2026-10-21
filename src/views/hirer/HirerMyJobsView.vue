@@ -75,6 +75,7 @@ function goBack() {
           <p class="desc">{{ job.description }}</p>
           <p v-if="job.status === 'pending_review'" class="status-note pending">⏳ รอ Admin ตรวจสอบก่อนเปิดรับสมัคร</p>
           <p v-if="job.status === 'rejected'" class="status-note rejected">✕ {{ job.rejectionReason || "ไม่ผ่านการตรวจสอบเนื้อหา" }}</p>
+          <p v-if="job.status === 'awaiting_confirmation'" class="status-note pending">มีหลักฐานรอให้คุณตรวจสอบและยืนยันงานเสร็จ</p>
           <div class="tags">
             <span class="tag">฿{{ job.price }}</span>
             <span class="tag">{{ job.category }}</span>
@@ -115,5 +116,3 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .cta { flex-shrink: 0; font-size: 12.5px; font-weight: 700; color: #d99a00; }
 .cta.muted { color: #999; }
 </style>
-
-

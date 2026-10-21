@@ -41,6 +41,9 @@ const filteredJobs = computed(() => jobs.value); // backend กรองตา�
 const statusMeta = {
   waiting: { label: "Waiting for selection", class: "gold" },
   "in-progress": { label: "In Process", class: "purple" },
+  assigned: { label: "Assigned", class: "purple" },
+  in_progress: { label: "In Progress", class: "purple" },
+  awaiting_confirmation: { label: "Waiting for Hirer", class: "gold" },
   completed: { label: "Completed", class: "green" },
   cancelled: { label: "Cancelled", class: "red" },
 };
@@ -92,7 +95,7 @@ function openJob(job) {
             <p class="job-meta">{{ job.price }} Baht &nbsp;•&nbsp; {{ job.duration }} &nbsp;•&nbsp; {{ job.distance }}</p>
           </div>
           <div class="job-right">
-            <span class="status-tag" :class="statusMeta[job.status].class">{{ statusMeta[job.status].label }}</span>
+            <span class="status-tag" :class="(statusMeta[job.backendStatus] || statusMeta[job.status]).class">{{ (statusMeta[job.backendStatus] || statusMeta[job.status]).label }}</span>
             <svg v-if="job.status !== 'waiting'" class="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
           </div>
         </button>

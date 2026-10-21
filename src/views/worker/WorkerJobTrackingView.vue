@@ -42,8 +42,8 @@ const job = ref({
 });
 
 function buildTimeline(backendStatus) {
-  const currentStep = { assigned: 0, in_progress: 1, awaiting_confirmation: 2, completed: 4 }[backendStatus] ?? -1;
-  return ["Start", "In Progress", "Submit Proof", "Complete"].map((label, index) => ({
+  const currentStep = { assigned: 0, in_progress: 1, awaiting_confirmation: 2, completed: 3 }[backendStatus] ?? -1;
+  return ["Assigned", "In Progress", "Awaiting Confirmation", "Completed"].map((label, index) => ({
     key: label.toLowerCase().replaceAll(" ", "-"),
     label,
     timestamp: null,
@@ -104,6 +104,9 @@ const total = computed(() => job.value.price + job.value.serviceFee);
 
 const statusMeta = {
   "in-progress": { label: "In Process", class: "purple" },
+  assigned: { label: "Assigned", class: "purple" },
+  in_progress: { label: "In Progress", class: "purple" },
+  awaiting_confirmation: { label: "Waiting for Hirer", class: "purple" },
   completed: { label: "Completed", class: "green" },
   cancelled: { label: "Cancelled", class: "red" },
 };
@@ -112,7 +115,7 @@ const statusMeta = {
 const updating = ref(false);
 const proofInput = ref(null);
 
-// backendStatus: assigned -> in_progress (ไม่ต้องแนบรูป) / in_progress -> completed (ต้องแนบรูป, FR-TRACK-03)
+// assigned -> in_progress -> awaiting_confirmation (the Hirer alone confirms completion)
 function updateStatus() {
   if (job.value.backendStatus === "awaiting_confirmation") return;
   if (job.value.backendStatus === "in_progress") {
@@ -124,7 +127,17 @@ function updateStatus() {
 
 async function onProofSelected(e) {
   const file = e.target.files?.[0];
-  if (file) await submitStatusUpdate(file);
+  e.target.value = ""; // Allow choosing the same file again after a failed upload.
+  if (!file) return;
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    errorMsg.value = "Please select a JPG, PNG or WebP photo.";
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    errorMsg.value = "The photo must be smaller than 5 MB.";
+    return;
+  }
+  await submitStatusUpdate(file);
 }
 
 async function submitStatusUpdate(file) {
@@ -209,7 +222,7 @@ function goToReview() {
             <p class="job-title">{{ job.title }}</p>
             <p class="job-desc">{{ job.description }}</p>
           </div>
-          <span class="status-tag" :class="statusMeta[job.status].class">{{ statusMeta[job.status].label }}</span>
+          <span class="status-tag" :class="(statusMeta[job.backendStatus] || statusMeta[job.status]).class">{{ (statusMeta[job.backendStatus] || statusMeta[job.status]).label }}</span>
         </div>
 
         <!-- รายละเอียด -->
@@ -306,7 +319,8 @@ function goToReview() {
           <button class="btn-primary" :disabled="updating || job.backendStatus === 'awaiting_confirmation'" @click="updateStatus">
             {{ updating ? "Updating..." : job.backendStatus === "awaiting_confirmation" ? "Waiting for Hirer confirmation" : job.backendStatus === "in_progress" ? "Submit Proof" : "Start Job" }}
           </button>
-          <input v-if="job.backendStatus === 'in_progress'" ref="proofInput" type="file" accept="image/*" class="hidden-input" @change="onProofSelected" />
+          <p v-if="job.backendStatus === 'awaiting_confirmation'" class="pending-confirmation">Proof submitted. The Hirer must check and confirm your work before it is completed.</p>
+          <input v-if="job.backendStatus === 'in_progress'" ref="proofInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden-input" @change="onProofSelected" />
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         </template>
 
@@ -439,4 +453,5 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .hidden-input { display: none; }
 .error-msg { margin: 8px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
+.pending-confirmation { margin: 12px 0 0; font-size: 12px; color: #92400e; line-height: 1.45; }
 </style>

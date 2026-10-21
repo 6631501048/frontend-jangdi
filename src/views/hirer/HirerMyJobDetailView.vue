@@ -17,11 +17,37 @@ const workerProfile = ref(null);
 const cancellingExpiredJob = ref(false);
 const canCancelExpiredJob = computed(() => job.value?.status === "waiting" && applicantsLoaded.value && applicants.value.length === 0 && new Date(job.value.scheduledAt).getTime() < Date.now());
 
-function resolveUploadUrl(pathOrUrl) {
-  if (!pathOrUrl) return null;
-  if (pathOrUrl.startsWith("http")) return pathOrUrl;
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
-  return apiBase.replace(/\/api\/?$/, "") + pathOrUrl;
+// Private proof images cannot be loaded with <img src="/uploads/...">:
+// that bypasses JWT authorization. Fetch authenticated image bytes once and
+// show a revocable object URL; access is limited by the backend to the job parties.
+const proofObjectUrl = ref(null);
+const proofLoading = ref(false);
+const proofError = ref("");
+let loadedProofKey = null;
+function clearProofImage() {
+  if (proofObjectUrl.value) URL.revokeObjectURL(proofObjectUrl.value);
+  proofObjectUrl.value = null;
+}
+async function loadProofImage(jobData, force = false) {
+  const key = jobData?.completionProofUrl ? `${jobData._id}:${jobData.completionProofUrl}` : null;
+  if (!force && loadedProofKey === key) return;
+  loadedProofKey = key;
+  clearProofImage();
+  proofError.value = "";
+  if (!key) return;
+  proofLoading.value = true;
+  try {
+    const { data } = await api.get(`/jobs/${jobData._id}/completion-proof`, { responseType: "blob" });
+    // Avoid reusing the image from a job that has changed while a request was pending.
+    if (loadedProofKey === key) proofObjectUrl.value = URL.createObjectURL(data);
+  } catch (err) {
+    if (loadedProofKey === key) proofError.value = "Unable to load the completion photo. Check access and try again.";
+  } finally {
+    proofLoading.value = false;
+  }
+}
+function retryProof() {
+  if (job.value) loadProofImage(job.value, true);
 }
 
 function formatDuration(data) {
@@ -35,6 +61,7 @@ async function loadJob() {
   loading.value = true;
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    await loadProofImage(data);
     const selectedWorkerId = data.selectedWorker?._id || data.selectedWorker;
     if (selectedWorkerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
       try {
@@ -58,7 +85,7 @@ async function loadJob() {
       from: { label: data.fromText || data.locationText || "-" },
       to: { label: data.toText || "-" },
       applicants: data.applicants || [],
-      statusLabel: ({ assigned: "Worker selected", in_progress: "In Progress", awaiting_confirmation: "Proof submitted", completed: "Complete" })[data.status] || data.status,
+      statusLabel: ({ assigned: "Worker selected", in_progress: "In Progress", awaiting_confirmation: "Waiting for your confirmation", completed: "Completed" })[data.status] || data.status,
     };
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "Unable to load job details.";
@@ -73,7 +100,10 @@ onMounted(async () => {
     if (["assigned", "in_progress", "awaiting_confirmation"].includes(job.value?.status)) loadJob();
   }, 5000);
 });
-onUnmounted(() => window.clearInterval(statusRefreshTimer));
+onUnmounted(() => {
+  window.clearInterval(statusRefreshTimer);
+  clearProofImage();
+});
 
 async function cancelExpiredJob() {
   if (!canCancelExpiredJob.value || cancellingExpiredJob.value) return;
@@ -102,29 +132,24 @@ function goReview() {
   router.push({ name: "hirer-review", params: { id: job.value.id } });
 }
 const confirmingCompletion = ref(false);
-const completionConfirmed = ref(false);
 const completionError = ref("");
 const progressSteps = computed(() => {
-  const currentStep = job.value?.status === "assigned" ? 0
-    : job.value?.status === "in_progress" ? 1
-    : job.value?.status === "awaiting_confirmation" ? 2
-    : job.value?.status === "completed" ? 4
-    : -1;
-  return ["Start", "In Progress", "Submit Proof", "Complete"].map((label, index) => ({
+  const currentStep = ({ assigned: 0, in_progress: 1, awaiting_confirmation: 2, completed: 3 })[job.value?.status] ?? -1;
+  return ["Assigned", "In Progress", "Awaiting Confirmation", "Completed"].map((label, index) => ({
     label, done: currentStep > index, current: currentStep === index,
   }));
 });
 
 async function confirmCompletion() {
-  if (!job.value || job.value.status !== "awaiting_confirmation" || confirmingCompletion.value || completionConfirmed.value) return;
-  if (!window.confirm("Confirm that this job is complete and release the held payment to the worker?")) return;
+  if (!job.value || job.value.status !== "awaiting_confirmation" || confirmingCompletion.value || !proofObjectUrl.value) return;
+  if (!window.confirm("Have you reviewed the completion photo and received the work? Confirm completion? (Demo payment only.)")) return;
 
   confirmingCompletion.value = true;
   completionError.value = "";
   try {
     const { data } = await api.post(`/jobs/${job.value._id}/confirm-completion`);
-    job.value = { ...job.value, ...data.job, statusLabel: "Complete" };
-    completionConfirmed.value = true;
+    job.value = { ...job.value, ...data.job, statusLabel: "Completed" };
+    await loadJob();
   } catch (err) {
     completionError.value = err.response?.data?.message || "Unable to confirm job completion.";
   } finally {
@@ -202,10 +227,10 @@ async function confirmCompletion() {
             <span class="dot" />
             <div>
               <div class="t-label">{{ step.label }}</div>
-              <div v-if="step.current && step.label === 'Complete'" class="t-time">Waiting for your confirmation</div>
-              <div v-else-if="step.current && step.label === 'Start'" class="t-time">Worker has been selected</div>
+              <div v-if="step.current && step.label === 'Completed'" class="t-time">Confirmed by Hirer</div>
+              <div v-else-if="step.current && step.label === 'Assigned'" class="t-time">Worker has been selected</div>
               <div v-else-if="step.current && step.label === 'In Progress'" class="t-time">Worker is doing the job</div>
-              <div v-else-if="step.current && step.label === 'Submit Proof'" class="t-time">Completion proof submitted</div>
+              <div v-else-if="step.current && step.label === 'Awaiting Confirmation'" class="t-time">Completion proof submitted, waiting for your approval</div>
             </div>
           </li>
         </ol>
@@ -216,26 +241,40 @@ async function confirmCompletion() {
         </div>
       </template>
 
-      <!-- FR-REV-01, FR-PAY-06: งานเสร็จแล้ว รีวิวได้ / ขอคืนเงินได้ -->
-      <template v-if="job.status === 'awaiting_confirmation'">
+      <!-- Authorized proof preview is available while pending and after confirmation. -->
+      <template v-if="['awaiting_confirmation', 'completed'].includes(job.status)">
         <h2 class="section-title">Completion proof</h2>
-        <a v-if="job.completionProofUrl" class="proof-link" :href="resolveUploadUrl(job.completionProofUrl)" target="_blank" rel="noopener noreferrer">
-          <img class="completion-proof" :src="resolveUploadUrl(job.completionProofUrl)" alt="Worker completion proof" />
-          View worker's completion photo
+        <p v-if="proofLoading" class="proof-note">Loading photo...</p>
+        <a v-else-if="proofObjectUrl" class="proof-link" :href="proofObjectUrl" target="_blank" rel="noopener noreferrer">
+          <img class="completion-proof" :src="proofObjectUrl" alt="Worker completion proof" />
+          Open full-size photo
         </a>
+        <div v-else-if="proofError" role="alert" class="proof-missing">
+          {{ proofError }}
+          <button type="button" class="btn outline" @click="retryProof">Retry photo</button>
+        </div>
         <p v-else class="proof-missing">The worker has not provided a completion photo.</p>
+      </template>
+
+      <template v-if="job.status === 'awaiting_confirmation'">
+        <p class="proof-note">Please review the photo and make sure the work was delivered before confirming.</p>
         <p v-if="completionError" class="completion-error" role="alert">{{ completionError }}</p>
-        <p v-if="completionConfirmed" class="completion-success" role="status">Job completion confirmed and payment released.</p>
-        <button v-if="!completionConfirmed" class="btn primary" :disabled="confirmingCompletion || !job.completionProofUrl" @click="confirmCompletion">
-          {{ confirmingCompletion ? "Confirming..." : "Complete" }}
+        <button class="btn primary" :disabled="confirmingCompletion || !proofObjectUrl" @click="confirmCompletion">
+          {{ confirmingCompletion ? "Confirming..." : "Confirm Job Completed" }}
         </button>
         <div class="actions">
           <button class="btn danger" @click="goRefund">Refund</button>
         </div>
       </template>
-      <div v-if="job.status === 'completed'" class="actions">
-        <button class="btn primary" @click="goReview">Review</button>
-        <button class="btn danger" @click="goRefund">Refund</button>
+      <div v-if="job.status === 'completed'">
+        <p class="completion-success" role="status">
+          Job confirmed by Hirer<span v-if="job.completionConfirmedAt"> on {{ new Date(job.completionConfirmedAt).toLocaleString('th-TH') }}</span>.
+          Payment is recorded in DEMO mode; no real transfer occurred.
+        </p>
+        <div class="actions">
+          <button class="btn primary" @click="goReview">Review</button>
+          <button class="btn danger" @click="goRefund">Refund</button>
+        </div>
       </div>
 
       <!-- FR-JOB-07: รายละเอียดการยกเลิก -->
@@ -298,12 +337,11 @@ async function confirmCompletion() {
 .actions { display: flex; gap: 10px; }
 .proof-link { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px; color: #1d4ed8; font-size: 13px; margin: 4px 0; }
 .completion-proof { display: block; max-width: 100%; max-height: 320px; border-radius: 8px; object-fit: contain; }
-.proof-missing, .completion-error, .completion-success { font-size: 12px; margin: 8px 0; }
+.proof-missing, .proof-note, .completion-error, .completion-success { font-size: 12px; margin: 8px 0; }
+.proof-note { color: #555; }
 .proof-missing, .completion-error { color: #dc2626; }
 .completion-success { color: #15803d; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .actions .btn { margin-top: 16px; }
 .placeholder { padding: 16px; color: #888; }
 </style>
-
-
