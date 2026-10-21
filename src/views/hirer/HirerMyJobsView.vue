@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 // FR-JOB-08: ดูงานที่ตนเองประกาศ จัดกลุ่มตามสถานะ
 // เป็นจุดเข้าสู่หน้า "เลือกผู้รับจ้าง" (FR-MATCH-03/04) สำหรับงานที่เปิดรับสมัครอยู่
 import { onMounted, ref, watch } from "vue";
@@ -20,16 +20,19 @@ const jobs = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
 
+let requestId = 0;
 async function loadJobs() {
+  const currentRequest = ++requestId;
   loading.value = true;
   errorMsg.value = "";
+  jobs.value = [];
   try {
     const { data } = await api.get("/jobs/my", { params: { status: activeTab.value } });
-    jobs.value = data;
+    if (currentRequest === requestId) jobs.value = data;
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "โหลดรายการงานไม่สำเร็จ";
+    if (currentRequest === requestId) errorMsg.value = err.response?.data?.message || "โหลดรายการงานไม่สำเร็จ";
   } finally {
-    loading.value = false;
+    if (currentRequest === requestId) loading.value = false;
   }
 }
 onMounted(loadJobs);

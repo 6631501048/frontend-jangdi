@@ -20,16 +20,23 @@ const errorMsg = ref("");
 /* ---------- ข้อมูลงาน ---------- */
 const jobs = ref([]);
 
+let requestId = 0;
 async function loadJobs() {
+  const currentRequest = ++requestId;
   loading.value = true;
   errorMsg.value = "";
+  jobs.value = [];
   try {
     const { data } = await api.get("/jobs/my-as-worker", { params: { status: activeTab.value } });
-    jobs.value = data.map((j) => ({ ...j, duration: j.duration || "-", distance: j.distance || "-" }));
+    if (currentRequest !== requestId) return;
+    jobs.value = data.map((j) => ({
+      ...j,
+      duration: j.scheduledAt ? new Date(j.scheduledAt).toLocaleString("th-TH") : "-",
+    }));
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "โหลดรายการงานไม่สำเร็จ";
+    if (currentRequest === requestId) errorMsg.value = err.response?.data?.message || "โหลดรายการงานไม่สำเร็จ";
   } finally {
-    loading.value = false;
+    if (currentRequest === requestId) loading.value = false;
   }
 }
 
@@ -49,8 +56,11 @@ const statusMeta = {
 };
 
 function openJob(job) {
-  if (job.status === "waiting") return; // ยังไม่มีงานจริงให้ติดตามจนกว่าจะถูกเลือก (FR-MATCH-04)
-  router.push(`/worker/jobs/${job.id}`);
+  // Waiting is the original application detail (read-only after applying).
+  // Assigned / active / completed / cancelled use the tracking detail.
+  router.push(job.status === "waiting"
+    ? `/worker/jobs/${job.id}`
+    : `/worker/jobs/${job.id}/tracking`);
 }
 </script>
 
@@ -83,7 +93,7 @@ function openJob(job) {
           :key="job.id"
           type="button"
           class="job-row"
-          :class="{ clickable: job.status !== 'waiting' }"
+          :class="{ clickable: true }"
           @click="openJob(job)"
         >
           <span class="job-avatar" aria-hidden="true">
@@ -92,15 +102,17 @@ function openJob(job) {
           <div class="job-body">
             <p v-if="job.hirerName" class="job-hirer">{{ job.hirerName }}</p>
             <p class="job-title">{{ job.title }}</p>
-            <p class="job-meta">{{ job.price }} Baht &nbsp;•&nbsp; {{ job.duration }} &nbsp;•&nbsp; {{ job.distance }}</p>
+            <p class="job-meta">{{ job.price }} Baht &nbsp;•&nbsp; {{ job.duration }}</p>
           </div>
           <div class="job-right">
             <span class="status-tag" :class="(statusMeta[job.backendStatus] || statusMeta[job.status]).class">{{ (statusMeta[job.backendStatus] || statusMeta[job.status]).label }}</span>
-            <svg v-if="job.status !== 'waiting'" class="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+            <svg class="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
           </div>
         </button>
 
-        <p v-if="!filteredJobs.length" class="empty">ยังไม่มีงานในหมวดนี้</p>
+        <p v-if="loading" class="empty">กำลังโหลดรายการงาน...</p>
+        <p v-else-if="errorMsg" class="error-msg" role="alert">{{ errorMsg }}</p>
+        <p v-else-if="!filteredJobs.length" class="empty">ยังไม่มีงานในหมวดนี้</p>
       </section>
     </main>
   </div>
@@ -161,5 +173,6 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .status-tag.red { color: #e11d48; }
 .chevron { width: 14px; height: 14px; color: #ccc; }
 
+.error-msg { color: #b91c1c; padding: 12px; text-align: center; font-size: 13px; }
 .empty { text-align: center; color: #888; margin-top: 40px; font-size: 14px; }
 </style>

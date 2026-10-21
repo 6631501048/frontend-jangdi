@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 // FR-MATCH-03: Hirer ดูผู้สมัครทั้งหมด (avatar, ชื่อ, credibility score, ระยะทาง)
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -30,6 +30,9 @@ async function loadApplicants() {
       score: item.worker?.credibilityScore ?? 0,
       reviewCount: item.worker?.reviewCount ?? 0,
       distanceMeters: item.distanceMeters,
+      distanceKm: Number.isFinite(Number(item.distanceMeters)) && item.distanceMeters != null
+        ? (Number(item.distanceMeters) / 1000).toFixed(1)
+        : null,
     }));
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "Unable to load applicants.";
@@ -55,6 +58,9 @@ async function cancelExpiredJob() {
     cancellingExpiredJob.value = false;
   }
 }
+function goToJobDetail() {
+  router.push({ name: "hirer-job-detail", params: { id: route.params.id } });
+}
 function select(workerId) {
   // FR-MATCH-04: เตรียมข้อมูลก่อนไปหน้ายืนยันเลือกช่าง + จ่ายเงิน
   router.push({ name: "hirer-confirm-selection", params: { id: job.value._id, workerId } });
@@ -64,6 +70,7 @@ function select(workerId) {
 <template>
   <main class="applicants">
     <AppHeader :title="`View Applicants (${applicants.length})`" />
+    <button type="button" class="details-btn" @click="goToJobDetail">View Job Details / Cancel Job</button>
 
     <section class="list">
       <p v-if="loading" class="empty">Loading applicants...</p>
@@ -72,7 +79,7 @@ function select(workerId) {
         <div class="avatar">👤</div>
         <div class="info">
           <div class="name">{{ a.name }}</div>
-          <div class="meta">⭐ {{ a.rating }} · {{ a.distanceKm }} km</div>
+          <div class="meta">⭐ {{ a.score }} ({{ a.reviewCount }} reviews) · {{ a.distanceKm === null ? "Distance unavailable" : `${a.distanceKm} km` }}</div>
         </div>
         <button class="select-btn" :disabled="!canSelect" @click="select(a.workerId)">Select</button>
       </div>
@@ -86,6 +93,7 @@ function select(workerId) {
 
 <style scoped>
 .applicants { padding-bottom: 32px; }
+.details-btn { margin: 12px 16px 0; background: #fff; color: #111; border: 1px solid #ddd; padding: 10px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; }
 .list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .applicant-card {
   display: flex; align-items: center; gap: 12px; padding: 12px 14px;
@@ -107,4 +115,3 @@ function select(workerId) {
 .delete-btn:disabled { opacity: .5; cursor: wait; }
 .error { color: #e11d48; }
 </style>
-

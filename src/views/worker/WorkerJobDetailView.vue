@@ -18,6 +18,7 @@ const job = ref({
   id: route.params.id,
   hirerName: "",
   title: "",
+  backendStatus: "waiting",
   description: "",
   category: "",
   deliveryFee: 0,
@@ -32,10 +33,19 @@ async function loadJob() {
   loading.value = true;
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    // An existing application must stay visible after page refresh.
+    try {
+      const { data: applications } = await api.get("/jobs/my-as-worker", { params: { status: "waiting" } });
+      alreadyApplied.value = applications.some((application) => String(application.id) === String(data._id));
+    } catch {
+      // Do not enable a duplicate action when application state cannot be confirmed.
+      errorMsg.value = "ไม่สามารถตรวจสถานะการสมัครงานได้ กรุณาลองใหม่อีกครั้ง";
+    }
     job.value = {
       id: data._id,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
       title: data.title,
+      backendStatus: data.status,
       description: data.description,
       category: data.category,
       deliveryFee: data.deliveryFee || 0,
@@ -55,6 +65,7 @@ onMounted(loadJob);
 
 const applying = ref(false);
 const applied = ref(false);
+const alreadyApplied = ref(false);
 
 async function applyForJob() {
   applying.value = true;
@@ -91,7 +102,9 @@ function goBack() {
     </header>
 
     <main class="content">
-      <div class="card">
+      <p v-if="loading" class="loading-hint">กำลังโหลด...</p>
+      <p v-if="errorMsg && loading === false && !job.title" class="error-msg" role="alert">{{ errorMsg }}</p>
+      <div v-if="!loading && job.title" class="card">
         <!-- หัวข้อ: ผู้ว่าจ้าง + ชื่องาน + คำอธิบาย -->
         <div class="job-head">
           <span class="job-avatar" aria-hidden="true">
@@ -105,7 +118,12 @@ function goBack() {
         </div>
 
         <!-- ===== หน้าจอสำเร็จหลังสมัคร ===== -->
-        <section v-if="applied" class="success">
+        <section v-if="alreadyApplied" class="success">
+          <p class="success-title">Waiting for Hirer selection</p>
+          <p class="success-sub">You have already applied for this job.</p>
+          <button class="btn-view-request" @click="viewMyRequest">Back to My Jobs</button>
+        </section>
+        <section v-else-if="applied" class="success">
           <div class="check-circle">
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
@@ -151,7 +169,8 @@ function goBack() {
             <p class="notes-value">{{ job.notes }}</p>
           </div>
 
-          <button class="btn-apply" :disabled="applying" @click="applyForJob">
+          <p v-if="job.backendStatus !== 'waiting'" class="error-msg">This job is no longer accepting applications.</p>
+          <button v-else class="btn-apply" :disabled="applying || loading || !!errorMsg" @click="applyForJob">
             {{ applying ? "Applying..." : "Apply for the job" }}
           </button>
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
@@ -212,6 +231,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   background: #ffc93c; color: #111; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .btn-apply:disabled { opacity: 0.6; cursor: not-allowed; }
+.loading-hint { text-align: center; color: #777; }
 .error-msg { margin: 8px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
 
 /* ---------- หน้าจอสำเร็จ ---------- */

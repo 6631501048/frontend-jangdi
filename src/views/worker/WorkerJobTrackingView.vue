@@ -13,6 +13,7 @@ const route = useRoute();
 const router = useRouter();
 
 const loading = ref(true);
+const hasLoaded = ref(false);
 const errorMsg = ref("");
 
 // backend status: assigned | in_progress | awaiting_confirmation | completed | cancelled -> UI status ที่หน้านี้ใช้
@@ -41,21 +42,38 @@ const job = ref({
   cancellation: null,
 });
 
-function buildTimeline(backendStatus) {
+function formatStatusTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+}
+function buildTimeline(backendStatus, events = [], proofSubmittedAt, completionConfirmedAt) {
   const currentStep = { assigned: 0, in_progress: 1, awaiting_confirmation: 2, completed: 3 }[backendStatus] ?? -1;
-  return ["Assigned", "In Progress", "Awaiting Confirmation", "Completed"].map((label, index) => ({
-    key: label.toLowerCase().replaceAll(" ", "-"),
-    label,
-    timestamp: null,
-    done: currentStep > index,
-    current: currentStep === index,
-  }));
+  const labels = ["Start", "In Progress", "Submit Proof", "Complete"];
+  const statuses = ["assigned", "in_progress", "awaiting_confirmation", "completed"];
+  return labels.map((label, index) => {
+    const event = events.find((e) => e.status === statuses[index]);
+    const actualTime = event?.at || (index === 2 ? proofSubmittedAt : index === 3 ? completionConfirmedAt : null);
+    return {
+      key: statuses[index], label,
+      timestamp: formatStatusTime(actualTime),
+      done: currentStep > index, current: currentStep === index,
+    };
+  });
 }
 
 async function loadJob() {
-  loading.value = true;
+  // Avoid clearing the entire page during background status checks.
+  if (!hasLoaded.value) loading.value = true;
+  errorMsg.value = "";
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    let events = [];
+    if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
+      // The timeline endpoint also verifies that the current user belongs to this job.
+      const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
+      events = timeline;
+    }
     const hirerId = data.hirer?._id || data.hirer;
     let hirerProfile = data.hirer || {};
     if (hirerId && ["assigned", "in_progress", "awaiting_confirmation"].includes(data.status)) {
@@ -82,9 +100,11 @@ async function loadJob() {
       notes: data.notes || "-",
       hirerPhone: hirerProfile.phone || "-",
       hirerLine: hirerProfile.lineId || "-",
-      timeline: buildTimeline(data.status),
-      cancellation: data.status === "cancelled" ? { by: "Hirer", reason: data.cancelReason || "-" } : null,
+      timeline: buildTimeline(data.status, events, data.proofSubmittedAt, data.completionConfirmedAt),
+      completionConfirmedAt: data.completionConfirmedAt,
+      cancellation: data.status === "cancelled" ? { by: "Hirer", reason: data.cancelReason || "Not specified", at: data.cancelledAt } : null,
     };
+    hasLoaded.value = true;
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
   } finally {
@@ -109,6 +129,8 @@ const statusMeta = {
   awaiting_confirmation: { label: "Waiting for Hirer", class: "purple" },
   completed: { label: "Completed", class: "green" },
   cancelled: { label: "Cancelled", class: "red" },
+  disputed: { label: "Disputed", class: "red" },
+  waiting: { label: "Waiting", class: "purple" },
 };
 
 /* ---------- อัปเดตสถานะ / ส่งหลักฐาน ---------- */
@@ -211,7 +233,10 @@ function goToReview() {
     </header>
 
     <main class="content">
-      <div class="card">
+      <p v-if="loading && !hasLoaded" class="page-message">กำลังโหลดรายละเอียดงาน...</p>
+      <p v-else-if="!hasLoaded" class="page-message error-msg" role="alert">{{ errorMsg || "ไม่พบรายละเอียดงาน" }}</p>
+      <div v-else class="card">
+        <p v-if="errorMsg" class="error-msg" role="alert">{{ errorMsg }}</p>
         <!-- หัวข้อ: ผู้ว่าจ้าง + ชื่องาน + สถานะ -->
         <div class="job-head">
           <span class="job-avatar" aria-hidden="true">
@@ -222,7 +247,7 @@ function goToReview() {
             <p class="job-title">{{ job.title }}</p>
             <p class="job-desc">{{ job.description }}</p>
           </div>
-          <span class="status-tag" :class="(statusMeta[job.backendStatus] || statusMeta[job.status]).class">{{ (statusMeta[job.backendStatus] || statusMeta[job.status]).label }}</span>
+          <span class="status-tag" :class="(statusMeta[job.backendStatus] || statusMeta[job.status] || statusMeta.waiting).class">{{ (statusMeta[job.backendStatus] || statusMeta[job.status] || statusMeta.waiting).label }}</span>
         </div>
 
         <!-- รายละเอียด -->
@@ -335,7 +360,7 @@ function goToReview() {
               </div>
               <div class="detail-row">
                 <dt>Reason</dt>
-                <dd>{{ job.cancellation?.reason || "I found someone else to do this job." }}</dd>
+                <dd>{{ job.cancellation?.reason || "Not specified" }}</dd>
               </div>
             </dl>
           </div>
@@ -344,7 +369,9 @@ function goToReview() {
 
         <!-- ===== Completed: ให้รีวิวผู้ว่าจ้าง (SRS 3.5.15 / FR-REV-01–02) ===== -->
         <template v-if="job.status === 'completed'">
+          <p class="completion-note">Completed<span v-if="job.completionConfirmedAt"> — confirmed on {{ formatStatusTime(job.completionConfirmedAt) }}</span></p>
           <button class="btn-primary" @click="goToReview">Review Hirer</button>
+          <button class="btn-outline" @click="backToMyJobs">Back to My Jobs</button>
         </template>
       </div>
     </main>
@@ -453,5 +480,8 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .hidden-input { display: none; }
 .error-msg { margin: 8px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
+.page-message { padding: 30px 12px; text-align: center; color: #777; }
+.completion-note { font-size: 12px; color: #16803c; margin: 14px 0; }
+.btn-outline { display: block; margin-top: 10px; border: 1px solid #ddd; background: white; border-radius: 8px; padding: 12px; width: 100%; cursor: pointer; }
 .pending-confirmation { margin: 12px 0 0; font-size: 12px; color: #92400e; line-height: 1.45; }
 </style>

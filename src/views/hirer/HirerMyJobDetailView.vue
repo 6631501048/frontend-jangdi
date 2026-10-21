@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 // FR-JOB-01/08, FR-TRACK-02/03/04, FR-SOS-01, FR-JOB-07: รายละเอียดงานของ Hirer ปรับเนื้อหาตามสถานะ
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -14,8 +14,8 @@ const errorMsg = ref("");
 const applicants = ref([]);
 const applicantsLoaded = ref(false);
 const workerProfile = ref(null);
-const cancellingExpiredJob = ref(false);
-const canCancelExpiredJob = computed(() => job.value?.status === "waiting" && applicantsLoaded.value && applicants.value.length === 0 && new Date(job.value.scheduledAt).getTime() < Date.now());
+const cancellingJob = ref(false);
+const canCancelJob = computed(() => job.value?.status === "waiting");
 
 // Private proof images cannot be loaded with <img src="/uploads/...">:
 // that bypasses JWT authorization. Fetch authenticated image bytes once and
@@ -58,9 +58,15 @@ function formatDuration(data) {
 }
 
 async function loadJob() {
-  loading.value = true;
+  if (!job.value) loading.value = true;
+  errorMsg.value = "";
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    let events = [];
+    if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
+      const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
+      events = timeline;
+    }
     await loadProofImage(data);
     const selectedWorkerId = data.selectedWorker?._id || data.selectedWorker;
     if (selectedWorkerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
@@ -71,6 +77,8 @@ async function loadJob() {
         workerProfile.value = null;
       }
     }
+    applicantsLoaded.value = false;
+    applicants.value = [];
     if (data.status === "waiting") {
       const { data: rows } = await api.get(`/jobs/${route.params.id}/applicants`);
       applicants.value = Array.isArray(rows) ? rows : [];
@@ -84,8 +92,10 @@ async function loadJob() {
       total: Number(data.price || 0) + Number(data.deliveryFee || 0),
       from: { label: data.fromText || data.locationText || "-" },
       to: { label: data.toText || "-" },
-      applicants: data.applicants || [],
-      statusLabel: ({ assigned: "Worker selected", in_progress: "In Progress", awaiting_confirmation: "Waiting for your confirmation", completed: "Completed" })[data.status] || data.status,
+      applicants: applicants.value,
+      timelineEvents: events,
+      cancellation: data.status === "cancelled" ? { cancelledBy: "Hirer", reason: data.cancelReason || "Not specified", at: data.cancelledAt } : null,
+      statusLabel: ({ assigned: "Worker selected", in_progress: "In Progress", awaiting_confirmation: "Waiting for your confirmation", completed: "Completed", cancelled: "Cancelled" })[data.status] || data.status,
     };
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "Unable to load job details.";
@@ -105,38 +115,47 @@ onUnmounted(() => {
   clearProofImage();
 });
 
-async function cancelExpiredJob() {
-  if (!canCancelExpiredJob.value || cancellingExpiredJob.value) return;
-  if (!window.confirm("งานนี้เลยเวลานัดและไม่มีผู้สมัคร ต้องการยกเลิกประกาศงานหรือไม่?")) return;
-  cancellingExpiredJob.value = true;
+async function cancelJob() {
+  if (!canCancelJob.value || cancellingJob.value) return;
+  const reason = window.prompt("เหตุผลที่ต้องการยกเลิกประกาศงาน (งานที่ยังไม่เลือก Worker เท่านั้น):");
+  if (reason === null) return;
+  if (!reason.trim()) {
+    errorMsg.value = "กรุณาระบุเหตุผลในการยกเลิก";
+    return;
+  }
+  if (!window.confirm("ต้องการยกเลิกประกาศงานนี้ใช่หรือไม่?")) return;
+  cancellingJob.value = true;
   try {
-    const { data } = await api.post(`/jobs/${job.value._id}/cancel`, {
-      expiredNoApplicants: true,
-      reason: "Expired: no applicants before the scheduled time.",
-    });
-    job.value = { ...job.value, ...data.job, statusLabel: data.job.status };
-    router.push({ name: "hirer-dashboard" });
+    await api.post(`/jobs/${job.value._id}/cancel`, { reason: reason.trim() });
+    await loadJob();
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "Unable to cancel this expired job.";
+    errorMsg.value = err.response?.data?.message || "ยกเลิกประกาศงานไม่สำเร็จ";
   } finally {
-    cancellingExpiredJob.value = false;
+    cancellingJob.value = false;
   }
 }
 function goApplicants() {
   router.push({ name: "hirer-applicants", params: { id: job.value._id } });
-}
-function goRefund() {
-  router.push({ name: "hirer-refund", params: { id: job.value.id } });
 }
 function goReview() {
   router.push({ name: "hirer-review", params: { id: job.value.id } });
 }
 const confirmingCompletion = ref(false);
 const completionError = ref("");
+function formatStatusTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+}
 const progressSteps = computed(() => {
   const currentStep = ({ assigned: 0, in_progress: 1, awaiting_confirmation: 2, completed: 3 })[job.value?.status] ?? -1;
+  const statuses = ["assigned", "in_progress", "awaiting_confirmation", "completed"];
   return ["Assigned", "In Progress", "Awaiting Confirmation", "Completed"].map((label, index) => ({
-    label, done: currentStep > index, current: currentStep === index,
+    label,
+    done: currentStep > index,
+    current: currentStep === index,
+    timestamp: formatStatusTime(job.value?.timelineEvents?.find((event) => event.status === statuses[index])?.at ||
+      (index === 2 ? job.value?.proofSubmittedAt : index === 3 ? job.value?.completionConfirmedAt : null)),
   }));
 });
 
@@ -161,6 +180,7 @@ async function confirmCompletion() {
 
 <template>
   <main v-if="job" class="job-detail">
+    <p v-if="errorMsg" class="completion-error" role="alert">{{ errorMsg }}</p>
     <AppHeader title="Job Details" />
 
     <section class="card">
@@ -199,8 +219,8 @@ async function confirmCompletion() {
         <p>{{ job.notes || "-" }}</p>
       </div>
 
-      <button v-if="canCancelExpiredJob" class="btn danger" :disabled="cancellingExpiredJob" @click="cancelExpiredJob">
-        {{ cancellingExpiredJob ? "Cancelling..." : "Cancel expired job" }}
+      <button v-if="canCancelJob" class="btn danger" :disabled="cancellingJob" @click="cancelJob">
+        {{ cancellingJob ? "Cancelling..." : "Cancel Job" }}
       </button>
       <!-- FR-JOB-08 / FR-MATCH-03: ยังไม่เลือกช่าง ให้ดูผู้สมัครได้ -->
       <button v-if="job.status === 'waiting'" class="btn primary" @click="goApplicants">
@@ -227,7 +247,8 @@ async function confirmCompletion() {
             <span class="dot" />
             <div>
               <div class="t-label">{{ step.label }}</div>
-              <div v-if="step.current && step.label === 'Completed'" class="t-time">Confirmed by Hirer</div>
+              <div v-if="step.timestamp" class="t-time">{{ step.timestamp }}</div>
+              <div v-else-if="step.current && step.label === 'Completed'" class="t-time">Confirmed by Hirer</div>
               <div v-else-if="step.current && step.label === 'Assigned'" class="t-time">Worker has been selected</div>
               <div v-else-if="step.current && step.label === 'In Progress'" class="t-time">Worker is doing the job</div>
               <div v-else-if="step.current && step.label === 'Awaiting Confirmation'" class="t-time">Completion proof submitted, waiting for your approval</div>
@@ -235,10 +256,7 @@ async function confirmCompletion() {
           </li>
         </ol>
 
-        <div v-if="!['completed', 'awaiting_confirmation'].includes(job.status)" class="actions">
-          <button class="btn outline" @click="goRefund">Cancel</button>
-          <button class="btn danger" @click="goRefund">Refund</button>
-        </div>
+        <p v-if="['assigned', 'in_progress'].includes(job.status)" class="proof-note">หากงานมีปัญหาระหว่างดำเนินการ กรุณาติดต่อผู้ดูแลก่อนยกเลิก เพื่อไม่ให้ข้อมูลการจ่ายเงินจำลองผิดพลาด</p>
       </template>
 
       <!-- Authorized proof preview is available while pending and after confirmation. -->
@@ -262,9 +280,6 @@ async function confirmCompletion() {
         <button class="btn primary" :disabled="confirmingCompletion || !proofObjectUrl" @click="confirmCompletion">
           {{ confirmingCompletion ? "Confirming..." : "Confirm Job Completed" }}
         </button>
-        <div class="actions">
-          <button class="btn danger" @click="goRefund">Refund</button>
-        </div>
       </template>
       <div v-if="job.status === 'completed'">
         <p class="completion-success" role="status">
@@ -273,7 +288,7 @@ async function confirmCompletion() {
         </p>
         <div class="actions">
           <button class="btn primary" @click="goReview">Review</button>
-          <button class="btn danger" @click="goRefund">Refund</button>
+          <!-- Refund remains outside this MVP flow; do not route to mock refunds. -->
         </div>
       </div>
 
@@ -284,13 +299,14 @@ async function confirmCompletion() {
           <div class="row"><dt>Cancelled By</dt><dd>{{ job.cancellation.cancelledBy }}</dd></div>
           <div class="row"><dt>Reason</dt><dd>{{ job.cancellation.reason }}</dd></div>
         </dl>
-        <button class="btn primary" @click="router.push({ name: 'hirer-dashboard' })">Back to My Jobs</button>
+        <button class="btn primary" @click="router.push({ name: 'hirer-my-jobs' })">Back to My Jobs</button>
       </template>
     </section>
   </main>
   <main v-else class="job-detail">
     <AppHeader title="Job Details" />
-    <p class="placeholder">Job not found.</p>
+    <p v-if="loading" class="placeholder">กำลังโหลดรายละเอียดงาน...</p>
+    <p v-else class="placeholder" role="alert">{{ errorMsg || "Job not found." }}</p>
   </main>
 </template>
 
