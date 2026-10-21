@@ -41,7 +41,20 @@ async function loadProofImage(jobData, force = false) {
     // Avoid reusing the image from a job that has changed while a request was pending.
     if (loadedProofKey === key) proofObjectUrl.value = URL.createObjectURL(data);
   } catch (err) {
-    if (loadedProofKey === key) proofError.value = "Unable to load the completion photo. Check access and try again.";
+    if (loadedProofKey === key) {
+      let message = err.response?.data?.message;
+      // Axios keeps error bodies as Blob when responseType is "blob".
+      if (!message && err.response?.data instanceof Blob) {
+        try {
+          const body = await err.response.data.text();
+          message = JSON.parse(body).message;
+        } catch {
+          // Keep the HTTP status as a useful fallback for non-JSON responses.
+        }
+      }
+      const status = err.response?.status;
+      proofError.value = message || `Unable to load the completion photo${status ? ` (HTTP ${status})` : ". Check your connection and try again."}`;
+    }
   } finally {
     proofLoading.value = false;
   }
