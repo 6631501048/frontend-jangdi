@@ -3,9 +3,8 @@
 // FR-PAY-02: Escrow state machine (Pending -> Held -> Released)
 // FR-PAY-03: หักค่าธรรมเนียมแพลตฟอร์ม 5-10% ก่อนปล่อยเงินให้ผู้รับจ้าง (สะท้อนใน totalEarnings)
 //
-// หมายเหตุสำคัญ: ระบบนี้ไม่มี wallet กลางที่ต้องกด "ถอน" แยกต่างหาก — เงินสถานะ "released"
-// คือเงินที่ Admin โอนเข้าบัญชีธนาคารของผู้รับจ้างโดยตรงไปแล้วจริงตอนยืนยันงานเสร็จ (FR-PAY-05)
-// ปุ่ม Withdraw ด้านล่างจึงเป็นข้อความอธิบายแทนการเปิดฟอร์มถอนเงิน
+// MVP: payment amounts below are DEMO only. Released != a real bank transfer.
+// The actual payout and receipt upload are planned for the later Payment Sprint.
 import { onMounted, ref, watch } from "vue";
 import api from "../../services/api";
 
@@ -24,7 +23,7 @@ function formatCurrency(n) {
 
 function withdraw() {
   alert(
-    "เงินในสถานะ Available ถูกโอนเข้าบัญชีธนาคารที่ตั้งไว้ในหน้าโปรไฟล์แล้วโดยอัตโนมัติทุกครั้งที่งานเสร็จสิ้น ไม่ต้องกดถอนเพิ่ม"
+    "ระบบการเงินขณะนี้เป็น DEMO เท่านั้น ไม่สามารถถอนเงินหรือรับเงินจริงได้"
   );
 }
 
@@ -104,7 +103,8 @@ watch(selectedPeriod, loadSummary);
     </header>
 
     <main class="content">
-      <h1 class="page-title">Payment</h1>
+      <h1 class="page-title">Payment (DEMO)</h1>
+      <p class="hint">ยอดเงินจำลองเพื่อทดสอบระบบเท่านั้น ไม่มีการโอนเงินจริง</p>
 
       <!-- ยอดเงินคงเหลือ + ถอนเงิน -->
       <section class="card balance-card">
@@ -118,11 +118,11 @@ watch(selectedPeriod, loadSummary);
               </button>
             </p>
             <p class="amount">฿ {{ showBalance ? formatCurrency(availableBalance) : "•••••" }}</p>
-            <p class="hint">คุณสามารถถอนเงินรายได้ของคุณ</p>
+            <p class="hint">ยอดสะสมในระบบจำลอง — ไม่ใช่เงินที่ถอนได้</p>
           </div>
           <button class="btn-withdraw" @click="withdraw">
             <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M3 10h18" /></svg>
-            Withdraw
+            Demo Only
           </button>
         </div>
         <div class="balance-split">

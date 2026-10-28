@@ -1,8 +1,7 @@
 <script setup>
 // FR-PAY-08: แสดงยอดเงินที่จ่ายออกไป + ประวัติธุรกรรมตามลำดับเวลา (มุมมองผู้ว่าจ้าง)
 // FR-PAY-02: Escrow state machine (Pending -> Held -> Released)
-// ยึดตาม proposal: ไม่มี wallet กลางในแอปที่ต้อง "เติมเงิน" ก่อนใช้งาน — เงินไหลผ่าน
-// Escrow ทีละงานด้วยสลิปโอนแบบ manual (FR-PAY-01–05) เท่านั้น
+// MVP: all payment status figures are DEMO records; manual transfers come later.
 import { onMounted, ref, watch } from "vue";
 import api from "../../services/api";
 
@@ -92,7 +91,8 @@ watch(selectedPeriod, loadSummary);
     </header>
 
     <main class="content">
-      <h1 class="page-title">Payment</h1>
+      <h1 class="page-title">Payment (DEMO)</h1>
+      <p class="hint">ข้อมูลการชำระเงินจำลอง ไม่มีการโอนเงินจริง</p>
       <p v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
 
       <!-- ยอดที่จ่ายออกไปแล้ว -->
@@ -107,13 +107,13 @@ watch(selectedPeriod, loadSummary);
               </button>
             </p>
             <p class="amount">฿ {{ showBalance ? formatCurrency(totalPaid) : "•••••" }}</p>
-            <p class="hint">เงินที่โอนเข้าบัญชีผู้รับจ้างแล้วจริง ผ่านการยืนยันงานเสร็จ</p>
+            <p class="hint">ยอดจ่ายจำลองสำหรับงานที่ได้รับการยืนยันแล้ว (ไม่มีการโอนเงินจริง)</p>
           </div>
         </div>
         <div class="balance-split">
           <div class="split-item">
             <span>Pending Payment</span>
-            <span class="info-icon" title="เลือกผู้รับจ้างแล้ว แต่ยังไม่มีสลิปโอนเงินเข้า Escrow">ⓘ</span>
+            <span class="info-icon" title="เลือก Worker แล้ว รอกด Confirm Mock Payment">ⓘ</span>
             <strong>฿ {{ formatCurrency(pendingPayment) }}</strong>
           </div>
           <div class="split-item">

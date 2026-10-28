@@ -14,6 +14,8 @@ const errorMsg = ref("");
 const applicants = ref([]);
 const applicantsLoaded = ref(false);
 const workerProfile = ref(null);
+const mockPayment = ref(null);
+function goMockPayment() { router.push({ name: "hirer-mock-payment", params: { id: route.params.id } }); }
 const cancellingJob = ref(false);
 const canCancelJob = computed(() => job.value?.status === "waiting");
 
@@ -80,6 +82,10 @@ async function loadJob() {
       const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
       events = timeline;
     }
+    if (data.status === "assigned") {
+      try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); mockPayment.value = pay; }
+      catch { mockPayment.value = null; }
+    } else mockPayment.value = null;
     await loadProofImage(data);
     const selectedWorkerId = data.selectedWorker?._id || data.selectedWorker;
     if (selectedWorkerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
@@ -244,6 +250,11 @@ async function confirmCompletion() {
 
       <!-- FR-TRACK-01/02/03, FR-SOS-01: งานกำลังดำเนินการ -->
       <!-- Worker contact and progress after selection -->
+      <div v-if="job.status === 'assigned' && mockPayment?.status === 'pending'" class="mock-banner">
+        <strong>Payment Pending (Demo)</strong>
+        <p>กรุณากดชำระเงินจำลองเพื่อให้ Worker เริ่มงานได้ ไม่มีการโอนเงินจริง</p>
+        <button type="button" class="btn primary" @click="goMockPayment">Go to Mock Payment</button>
+      </div>
       <template v-if="['assigned', 'in_progress', 'awaiting_confirmation', 'completed'].includes(job.status)">
         <h2 class="section-title">Contact</h2>
         <div class="contact-row">
@@ -375,4 +386,6 @@ async function confirmCompletion() {
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .actions .btn { margin-top: 16px; }
 .placeholder { padding: 16px; color: #888; }
+.mock-banner { margin: 14px 0; padding: 14px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px; }
+.mock-banner p { font-size: 12px; }
 </style>

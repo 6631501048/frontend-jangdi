@@ -15,6 +15,7 @@ const router = useRouter();
 const loading = ref(true);
 const hasLoaded = ref(false);
 const errorMsg = ref("");
+const demoPaymentStatus = ref(null);
 
 // backend status: assigned | in_progress | awaiting_confirmation | completed | cancelled -> UI status ที่หน้านี้ใช้
 function toUiStatus(backendStatus) {
@@ -74,6 +75,10 @@ async function loadJob() {
       const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
       events = timeline;
     }
+    if (data.status === "assigned") {
+      try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); demoPaymentStatus.value = pay.status; }
+      catch { demoPaymentStatus.value = null; }
+    } else demoPaymentStatus.value = null;
     const hirerId = data.hirer?._id || data.hirer;
     let hirerProfile = data.hirer || {};
     if (hirerId && ["assigned", "in_progress", "awaiting_confirmation"].includes(data.status)) {
@@ -115,7 +120,7 @@ let statusRefreshTimer;
 onMounted(async () => {
   await loadJob();
   statusRefreshTimer = window.setInterval(() => {
-    if (job.value.backendStatus === "awaiting_confirmation") loadJob();
+    if (["assigned", "awaiting_confirmation"].includes(job.value.backendStatus)) loadJob();
   }, 5000);
 });
 onUnmounted(() => window.clearInterval(statusRefreshTimer));
@@ -163,6 +168,10 @@ async function onProofSelected(e) {
 }
 
 async function submitStatusUpdate(file) {
+  if (job.value.backendStatus === "assigned" && demoPaymentStatus.value !== "held") {
+    errorMsg.value = "รอ Hirer กดยืนยัน Mock Payment ก่อนเริ่มงาน";
+    return;
+  }
   const next = job.value.backendStatus === "assigned" ? "in_progress" : "awaiting_confirmation";
   updating.value = true;
   errorMsg.value = "";
@@ -341,7 +350,8 @@ function goToReview() {
             </div>
           </div>
 
-          <button class="btn-primary" :disabled="updating || job.backendStatus === 'awaiting_confirmation'" @click="updateStatus">
+          <p v-if="job.backendStatus === 'assigned' && demoPaymentStatus !== 'held'" class="pending-confirmation">Waiting for Hirer Mock Payment (no real transfer)</p>
+          <button class="btn-primary" :disabled="updating || job.backendStatus === 'awaiting_confirmation' || (job.backendStatus === 'assigned' && demoPaymentStatus !== 'held')" @click="updateStatus">
             {{ updating ? "Updating..." : job.backendStatus === "awaiting_confirmation" ? "Waiting for Hirer confirmation" : job.backendStatus === "in_progress" ? "Submit Proof" : "Start Job" }}
           </button>
           <p v-if="job.backendStatus === 'awaiting_confirmation'" class="pending-confirmation">Proof submitted. The Hirer must check and confirm your work before it is completed.</p>

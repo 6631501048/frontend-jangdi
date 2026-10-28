@@ -9,10 +9,13 @@ const route = useRoute();
 const router = useRouter();
 const job = ref(null);
 const errorMsg = ref("");
+const payment = ref(null);
 
 async function loadJob() {
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); payment.value = pay; }
+    catch { payment.value = null; }
     job.value = {
       ...data,
       selectedWorker: data.selectedWorker || data.worker || null,
@@ -39,16 +42,18 @@ function goToMyJobs() {
     <section class="content">
       <div class="check">✓</div>
       <p class="label">You have Selected</p>
+      <p class="label">{{ payment?.status === 'pending' ? 'Waiting for Mock Payment (no real money)' : 'Demo payment status: ' + (payment?.status || 'unknown') }}</p>
       <h2 class="worker-name">{{ job.selectedWorker?.name }}</h2>
 
       <div class="card">
         <div class="row"><span>Job Details</span></div>
         <div class="row"><strong>{{ job.title }}</strong><span class="price">{{ job.price }} Baht</span></div>
         <div class="row muted"><span>Duration: {{ job.scheduledLabel }}</span></div>
-        <div class="row"><span>Total Payment</span><strong>{{ job.total }} Baht</strong></div>
+        <div class="row"><span>Total Payment (Demo)</span><strong>{{ Number(payment?.totalDue ?? job.total).toFixed(2) }} Baht</strong></div>
       </div>
 
-      <button class="btn primary" @click="goToMyJobs">Go to My Jobs</button>
+      <button v-if="payment?.status === 'pending'" class="btn primary" @click="router.push({ name: 'hirer-mock-payment', params: { id: route.params.id } })">Confirm Mock Payment</button>
+      <button v-else class="btn primary" @click="goToMyJobs">Go to My Jobs</button>
     </section>
   </main>
 </template>

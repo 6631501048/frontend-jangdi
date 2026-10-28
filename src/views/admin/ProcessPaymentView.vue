@@ -2,9 +2,10 @@
 import { onMounted, ref } from "vue";
 import api from "../../services/api";
 
-const activeTab = ref("Held");
+const activeTab = ref("Pending");
 
 const tabs = [
+  { label: "Pending", status: "pending" },
   { label: "Held", status: "held" },
   { label: "Released", status: "released" },
   { label: "Disputed", status: "disputed" },
@@ -102,9 +103,9 @@ onMounted(loadPayments);
   <section class="payment">
     <div class="header-row">
       <div>
-        <p class="section-title">Payment</p>
+        <p class="section-title">Payment (DEMO)</p>
         <p class="subtitle">
-          ตรวจสอบสถานะ Escrow และรายการชำระเงิน
+          ดูสถานะเงินจำลองเท่านั้น (ยังไม่มีการรับหรือโอนเงินจริง)
         </p>
       </div>
 

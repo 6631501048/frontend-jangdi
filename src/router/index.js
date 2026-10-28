@@ -54,6 +54,12 @@ const routes = [
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
+    path: "/hirer/my-jobs/:id/mock-payment",
+    name: "hirer-mock-payment",
+    component: () => import("../views/hirer/HirerMockPaymentView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
     path: "/hirer/my-jobs/:id/confirmed",
     name: "hirer-job-confirmed",
     component: () => import("../views/hirer/HirerJobConfirmedView.vue"),

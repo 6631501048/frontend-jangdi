@@ -37,7 +37,7 @@ async function confirmAndPay() {
   errorMsg.value = "";
   try {
     const { data } = await api.post(`/jobs/${route.params.id}/select-worker`, { workerId: worker.value.id });
-    router.push({ name: "hirer-job-confirmed", params: { id: route.params.id }, state: { job: data.job, worker: data.worker || worker.value } });
+    router.push({ name: "hirer-mock-payment", params: { id: route.params.id } });
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "Unable to select this worker.";
   } finally {
@@ -60,7 +60,8 @@ async function confirmAndPay() {
         </div>
       </div>
 
-      <h2 class="section-title">Payment Summary</h2>
+      <h2 class="section-title">Payment Summary (Demo)</h2>
+      <p class="label">เลือก Worker ก่อน จากนั้นกดชำระจำลองในหน้าถัดไป (ไม่มีการโอนเงินจริง)</p>
       <dl class="rows">
         <div class="row"><dt>Worker Fee</dt><dd>{{ Number(job.price || 0).toFixed(2) }} Baht</dd></div>
         <div v-if="job.serviceFee" class="row"><dt>Additional Service Fee</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} Baht</dd></div>
@@ -71,7 +72,7 @@ async function confirmAndPay() {
       <div class="actions">
         <button class="btn outline" @click="cancel">Cancel</button>
         <button class="btn primary" :disabled="!canConfirm || submitting" @click="confirmAndPay">
-          {{ submitting ? "Confirming..." : "Confirm & Pay" }}
+          {{ submitting ? "Confirming..." : "Select Worker & Continue to Demo Payment" }}
         </button>
       </div>
       <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
