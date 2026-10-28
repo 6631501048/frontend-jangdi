@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 // FR-JOB-08: ดูงานที่ตนเองประกาศ จัดกลุ่มตามสถานะ
 // เป็นจุดเข้าสู่หน้า "เลือกผู้รับจ้าง" (FR-MATCH-03/04) สำหรับงานที่เปิดรับสมัครอยู่
 import { onMounted, ref, watch } from "vue";
@@ -20,16 +20,19 @@ const jobs = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
 
+let requestId = 0;
 async function loadJobs() {
+  const currentRequest = ++requestId;
   loading.value = true;
   errorMsg.value = "";
+  jobs.value = [];
   try {
     const { data } = await api.get("/jobs/my", { params: { status: activeTab.value } });
-    jobs.value = data;
+    if (currentRequest === requestId) jobs.value = data;
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "โหลดรายการงานไม่สำเร็จ";
+    if (currentRequest === requestId) errorMsg.value = err.response?.data?.message || "โหลดรายการงานไม่สำเร็จ";
   } finally {
-    loading.value = false;
+    if (currentRequest === requestId) loading.value = false;
   }
 }
 onMounted(loadJobs);
@@ -75,6 +78,7 @@ function goBack() {
           <p class="desc">{{ job.description }}</p>
           <p v-if="job.status === 'pending_review'" class="status-note pending">⏳ รอ Admin ตรวจสอบก่อนเปิดรับสมัคร</p>
           <p v-if="job.status === 'rejected'" class="status-note rejected">✕ {{ job.rejectionReason || "ไม่ผ่านการตรวจสอบเนื้อหา" }}</p>
+          <p v-if="job.status === 'awaiting_confirmation'" class="status-note pending">มีหลักฐานรอให้คุณตรวจสอบและยืนยันงานเสร็จ</p>
           <div class="tags">
             <span class="tag">฿{{ job.price }}</span>
             <span class="tag">{{ job.category }}</span>
@@ -115,5 +119,3 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .cta { flex-shrink: 0; font-size: 12.5px; font-weight: 700; color: #d99a00; }
 .cta.muted { color: #999; }
 </style>
-
-

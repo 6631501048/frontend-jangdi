@@ -5,7 +5,7 @@
 // FR-TRACK-04: ผู้ว่าจ้างยืนยันงานเสร็จ → ปล่อยเงิน Escrow
 // FR-TRACK-05: ทุกการเปลี่ยนสถานะถูกบันทึกลง JOB_LOG (immutable audit trail)
 // FR-SOS-01/02/03: ผู้รับจ้างกดสัญญาณฉุกเฉินได้ระหว่างงาน กำลังดำเนินอยู่ ระบบบันทึกตำแหน่ง+ส่งถึง Admin ภายใน 1 นาที
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 
@@ -13,11 +13,12 @@ const route = useRoute();
 const router = useRouter();
 
 const loading = ref(true);
+const hasLoaded = ref(false);
 const errorMsg = ref("");
 
-// backend status: assigned | in_progress | completed | cancelled -> UI status ที่หน้านี้ใช้
+// backend status: assigned | in_progress | awaiting_confirmation | completed | cancelled -> UI status ที่หน้านี้ใช้
 function toUiStatus(backendStatus) {
-  if (backendStatus === "assigned" || backendStatus === "in_progress") return "in-progress";
+  if (["assigned", "in_progress", "awaiting_confirmation"].includes(backendStatus)) return "in-progress";
   return backendStatus; // completed | cancelled ใช้ชื่อเดียวกัน
 }
 
@@ -41,21 +42,48 @@ const job = ref({
   cancellation: null,
 });
 
-function buildTimeline(backendStatus) {
-  const order = ["assigned", "in_progress", "completed"];
-  const idx = order.indexOf(backendStatus);
-  return [
-    { key: "start", label: "Start", timestamp: null, done: idx >= 0 },
-    { key: "in-progress", label: "In Progress", timestamp: null, done: idx >= 1 },
-    { key: "proof", label: "Submit Proof (optional)", timestamp: null, done: idx >= 2 },
-    { key: "complete", label: "Complete", timestamp: null, done: idx >= 2 },
-  ];
+function formatStatusTime(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+}
+function buildTimeline(backendStatus, events = [], proofSubmittedAt, completionConfirmedAt) {
+  const currentStep = { assigned: 0, in_progress: 1, awaiting_confirmation: 2, completed: 3 }[backendStatus] ?? -1;
+  const labels = ["Start", "In Progress", "Submit Proof", "Complete"];
+  const statuses = ["assigned", "in_progress", "awaiting_confirmation", "completed"];
+  return labels.map((label, index) => {
+    const event = events.find((e) => e.status === statuses[index]);
+    const actualTime = event?.at || (index === 2 ? proofSubmittedAt : index === 3 ? completionConfirmedAt : null);
+    return {
+      key: statuses[index], label,
+      timestamp: formatStatusTime(actualTime),
+      done: currentStep > index, current: currentStep === index,
+    };
+  });
 }
 
 async function loadJob() {
-  loading.value = true;
+  // Avoid clearing the entire page during background status checks.
+  if (!hasLoaded.value) loading.value = true;
+  errorMsg.value = "";
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    let events = [];
+    if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
+      // The timeline endpoint also verifies that the current user belongs to this job.
+      const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
+      events = timeline;
+    }
+    const hirerId = data.hirer?._id || data.hirer;
+    let hirerProfile = data.hirer || {};
+    if (hirerId && ["assigned", "in_progress", "awaiting_confirmation"].includes(data.status)) {
+      try {
+        const { data: profile } = await api.get(`/users/${hirerId}`);
+        hirerProfile = profile;
+      } catch {
+        hirerProfile = data.hirer || {};
+      }
+    }
     job.value = {
       id: data._id,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
@@ -70,33 +98,48 @@ async function loadJob() {
       from: data.fromText || data.locationText || "-",
       to: data.toText || "-",
       notes: data.notes || "-",
-      hirerPhone: data.hirer?.phone || "-",
-      hirerLine: data.hirer?.lineId || "-",
-      timeline: buildTimeline(data.status),
-      cancellation: data.status === "cancelled" ? { by: "Hirer", reason: data.cancelReason || "-" } : null,
+      hirerPhone: hirerProfile.phone || "-",
+      hirerLine: hirerProfile.lineId || "-",
+      timeline: buildTimeline(data.status, events, data.proofSubmittedAt, data.completionConfirmedAt),
+      completionConfirmedAt: data.completionConfirmedAt,
+      cancellation: data.status === "cancelled" ? { by: "Hirer", reason: data.cancelReason || "Not specified", at: data.cancelledAt } : null,
     };
+    hasLoaded.value = true;
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
   } finally {
     loading.value = false;
   }
 }
-onMounted(loadJob);
+let statusRefreshTimer;
+onMounted(async () => {
+  await loadJob();
+  statusRefreshTimer = window.setInterval(() => {
+    if (job.value.backendStatus === "awaiting_confirmation") loadJob();
+  }, 5000);
+});
+onUnmounted(() => window.clearInterval(statusRefreshTimer));
 
 const total = computed(() => job.value.price + job.value.serviceFee);
 
 const statusMeta = {
   "in-progress": { label: "In Process", class: "purple" },
+  assigned: { label: "Assigned", class: "purple" },
+  in_progress: { label: "In Progress", class: "purple" },
+  awaiting_confirmation: { label: "Waiting for Hirer", class: "purple" },
   completed: { label: "Completed", class: "green" },
   cancelled: { label: "Cancelled", class: "red" },
+  disputed: { label: "Disputed", class: "red" },
+  waiting: { label: "Waiting", class: "purple" },
 };
 
 /* ---------- อัปเดตสถานะ / ส่งหลักฐาน ---------- */
 const updating = ref(false);
 const proofInput = ref(null);
 
-// backendStatus: assigned -> in_progress (ไม่ต้องแนบรูป) / in_progress -> completed (ต้องแนบรูป, FR-TRACK-03)
+// assigned -> in_progress -> awaiting_confirmation (the Hirer alone confirms completion)
 function updateStatus() {
+  if (job.value.backendStatus === "awaiting_confirmation") return;
   if (job.value.backendStatus === "in_progress") {
     proofInput.value?.click(); // ต้องแนบรูปก่อนทำเครื่องหมายว่าเสร็จ
     return;
@@ -106,11 +149,21 @@ function updateStatus() {
 
 async function onProofSelected(e) {
   const file = e.target.files?.[0];
-  if (file) await submitStatusUpdate(file);
+  e.target.value = ""; // Allow choosing the same file again after a failed upload.
+  if (!file) return;
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    errorMsg.value = "Please select a JPG, PNG or WebP photo.";
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    errorMsg.value = "The photo must be smaller than 5 MB.";
+    return;
+  }
+  await submitStatusUpdate(file);
 }
 
 async function submitStatusUpdate(file) {
-  const next = job.value.backendStatus === "assigned" ? "in_progress" : "completed";
+  const next = job.value.backendStatus === "assigned" ? "in_progress" : "awaiting_confirmation";
   updating.value = true;
   errorMsg.value = "";
   try {
@@ -180,7 +233,10 @@ function goToReview() {
     </header>
 
     <main class="content">
-      <div class="card">
+      <p v-if="loading && !hasLoaded" class="page-message">กำลังโหลดรายละเอียดงาน...</p>
+      <p v-else-if="!hasLoaded" class="page-message error-msg" role="alert">{{ errorMsg || "ไม่พบรายละเอียดงาน" }}</p>
+      <div v-else class="card">
+        <p v-if="errorMsg" class="error-msg" role="alert">{{ errorMsg }}</p>
         <!-- หัวข้อ: ผู้ว่าจ้าง + ชื่องาน + สถานะ -->
         <div class="job-head">
           <span class="job-avatar" aria-hidden="true">
@@ -191,7 +247,7 @@ function goToReview() {
             <p class="job-title">{{ job.title }}</p>
             <p class="job-desc">{{ job.description }}</p>
           </div>
-          <span class="status-tag" :class="statusMeta[job.status].class">{{ statusMeta[job.status].label }}</span>
+          <span class="status-tag" :class="(statusMeta[job.backendStatus] || statusMeta[job.status] || statusMeta.waiting).class">{{ (statusMeta[job.backendStatus] || statusMeta[job.status] || statusMeta.waiting).label }}</span>
         </div>
 
         <!-- รายละเอียด -->
@@ -240,26 +296,30 @@ function goToReview() {
             <p class="block-title">Contact</p>
             <p class="block-hint">You can contact this hirer only during the job is in progress.</p>
             <div class="contact-buttons">
-              <button class="contact-btn" @click="callHirer">
+              <button class="contact-btn" :disabled="job.hirerPhone === '-'" @click="callHirer">
                 <svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3.1-8.7A2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.7a2 2 0 01-.5 2.1L8 9.7a16 16 0 006 6l1.2-1.2a2 2 0 012.1-.5c.9.3 1.8.5 2.7.6a2 2 0 011.7 2z" /></svg>
                 <span>
                   <strong>{{ job.hirerPhone }}</strong>
                   <small>Phone call</small>
                 </span>
               </button>
-              <button class="contact-btn" @click="() => {}">
+              <a v-if="job.hirerLine !== '-'" class="contact-btn" :href="`https://line.me/R/ti/p/~${encodeURIComponent(job.hirerLine)}`" target="_blank" rel="noopener noreferrer">
                 <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M8 10h8M8 14h5" /></svg>
                 <span>
                   <strong>{{ job.hirerLine }}</strong>
                   <small>LINE ID</small>
                 </span>
-              </button>
+              </a>
+              <div v-else class="contact-btn unavailable">
+                <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M8 10h8M8 14h5" /></svg>
+                <span><strong>LINE ID unavailable</strong><small>Not provided in profile</small></span>
+              </div>
             </div>
           </div>
 
           <div class="status-sos-row">
             <ol class="timeline">
-              <li v-for="step in job.timeline" :key="step.key" :class="{ done: step.done }">
+              <li v-for="step in job.timeline" :key="step.key" :class="{ done: step.done, current: step.current }">
                 <span class="dot"></span>
                 <div>
                   <p class="step-label">{{ step.label }}</p>
@@ -281,10 +341,11 @@ function goToReview() {
             </div>
           </div>
 
-          <button class="btn-primary" :disabled="updating" @click="updateStatus">
-            {{ updating ? "Updating..." : (job.backendStatus === "in_progress" ? "Mark as Complete (attach photo)" : "Start Job") }}
+          <button class="btn-primary" :disabled="updating || job.backendStatus === 'awaiting_confirmation'" @click="updateStatus">
+            {{ updating ? "Updating..." : job.backendStatus === "awaiting_confirmation" ? "Waiting for Hirer confirmation" : job.backendStatus === "in_progress" ? "Submit Proof" : "Start Job" }}
           </button>
-          <input ref="proofInput" type="file" accept="image/*" class="hidden-input" @change="onProofSelected" />
+          <p v-if="job.backendStatus === 'awaiting_confirmation'" class="pending-confirmation">Proof submitted. The Hirer must check and confirm your work before it is completed.</p>
+          <input v-if="job.backendStatus === 'in_progress'" ref="proofInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden-input" @change="onProofSelected" />
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         </template>
 
@@ -299,7 +360,7 @@ function goToReview() {
               </div>
               <div class="detail-row">
                 <dt>Reason</dt>
-                <dd>{{ job.cancellation?.reason || "I found someone else to do this job." }}</dd>
+                <dd>{{ job.cancellation?.reason || "Not specified" }}</dd>
               </div>
             </dl>
           </div>
@@ -308,7 +369,9 @@ function goToReview() {
 
         <!-- ===== Completed: ให้รีวิวผู้ว่าจ้าง (SRS 3.5.15 / FR-REV-01–02) ===== -->
         <template v-if="job.status === 'completed'">
+          <p class="completion-note">Completed<span v-if="job.completionConfirmedAt"> — confirmed on {{ formatStatusTime(job.completionConfirmedAt) }}</span></p>
           <button class="btn-primary" @click="goToReview">Review Hirer</button>
+          <button class="btn-outline" @click="backToMyJobs">Back to My Jobs</button>
         </template>
       </div>
     </main>
@@ -391,9 +454,9 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   content: ""; position: absolute; left: 5px; top: 14px; bottom: -6px; width: 1px; background: #e5d9b0;
 }
 .timeline .dot { width: 11px; height: 11px; border-radius: 50%; background: #fff; border: 2px solid #ddd; flex-shrink: 0; margin-top: 2px; }
-.timeline li.done .dot { background: #ffc93c; border-color: #ffc93c; }
+.timeline li.done .dot, .timeline li.current .dot { background: #ffc93c; border-color: #ffc93c; }
 .step-label { margin: 0; font-size: 11.5px; color: #999; }
-.timeline li.done .step-label { color: #b8860b; font-weight: 700; }
+.timeline li.done .step-label, .timeline li.current .step-label { color: #b8860b; font-weight: 700; }
 .step-time { margin: 1px 0 0; font-size: 9.5px; color: #bbb; }
 
 .sos-box { flex: 1; min-width: 0; border: 1px solid #f3c9c9; background: #fff6f6; border-radius: 10px; padding: 10px; }
@@ -417,4 +480,8 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .hidden-input { display: none; }
 .error-msg { margin: 8px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
+.page-message { padding: 30px 12px; text-align: center; color: #777; }
+.completion-note { font-size: 12px; color: #16803c; margin: 14px 0; }
+.btn-outline { display: block; margin-top: 10px; border: 1px solid #ddd; background: white; border-radius: 8px; padding: 12px; width: 100%; cursor: pointer; }
+.pending-confirmation { margin: 12px 0 0; font-size: 12px; color: #92400e; line-height: 1.45; }
 </style>
