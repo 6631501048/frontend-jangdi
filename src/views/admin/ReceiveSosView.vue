@@ -1,8 +1,10 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
 import api from "../../services/api";
 
-const activeFilter = ref("All");
+const route = useRoute();
+const activeFilter = ref(route.query.status === "active" ? "Pending" : "All");
 const filters = ["All", "Pending", "Complete"];
 
 const alerts = ref([]);

@@ -15,6 +15,7 @@ const payments = ref([]);
 const loading = ref(true);
 const errorMessage = ref("");
 const actionLoading = ref(null);
+const expandedPaymentId = ref(null);
 
 function money(value) {
   return `฿${Number(value || 0).toLocaleString("en-US", {
@@ -93,7 +94,12 @@ async function decideRefund(payment, decision) {
 
 function changeTab(tab) {
   activeTab.value = tab;
+  expandedPaymentId.value = null;
   loadPayments();
+}
+
+function toggleDetails(paymentId) {
+  expandedPaymentId.value = expandedPaymentId.value === paymentId ? null : paymentId;
 }
 
 onMounted(loadPayments);
@@ -143,25 +149,24 @@ onMounted(loadPayments);
         :key="payment._id"
         class="card"
       >
-        <div class="card-top">
+        <button
+          type="button"
+          class="card-top card-toggle"
+          :aria-expanded="expandedPaymentId === payment._id"
+          :aria-controls="`payment-details-${payment._id}`"
+          @click="toggleDetails(payment._id)"
+        >
           <div>
             <p class="name">
               {{ payment.job?.title || "Unknown Job" }}
             </p>
 
-            <p class="subtitle">
-              Payment ID: {{ payment._id }}
-            </p>
           </div>
 
-          <span
-            class="status-badge"
-            :class="activeTab.toLowerCase()"
-          >
-            {{ activeTab }}
-          </span>
-        </div>
+          <span class="toggle-label">{{ expandedPaymentId === payment._id ? "ซ่อนรายละเอียด" : "ดูรายละเอียด" }}</span>
+        </button>
 
+        <div v-show="expandedPaymentId === payment._id" :id="`payment-details-${payment._id}`" class="payment-details">
         <div class="detail-row">
           <span>Hirer</span>
           <strong>
@@ -233,6 +238,7 @@ onMounted(loadPayments);
           >
             Reject
           </button>
+        </div>
         </div>
       </li>
 
@@ -316,6 +322,32 @@ onMounted(loadPayments);
   gap: 8px;
   margin-bottom: 8px;
 }
+
+.card-toggle {
+  width: 100%;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card-toggle:focus-visible {
+  outline: 2px solid var(--color-primary-dark);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.toggle-label {
+  flex: 0 0 auto;
+  color: var(--color-primary-dark);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.payment-details { padding-top: 4px; }
 
 .name {
   margin: 0;

@@ -1,6 +1,9 @@
 <script setup>
 import { ref, computed, onMounted, watch } from "vue";
+import { useRoute } from "vue-router";
 import api from "../../services/api";
+
+const route = useRoute();
 
 const statuses = [
   { key: "all", label: "ทั้งหมด" },
@@ -17,7 +20,9 @@ const statuses = [
 ];
 const posts = ref([]);
 const counts = ref({});
-const currentStatus = ref("all");
+const validStatuses = new Set(statuses.map(({ key }) => key));
+const requestedStatus = String(route.query.status || "all");
+const currentStatus = ref(validStatuses.has(requestedStatus) ? requestedStatus : "all");
 const search = ref("");
 const appliedSearch = ref("");
 const page = ref(1);

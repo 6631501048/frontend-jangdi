@@ -6,6 +6,7 @@ import api from "../../services/api";
 import { fetchCompletionProof, proofRequestError } from "../../services/completionProof";
 import AppHeader from "../../components/AppHeader.vue";
 import StatusBadge from "../../components/StatusBadge.vue";
+import ReportUserForm from "../../components/ReportUserForm.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -274,6 +275,7 @@ async function confirmCompletion() {
         </ol>
 
         <p v-if="['assigned', 'in_progress'].includes(job.status)" class="proof-note">หากงานมีปัญหาระหว่างดำเนินการ กรุณาติดต่อผู้ดูแลก่อนยกเลิก เพื่อไม่ให้ข้อมูลการจ่ายเงินจำลองผิดพลาด</p>
+        <ReportUserForm :reported-user="workerProfile" :job-id="job._id" />
       </template>
 
       <!-- Authorized proof preview is available while pending and after confirmation. -->

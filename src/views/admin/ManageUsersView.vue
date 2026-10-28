@@ -1,6 +1,9 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import { useAuthStore } from "../../stores/auth";
 import api from "../../services/api";
+
+const auth = useAuthStore();
 
 const search = ref("");
 const activeRole = ref("All");
@@ -39,6 +42,9 @@ const filteredUsers = computed(() => {
     return matchesRole && (!q || text.includes(q));
   });
 });
+const selectedIsProtected = computed(() =>
+  Boolean(selectedUser.value?.isAdmin || String(selectedUser.value?._id) === String(auth.user?._id))
+);
 
 function roleLabel(role) {
   if (role === "hirer") return "Hirer";
@@ -243,7 +249,7 @@ onMounted(loadUsers);
       <div class="action-row">
         <button
           class="action-btn suspend"
-          :disabled="actionLoading"
+          :disabled="actionLoading || selectedIsProtected || selectedUser.accountStatus === 'suspended'"
           @click="statusAction('suspend')"
         >
           Suspend
@@ -251,7 +257,7 @@ onMounted(loadUsers);
 
         <button
           class="action-btn warn"
-          :disabled="actionLoading"
+          :disabled="actionLoading || selectedIsProtected"
           @click="statusAction('warn')"
         >
           Warning
@@ -259,7 +265,7 @@ onMounted(loadUsers);
 
         <button
           class="action-btn clear"
-          :disabled="actionLoading"
+          :disabled="actionLoading || selectedIsProtected || selectedUser.accountStatus === 'active'"
           @click="statusAction('clear')"
         >
           Clear

@@ -289,7 +289,7 @@ onMounted(loadReports);
 
             <p class="small-detail">
               Job:
-              {{ report.job || "-" }}
+              {{ report.job?.title || report.job?._id || report.job || "-" }}
             </p>
 
             <p
@@ -298,6 +298,10 @@ onMounted(loadReports);
             >
               Resolution:
               {{ report.resolutionNotes }}
+            </p>
+            <p v-if="report.resolvedBy || report.resolvedAt" class="small-detail">
+              Closed by {{ report.resolvedBy?.fullName || report.resolvedBy?.email || report.resolvedBy || "-" }}
+              · {{ report.resolvedAt ? new Date(report.resolvedAt).toLocaleString("th-TH") : "-" }}
             </p>
 
             <div

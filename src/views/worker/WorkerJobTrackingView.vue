@@ -9,6 +9,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { fetchCompletionProof, proofRequestError } from "../../services/completionProof";
+import ReportUserForm from "../../components/ReportUserForm.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -17,6 +18,7 @@ const loading = ref(true);
 const hasLoaded = ref(false);
 const errorMsg = ref("");
 const demoPaymentStatus = ref(null);
+const hirerProfile = ref(null);
 
 // backend status: assigned | in_progress | awaiting_confirmation | completed | cancelled -> UI status ที่หน้านี้ใช้
 function toUiStatus(backendStatus) {
@@ -81,15 +83,16 @@ async function loadJob() {
       catch { demoPaymentStatus.value = null; }
     } else demoPaymentStatus.value = null;
     const hirerId = data.hirer?._id || data.hirer;
-    let hirerProfile = data.hirer || {};
-    if (hirerId && ["assigned", "in_progress", "awaiting_confirmation"].includes(data.status)) {
+    let profile = data.hirer || {};
+    if (hirerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
       try {
-        const { data: profile } = await api.get(`/users/${hirerId}`);
-        hirerProfile = profile;
+        const { data: loadedProfile } = await api.get(`/users/${hirerId}`);
+        profile = loadedProfile;
       } catch {
-        hirerProfile = data.hirer || {};
+        profile = data.hirer || {};
       }
     }
+    hirerProfile.value = profile;
     job.value = {
       id: data._id,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
@@ -104,8 +107,8 @@ async function loadJob() {
       from: data.fromText || data.locationText || "-",
       to: data.toText || "-",
       notes: data.notes || "-",
-      hirerPhone: hirerProfile.phone || "-",
-      hirerLine: hirerProfile.lineId || "-",
+      hirerPhone: profile.phone || "-",
+      hirerLine: profile.lineId || "-",
       timeline: buildTimeline(data.status, events, data.proofSubmittedAt, data.completionConfirmedAt),
       completionConfirmedAt: data.completionConfirmedAt,
       completionProofUrl: data.completionProofUrl,
@@ -472,6 +475,7 @@ function goToReview() {
             <button v-if="!selectedProof" type="button" class="proof-secondary" :disabled="updating" @click="selectProof">เปลี่ยนรูปหลักฐานที่ส่งแล้ว</button>
           </section>
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
+          <ReportUserForm :reported-user="hirerProfile" :job-id="job.id" />
         </template>
 
         <!-- ===== Cancelled: รายละเอียดการยกเลิก ===== -->
@@ -504,6 +508,7 @@ function goToReview() {
             <div v-else-if="submittedProofError" class="error-msg" role="alert">{{ submittedProofError }} <button type="button" class="proof-secondary" @click="retrySubmittedProof">ลองอีกครั้ง</button></div>
           </section>
           <p class="completion-note">Completed<span v-if="job.completionConfirmedAt"> — confirmed on {{ formatStatusTime(job.completionConfirmedAt) }}</span></p>
+          <ReportUserForm :reported-user="hirerProfile" :job-id="job.id" />
           <button class="btn-primary" @click="goToReview">Review Hirer</button>
           <button class="btn-outline" @click="backToMyJobs">Back to My Jobs</button>
         </template>

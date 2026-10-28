@@ -116,7 +116,7 @@ onMounted(loadDashboard);
         </div>
 
         <RouterLink
-          to="/admin/posts"
+          :to="{ path: '/admin/posts', query: { status: 'pending_review' } }"
           class="stat-card outline"
         >
           <p class="stat-label">Pending</p>
@@ -125,7 +125,7 @@ onMounted(loadDashboard);
         </RouterLink>
 
         <RouterLink
-          to="/admin/sos"
+          :to="{ path: '/admin/sos', query: { status: 'active' } }"
           class="stat-card outline"
         >
           <p class="stat-label">SOS Active</p>
@@ -145,8 +145,12 @@ onMounted(loadDashboard);
         </div>
       </div>
 
-      <div class="card">
-        <p class="card-title">Monthly Finance Summary</p>
+      <div class="card finance-card">
+        <div class="finance-heading">
+          <p class="card-title">Monthly Finance Summary</p>
+          <span class="demo-label">Demo / Simulation</span>
+        </div>
+        <p class="finance-disclaimer">ตัวเลขจำลองจากระบบ ไม่ใช่รายการโอนเงินจริง</p>
 
         <dl class="finance-list">
           <div class="finance-row">
@@ -271,6 +275,29 @@ h1 {
   font-weight: 700;
   margin: 0 0 10px;
   font-size: 14px;
+}
+
+.finance-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.finance-heading .card-title { margin-bottom: 0; }
+.demo-label {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: #fff4cf;
+  color: #805d00;
+  font-size: 10px;
+  font-weight: 700;
+}
+.finance-disclaimer {
+  margin: 6px 0 8px;
+  color: var(--color-text-muted);
+  font-size: 11px;
 }
 
 .chart-placeholder {
