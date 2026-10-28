@@ -12,6 +12,7 @@ const worker = ref(null);
 const submitting = ref(false);
 const errorMsg = ref("");
 const canConfirm = computed(() => job.value?.status === "waiting" && worker.value);
+const transactionFee = computed(() => Math.round(Number(job.value?.price || 0) * 0.05 * 100) / 100);
 
 async function loadSelection() {
   try {
@@ -61,9 +62,10 @@ async function confirmAndPay() {
 
       <h2 class="section-title">Payment Summary</h2>
       <dl class="rows">
-        <div class="row"><dt>Service Fee</dt><dd>{{ job.serviceFee }} Baht</dd></div>
-        <div class="row"><dt>Price</dt><dd>{{ job.price }} Baht</dd></div>
-        <div class="row total"><dt>Total Payment</dt><dd>{{ job.total }} Baht</dd></div>
+        <div class="row"><dt>Worker Fee</dt><dd>{{ Number(job.price || 0).toFixed(2) }} Baht</dd></div>
+        <div v-if="job.serviceFee" class="row"><dt>Additional Service Fee</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} Baht</dd></div>
+        <div class="row"><dt>Transaction Fee (5%)</dt><dd>{{ transactionFee.toFixed(2) }} Baht</dd></div>
+        <div class="row total"><dt>Total Payment</dt><dd>{{ (Number(job.total || 0) + transactionFee).toFixed(2) }} Baht</dd></div>
       </dl>
 
       <div class="actions">

@@ -102,7 +102,8 @@ async function loadJob() {
       id: data._id,
       durationLabel: formatDuration(data),
       serviceFee: data.deliveryFee || 0,
-      total: Number(data.price || 0) + Number(data.deliveryFee || 0),
+      transactionFee: Math.round(Number(data.price || 0) * 0.05 * 100) / 100,
+      total: Number(data.price || 0) + Number(data.deliveryFee || 0) + Math.round(Number(data.price || 0) * 0.05 * 100) / 100,
       from: { label: data.fromText || data.locationText || "-" },
       to: { label: data.toText || "-" },
       applicants: applicants.value,
@@ -211,8 +212,9 @@ async function confirmCompletion() {
       <dl class="rows">
         <div class="row"><dt>Details</dt><dd>{{ job.description }}</dd></div>
         <div class="row"><dt>Time</dt><dd>{{ job.durationLabel }}</dd></div>
-        <div class="row"><dt>Price</dt><dd>{{ job.price }} Baht</dd></div>
-        <div class="row"><dt>Service Fee</dt><dd>{{ job.serviceFee }} Baht</dd></div>
+        <div class="row"><dt>Worker Fee</dt><dd>{{ Number(job.price || 0).toFixed(2) }} Baht</dd></div>
+        <div v-if="job.serviceFee" class="row"><dt>Additional Service Fee</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} Baht</dd></div>
+        <div class="row"><dt>Transaction Fee (5%)</dt><dd>{{ job.transactionFee.toFixed(2) }} Baht</dd></div>
         <div class="row total"><dt>Total</dt><dd>{{ job.total }} Baht</dd></div>
       </dl>
 

@@ -42,6 +42,8 @@ const form = ref({
 const categoryLabel = computed(
   () => categories.find((c) => c.id === form.value.category)?.label || "-"
 );
+const transactionFee = computed(() => Math.round(Number(form.value.serviceFee || 0) * 0.05 * 100) / 100);
+const totalPayment = computed(() => Number(form.value.serviceFee || 0) + transactionFee.value);
 const conditionLabel = computed(() =>
   form.value.durationStart && form.value.durationEnd
     ? `${new Date(form.value.durationStart).toLocaleString("th-TH")} - ${new Date(form.value.durationEnd).toLocaleString("th-TH")}` : "-"
@@ -54,6 +56,7 @@ const step2Valid = computed(
     form.value.details.trim() &&
     form.value.serviceFee !== null &&
     form.value.serviceFee !== "" &&
+    Number(form.value.serviceFee) >= 40 &&
     form.value.scheduledAt &&
     ((!form.value.durationStart && !form.value.durationEnd) ||
       (form.value.durationStart && form.value.durationEnd &&
@@ -184,6 +187,13 @@ function close() {
           <!-- ขั้นตอน 2: รายละเอียดงาน + ตำแหน่งที่ตั้ง -->
           <section v-else-if="step === 2" class="step-body">
             <h2 class="section-title">Work Details</h2>
+            <div class="selected-category">
+              <div>
+                <span class="selected-category-label">Selected Job Category</span>
+                <strong>{{ categoryLabel }}</strong>
+              </div>
+              <button type="button" class="change-category-btn" @click="step = 1">Change Category</button>
+            </div>
 
             <label class="field-label">Name / Service</label>
             <input v-model="form.name" type="text" placeholder="เช่น รับส่งพัสดุ / ซื้อของฝาก" />
@@ -193,10 +203,15 @@ function close() {
 
             <div class="field-row">
               <div class="field-col">
-                <label class="field-label">Service Fee</label>
+                <label class="field-label">Worker Fee</label>
                 <div class="input-suffix">
-                  <input v-model.number="form.serviceFee" type="number" min="0" placeholder="0" />
+                  <input v-model.number="form.serviceFee" type="number" min="40" placeholder="40" />
                   <span class="suffix">Baht</span>
+                </div>
+                <small class="price-hint">Minimum price: 40 Baht</small>
+                <div class="price-breakdown" aria-live="polite">
+                  <div><span>Transaction Fee (5%)</span><strong>{{ transactionFee.toFixed(2) }} Baht</strong></div>
+                  <div class="price-total"><span>Total Payment</span><strong>{{ totalPayment.toFixed(2) }} Baht</strong></div>
                 </div>
               </div>
               <div class="field-col">
@@ -251,8 +266,16 @@ function close() {
                 <dd>{{ form.details || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Service Fee</dt>
+                <dt>Worker Fee</dt>
                 <dd>{{ form.serviceFee !== null && form.serviceFee !== "" ? `${form.serviceFee} Baht` : "-" }}</dd>
+              </div>
+              <div class="review-row">
+                <dt>Transaction Fee (5%)</dt>
+                <dd>{{ transactionFee.toFixed(2) }} Baht</dd>
+              </div>
+              <div class="review-row review-total">
+                <dt>Total Payment</dt>
+                <dd>{{ totalPayment.toFixed(2) }} Baht</dd>
               </div>
               <div class="review-row">
                 <dt>Duration window</dt>
@@ -326,6 +349,19 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 
 .section-title { margin: 0 0 14px; font-size: 14px; font-weight: 700; color: #111; }
 
+.selected-category {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px; margin-bottom: 4px; border: 1px solid #f3d574;
+  border-radius: 8px; background: #fffbea;
+}
+.selected-category > div { display: flex; flex-direction: column; gap: 4px; }
+.selected-category-label { font-size: 11px; color: #777; }
+.selected-category strong { font-size: 13px; color: #111; }
+.change-category-btn {
+  flex-shrink: 0; border: 0; padding: 8px 10px; border-radius: 6px;
+  background: #fff; color: #78350f; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+
 /* ---------- ขั้นตอน 1: หมวดหมู่ ---------- */
 .category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .category-card {
@@ -353,6 +389,12 @@ textarea { resize: vertical; }
 .input-suffix { position: relative; display: flex; align-items: center; }
 .input-suffix input { padding-right: 46px; }
 .input-suffix .suffix { position: absolute; right: 12px; font-size: 12px; color: #999; }
+.price-hint { display: block; margin-top: 4px; color: #888; font-size: 11px; }
+.price-breakdown { margin-top: 8px; padding: 10px; border-radius: 8px; background: #fafafa; font-size: 12px; }
+.price-breakdown > div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; color: #777; }
+.price-breakdown strong { color: #333; font-weight: 600; }
+.price-breakdown .price-total { margin-top: 4px; padding-top: 7px; border-top: 1px solid #e5e5e5; color: #111; }
+.price-breakdown .price-total strong { color: #111; font-size: 13px; }
 .time-range { display: flex; align-items: center; gap: 6px; }
 .time-range input { min-width: 0; }
 .time-range .dash { color: #999; flex-shrink: 0; }
@@ -370,6 +412,8 @@ textarea { resize: vertical; }
 .review-row:last-child { border-bottom: none; }
 .review-row dt { flex-shrink: 0; font-size: 12px; color: #999; }
 .review-row dd { margin: 0; font-size: 13px; color: #111; font-weight: 600; text-align: right; }
+.review-row.review-total { border-top: 1px solid #ddd; border-bottom: none; margin-top: 4px; padding-top: 12px; }
+.review-row.review-total dt, .review-row.review-total dd { color: #111; font-weight: 700; }
 
 /* ---------- ปุ่ม ---------- */
 .actions { display: flex; gap: 10px; margin-top: 20px; }

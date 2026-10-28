@@ -14,6 +14,8 @@ const errorMsg = ref("");
 const cancellingExpiredJob = ref(false);
 const canCancelExpiredJob = computed(() => job.value.status === "waiting" && applicants.value.length === 0 && new Date(job.value.scheduledAt).getTime() < Date.now());
 const canSelect = computed(() => job.value.status === "waiting");
+const transactionFee = computed(() => Math.round(Number(job.value.price || 0) * 0.05 * 100) / 100);
+const totalPayment = computed(() => Number(job.value.price || 0) + Number(job.value.deliveryFee || 0) + transactionFee.value);
 
 async function loadApplicants() {
   loading.value = true;
@@ -72,6 +74,14 @@ function select(workerId) {
     <AppHeader :title="`View Applicants (${applicants.length})`" />
     <button type="button" class="details-btn" @click="goToJobDetail">View Job Details / Cancel Job</button>
 
+    <section v-if="job.price != null" class="payment-summary" aria-label="Payment summary">
+      <h2>Payment Summary</h2>
+      <div><span>Worker Fee</span><strong>{{ Number(job.price).toFixed(2) }} Baht</strong></div>
+      <div v-if="job.deliveryFee"><span>Additional Service Fee</span><strong>{{ Number(job.deliveryFee).toFixed(2) }} Baht</strong></div>
+      <div><span>Transaction Fee (5%)</span><strong>{{ transactionFee.toFixed(2) }} Baht</strong></div>
+      <div class="payment-total"><span>Total Payment</span><strong>{{ totalPayment.toFixed(2) }} Baht</strong></div>
+    </section>
+
     <section class="list">
       <p v-if="loading" class="empty">Loading applicants...</p>
       <p v-else-if="errorMsg" class="empty error">{{ errorMsg }}</p>
@@ -94,6 +104,12 @@ function select(workerId) {
 <style scoped>
 .applicants { padding-bottom: 32px; }
 .details-btn { margin: 12px 16px 0; background: #fff; color: #111; border: 1px solid #ddd; padding: 10px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; }
+.payment-summary { margin: 12px 16px 0; padding: 14px; border: 1px solid #eee; border-radius: 12px; background: #fff; }
+.payment-summary h2 { margin: 0 0 8px; font-size: 14px; }
+.payment-summary > div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 12px; color: #777; }
+.payment-summary strong { color: #333; font-weight: 600; }
+.payment-summary .payment-total { margin-top: 4px; padding-top: 9px; border-top: 1px solid #eee; color: #111; }
+.payment-summary .payment-total strong { color: #111; font-size: 14px; }
 .list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .applicant-card {
   display: flex; align-items: center; gap: 12px; padding: 12px 14px;
