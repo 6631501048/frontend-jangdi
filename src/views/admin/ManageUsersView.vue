@@ -107,24 +107,26 @@ async function statusAction(action) {
   };
 
   if (!window.confirm(messages[action])) return;
+  const reason = window.prompt("เหตุผลในการดำเนินการ (5-500 ตัวอักษร)", "");
+  if (reason === null) return;
+  if (reason.trim().length < 5 || reason.trim().length > 500) {
+    window.alert("กรุณากรอกเหตุผล 5-500 ตัวอักษร");
+    return;
+  }
 
   actionLoading.value = selectedUser.value._id;
 
   try {
     const { data } = await api.post(
       `/admin/users/${selectedUser.value._id}/suspend`,
-      { action }
+      { action, reason: reason.trim() }
     );
 
     const updatedUser = data.user;
 
-    users.value = users.value.map((user) =>
-      user._id === updatedUser._id
-        ? updatedUser
-        : user
-    );
-
-    selectedUser.value = updatedUser;
+    // Reload to display the moderationHistory persisted by the backend.
+    await loadUsers();
+    selectedUser.value = users.value.find((user) => user._id === updatedUser._id) || updatedUser;
   } catch (error) {
     alert(
       error.response?.data?.message ||
@@ -263,11 +265,25 @@ onMounted(loadUsers);
           Clear
         </button>
       </div>
+      <div v-if="selectedUser.moderationHistory?.length" class="moderation-history">
+        <p class="card-title">ประวัติการจัดการบัญชี</p>
+        <ul>
+          <li v-for="(entry, index) in [...selectedUser.moderationHistory].reverse()" :key="index">
+            <strong>{{ entry.action }}</strong> — {{ entry.reason }}
+            <small>({{ new Date(entry.performedAt).toLocaleString('th-TH') }})</small>
+          </li>
+        </ul>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
+.moderation-history { margin-top: 16px; font-size: 0.9rem; }
+.moderation-history ul { padding-left: 20px; }
+.moderation-history li { margin-bottom: 8px; }
+.moderation-history small { color: var(--color-text-muted, #64748b); }
+
 .users {
   padding: 16px;
 }

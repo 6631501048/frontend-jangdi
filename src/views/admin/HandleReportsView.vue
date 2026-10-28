@@ -91,6 +91,10 @@ async function resolve(report) {
   );
 
   if (notes === null) return;
+  if (notes.trim().length < 5 || notes.trim().length > 1000) {
+    window.alert("กรุณาระบุหมายเหตุ 5-1000 ตัวอักษร");
+    return;
+  }
 
   actionLoading.value = report._id;
 
@@ -99,7 +103,7 @@ async function resolve(report) {
       `/admin/reports/${report._id}/resolve`,
       {
         status: "resolved",
-        resolutionNotes: notes,
+        resolutionNotes: notes.trim(),
       }
     );
 
@@ -127,6 +131,10 @@ async function dismiss(report) {
   );
 
   if (notes === null) return;
+  if (notes.trim().length < 5 || notes.trim().length > 1000) {
+    window.alert("กรุณาระบุหมายเหตุ 5-1000 ตัวอักษร");
+    return;
+  }
 
   actionLoading.value = report._id;
 
@@ -135,7 +143,7 @@ async function dismiss(report) {
       `/admin/reports/${report._id}/resolve`,
       {
         status: "dismissed",
-        resolutionNotes: notes,
+        resolutionNotes: notes.trim(),
       }
     );
 
