@@ -3,6 +3,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import { fetchCompletionProof, proofRequestError } from "../../services/completionProof";
 import AppHeader from "../../components/AppHeader.vue";
 import StatusBadge from "../../components/StatusBadge.vue";
 
@@ -39,26 +40,16 @@ async function loadProofImage(jobData, force = false) {
   if (!key) return;
   proofLoading.value = true;
   try {
-    const { data } = await api.get(`/jobs/${jobData._id}/completion-proof`, { responseType: "blob" });
-    // Avoid reusing the image from a job that has changed while a request was pending.
-    if (loadedProofKey === key) proofObjectUrl.value = URL.createObjectURL(data);
+    const imageUrl = await fetchCompletionProof(jobData._id);
+    // The route or proof could change while the request is pending.
+    if (loadedProofKey === key) proofObjectUrl.value = imageUrl;
+    else URL.revokeObjectURL(imageUrl);
   } catch (err) {
     if (loadedProofKey === key) {
-      let message = err.response?.data?.message;
-      // Axios keeps error bodies as Blob when responseType is "blob".
-      if (!message && err.response?.data instanceof Blob) {
-        try {
-          const body = await err.response.data.text();
-          message = JSON.parse(body).message;
-        } catch {
-          // Keep the HTTP status as a useful fallback for non-JSON responses.
-        }
-      }
-      const status = err.response?.status;
-      proofError.value = message || `Unable to load the completion photo${status ? ` (HTTP ${status})` : ". Check your connection and try again."}`;
+      proofError.value = await proofRequestError(err);
     }
   } finally {
-    proofLoading.value = false;
+    if (loadedProofKey === key) proofLoading.value = false;
   }
 }
 function retryProof() {
@@ -290,7 +281,7 @@ async function confirmCompletion() {
         <h2 class="section-title">Completion proof</h2>
         <p v-if="proofLoading" class="proof-note">Loading photo...</p>
         <a v-else-if="proofObjectUrl" class="proof-link" :href="proofObjectUrl" target="_blank" rel="noopener noreferrer">
-          <img class="completion-proof" :src="proofObjectUrl" alt="Worker completion proof" />
+          <img class="completion-proof" :src="proofObjectUrl" alt="Worker completion proof" @error="proofError = 'ไม่สามารถแสดงภาพหลักฐานได้ กรุณาลองโหลดใหม่'; clearProofImage()" />
           Open full-size photo
         </a>
         <div v-else-if="proofError" role="alert" class="proof-missing">

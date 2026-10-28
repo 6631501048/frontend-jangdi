@@ -9,6 +9,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../services/api";
+import { resolveBackendAssetUrl } from "../services/backendAssets";
 import { useAuthStore } from "../stores/auth";
 import StatusBadge from "../components/StatusBadge.vue";
 
@@ -61,10 +62,7 @@ async function onAvatarChange(e) {
 
 // avatarUrl จาก backend เป็น path สัมพัทธ์ (เช่น /uploads/avatars/...) ต้องต่อกับ base URL ของ API
 function resolveUploadUrl(pathOrUrl) {
-  if (!pathOrUrl) return null;
-  if (pathOrUrl.startsWith("http")) return pathOrUrl;
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
-  return apiBase.replace(/\/api\/?$/, "") + pathOrUrl;
+  return resolveBackendAssetUrl(pathOrUrl);
 }
 
 /* ---------- ข้อมูลส่วนตัว ---------- */

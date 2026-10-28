@@ -4,6 +4,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import { resolveBackendAssetUrl } from "../../services/backendAssets";
 
 const route = useRoute();
 const router = useRouter();
@@ -13,10 +14,7 @@ const loading = ref(true);
 const errorMsg = ref("");
 
 function resolveAvatar(pathOrUrl) {
-  if (!pathOrUrl) return null;
-  if (pathOrUrl.startsWith("http")) return pathOrUrl;
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
-  return apiBase.replace(/\/api\/?$/, "") + pathOrUrl;
+  return resolveBackendAssetUrl(pathOrUrl);
 }
 
 async function loadJob() {

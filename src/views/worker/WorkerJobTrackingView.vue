@@ -8,6 +8,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import { fetchCompletionProof, proofRequestError } from "../../services/completionProof";
 
 const route = useRoute();
 const router = useRouter();
@@ -107,9 +108,16 @@ async function loadJob() {
       hirerLine: hirerProfile.lineId || "-",
       timeline: buildTimeline(data.status, events, data.proofSubmittedAt, data.completionConfirmedAt),
       completionConfirmedAt: data.completionConfirmedAt,
+      completionProofUrl: data.completionProofUrl,
       cancellation: data.status === "cancelled" ? { by: "Hirer", reason: data.cancelReason || "Not specified", at: data.cancelledAt } : null,
     };
     hasLoaded.value = true;
+    if (["awaiting_confirmation", "completed"].includes(data.status) && data.completionProofUrl) {
+      await loadSubmittedProof(data);
+    } else {
+      loadedSubmittedProofKey = null;
+      clearSubmittedProof();
+    }
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
   } finally {
@@ -123,7 +131,12 @@ onMounted(async () => {
     if (["assigned", "awaiting_confirmation"].includes(job.value.backendStatus)) loadJob();
   }, 5000);
 });
-onUnmounted(() => window.clearInterval(statusRefreshTimer));
+onUnmounted(() => {
+  window.clearInterval(statusRefreshTimer);
+  clearSelectedProof();
+  clearSubmittedProof();
+  loadedSubmittedProofKey = null;
+});
 
 const total = computed(() => job.value.price + job.value.serviceFee);
 
@@ -141,33 +154,109 @@ const statusMeta = {
 /* ---------- อัปเดตสถานะ / ส่งหลักฐาน ---------- */
 const updating = ref(false);
 const proofInput = ref(null);
+const selectedProof = ref(null);
+const selectedProofUrl = ref(null);
+const selectedProofError = ref("");
+const submittedProofUrl = ref(null);
+const submittedProofLoading = ref(false);
+const submittedProofError = ref("");
+let loadedSubmittedProofKey = null;
+
+function clearSelectedProof() {
+  if (selectedProofUrl.value) URL.revokeObjectURL(selectedProofUrl.value);
+  selectedProofUrl.value = null;
+  selectedProof.value = null;
+  selectedProofError.value = "";
+  if (proofInput.value) proofInput.value.value = "";
+}
+function clearSubmittedProof() {
+  if (submittedProofUrl.value) URL.revokeObjectURL(submittedProofUrl.value);
+  submittedProofUrl.value = null;
+}
+async function loadSubmittedProof(data, force = false) {
+  const key = `${data._id}:${data.completionProofUrl}`;
+  if (!force && loadedSubmittedProofKey === key) return;
+  loadedSubmittedProofKey = key;
+  clearSubmittedProof();
+  submittedProofError.value = "";
+  submittedProofLoading.value = true;
+  try {
+    const imageUrl = await fetchCompletionProof(data._id);
+    if (loadedSubmittedProofKey === key) submittedProofUrl.value = imageUrl;
+    else URL.revokeObjectURL(imageUrl);
+  } catch (err) {
+    if (loadedSubmittedProofKey === key) submittedProofError.value = await proofRequestError(err);
+  } finally {
+    if (loadedSubmittedProofKey === key) submittedProofLoading.value = false;
+  }
+}
+function retrySubmittedProof() {
+  if (job.value.id && job.value.completionProofUrl) loadSubmittedProof({ _id: job.value.id, completionProofUrl: job.value.completionProofUrl }, true);
+}
+function selectProof() { if (!updating.value) proofInput.value?.click(); }
 
 // assigned -> in_progress -> awaiting_confirmation (the Hirer alone confirms completion)
 function updateStatus() {
   if (job.value.backendStatus === "awaiting_confirmation") return;
   if (job.value.backendStatus === "in_progress") {
-    proofInput.value?.click(); // ต้องแนบรูปก่อนทำเครื่องหมายว่าเสร็จ
+    selectProof(); // choose first, preview, explicitly confirm later
     return;
   }
   submitStatusUpdate(null);
 }
 
-async function onProofSelected(e) {
+function onProofSelected(e) {
   const file = e.target.files?.[0];
-  e.target.value = ""; // Allow choosing the same file again after a failed upload.
+  e.target.value = ""; // Allow choosing the same file again after cancel/retry.
   if (!file) return;
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-    errorMsg.value = "Please select a JPG, PNG or WebP photo.";
+    clearSelectedProof();
+    selectedProofError.value = "กรุณาเลือกรูป JPG, PNG หรือ WebP เท่านั้น";
     return;
   }
-  if (file.size > 5 * 1024 * 1024) {
-    errorMsg.value = "The photo must be smaller than 5 MB.";
+  if (!file.size || file.size > 5 * 1024 * 1024) {
+    clearSelectedProof();
+    selectedProofError.value = "รูปต้องมีขนาดไม่เกิน 5 MB และไม่เป็นไฟล์ว่าง";
     return;
   }
-  await submitStatusUpdate(file);
+  const previewUrl = URL.createObjectURL(file);
+  if (selectedProofUrl.value) URL.revokeObjectURL(selectedProofUrl.value);
+  selectedProof.value = file;
+  selectedProofUrl.value = previewUrl;
+  selectedProofError.value = "";
+  errorMsg.value = "";
+  // No upload here: the Worker must review and confirm the image first.
 }
 
-async function submitStatusUpdate(file) {
+async function confirmSelectedProof() {
+  if (!selectedProof.value || updating.value) return;
+  if (!["in_progress", "awaiting_confirmation"].includes(job.value.backendStatus)) return;
+  updating.value = true;
+  selectedProofError.value = "";
+  errorMsg.value = "";
+  try {
+    const formData = new FormData();
+    formData.append("proof", selectedProof.value);
+    if (job.value.backendStatus === "in_progress") {
+      formData.append("next", "awaiting_confirmation");
+      await api.patch(`/jobs/${job.value.id}/status`, formData);
+    } else {
+      // Worker may replace the submitted image until Hirer has confirmed completion.
+      await api.patch(`/jobs/${job.value.id}/completion-proof`, formData);
+    }
+    clearSelectedProof();
+    // Re-fetch authenticated image; don't reuse a previous version after replacement.
+    loadedSubmittedProofKey = null;
+    await loadJob();
+  } catch (err) {
+    selectedProofError.value = err.response?.data?.message || "ส่งรูปหลักฐานไม่สำเร็จ กรุณาลองอีกครั้ง";
+    // Keep the selected file and preview so the user can retry.
+  } finally {
+    updating.value = false;
+  }
+}
+
+async function submitStatusUpdate() {
   if (job.value.backendStatus === "assigned" && demoPaymentStatus.value !== "held") {
     errorMsg.value = "รอ Hirer กดยืนยัน Mock Payment ก่อนเริ่มงาน";
     return;
@@ -178,11 +267,7 @@ async function submitStatusUpdate(file) {
   try {
     const formData = new FormData();
     formData.append("next", next);
-    if (file) formData.append("proof", file);
-
-    await api.patch(`/jobs/${job.value.id}/status`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    await api.patch(`/jobs/${job.value.id}/status`, formData);
     await loadJob(); // โหลดสถานะล่าสุดกลับมาแสดง
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "อัปเดตสถานะไม่สำเร็จ";
@@ -351,11 +436,41 @@ function goToReview() {
           </div>
 
           <p v-if="job.backendStatus === 'assigned' && demoPaymentStatus !== 'held'" class="pending-confirmation">Waiting for Hirer Mock Payment (no real transfer)</p>
-          <button class="btn-primary" :disabled="updating || job.backendStatus === 'awaiting_confirmation' || (job.backendStatus === 'assigned' && demoPaymentStatus !== 'held')" @click="updateStatus">
-            {{ updating ? "Updating..." : job.backendStatus === "awaiting_confirmation" ? "Waiting for Hirer confirmation" : job.backendStatus === "in_progress" ? "Submit Proof" : "Start Job" }}
+          <button v-if="job.backendStatus === 'assigned'" class="btn-primary" :disabled="updating || demoPaymentStatus !== 'held'" @click="updateStatus">
+            {{ updating ? "Updating..." : "Start Job" }}
           </button>
-          <p v-if="job.backendStatus === 'awaiting_confirmation'" class="pending-confirmation">Proof submitted. The Hirer must check and confirm your work before it is completed.</p>
-          <input v-if="job.backendStatus === 'in_progress'" ref="proofInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden-input" @change="onProofSelected" />
+          <button v-if="job.backendStatus === 'in_progress' && !selectedProof" class="btn-primary" :disabled="updating" @click="selectProof">เลือกรูปหลักฐาน</button>
+          <p v-if="job.backendStatus === 'awaiting_confirmation'" class="pending-confirmation">ส่งหลักฐานแล้ว รอ Hirer ยืนยันงาน คุณยังเปลี่ยนรูปได้ก่อน Hirer ยืนยัน</p>
+          <input v-if="['in_progress', 'awaiting_confirmation'].includes(job.backendStatus)" ref="proofInput" type="file" accept="image/jpeg,image/png,image/webp" class="hidden-input" @change="onProofSelected" />
+
+          <!-- Review BEFORE sending: selecting a file never uploads it. -->
+          <section v-if="selectedProof && selectedProofUrl" class="proof-panel" aria-label="ตรวจรูปก่อนส่งหลักฐาน">
+            <h2 class="proof-heading">ตรวจรูปหลักฐานก่อนส่ง</h2>
+            <img :src="selectedProofUrl" class="proof-photo" alt="ตัวอย่างรูปหลักฐานที่เลือก" />
+            <p class="proof-caption">{{ selectedProof.name }} ({{ (selectedProof.size / 1024 / 1024).toFixed(2) }} MB)</p>
+            <p class="proof-caption">รูปนี้ยังไม่ได้อัปโหลด กรุณาตรวจให้ถูกต้องก่อนกดยืนยัน</p>
+            <div class="proof-buttons">
+              <button type="button" class="proof-secondary" :disabled="updating" @click="selectProof">เปลี่ยนรูป</button>
+              <button type="button" class="proof-secondary" :disabled="updating" @click="clearSelectedProof">ยกเลิก</button>
+              <button type="button" class="proof-primary" :disabled="updating" @click="confirmSelectedProof">
+                {{ updating ? "กำลังส่ง..." : job.backendStatus === 'awaiting_confirmation' ? "ยืนยันเปลี่ยนรูป" : "ยืนยันส่งหลักฐาน" }}
+              </button>
+            </div>
+          </section>
+          <p v-if="selectedProofError" class="error-msg" role="alert">{{ selectedProofError }}</p>
+          <section v-if="job.backendStatus === 'awaiting_confirmation'" class="proof-panel" aria-label="หลักฐานที่ส่งแล้ว">
+            <h2 class="proof-heading">รูปหลักฐานที่ส่งแล้ว</h2>
+            <p v-if="submittedProofLoading" class="proof-caption">กำลังโหลดรูป...</p>
+            <a v-else-if="submittedProofUrl" :href="submittedProofUrl" target="_blank" rel="noopener noreferrer">
+              <img :src="submittedProofUrl" class="proof-photo" alt="รูปหลักฐานที่ส่งให้ Hirer" @error="submittedProofError = 'แสดงรูปไม่สำเร็จ กรุณาลองอีกครั้ง'; clearSubmittedProof()" />
+              <span class="proof-caption">ดูรูปขนาดเต็ม</span>
+            </a>
+            <div v-else-if="submittedProofError" class="proof-caption error-msg" role="alert">
+              {{ submittedProofError }}
+              <button type="button" class="proof-secondary" @click="retrySubmittedProof">ลองโหลดรูปอีกครั้ง</button>
+            </div>
+            <button v-if="!selectedProof" type="button" class="proof-secondary" :disabled="updating" @click="selectProof">เปลี่ยนรูปหลักฐานที่ส่งแล้ว</button>
+          </section>
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         </template>
 
@@ -379,6 +494,15 @@ function goToReview() {
 
         <!-- ===== Completed: ให้รีวิวผู้ว่าจ้าง (SRS 3.5.15 / FR-REV-01–02) ===== -->
         <template v-if="job.status === 'completed'">
+          <section class="proof-panel" aria-label="หลักฐานหลังเสร็จงาน">
+            <h2 class="proof-heading">รูปหลักฐานที่ส่งไว้ (แก้ไขไม่ได้หลังยืนยัน)</h2>
+            <p v-if="submittedProofLoading" class="proof-caption">กำลังโหลดรูป...</p>
+            <a v-else-if="submittedProofUrl" :href="submittedProofUrl" target="_blank" rel="noopener noreferrer">
+              <img :src="submittedProofUrl" class="proof-photo" alt="หลักฐานงานที่เสร็จแล้ว" @error="submittedProofError = 'แสดงรูปไม่สำเร็จ กรุณาลองอีกครั้ง'; clearSubmittedProof()" />
+              <span class="proof-caption">ดูรูปขนาดเต็ม</span>
+            </a>
+            <div v-else-if="submittedProofError" class="error-msg" role="alert">{{ submittedProofError }} <button type="button" class="proof-secondary" @click="retrySubmittedProof">ลองอีกครั้ง</button></div>
+          </section>
           <p class="completion-note">Completed<span v-if="job.completionConfirmedAt"> — confirmed on {{ formatStatusTime(job.completionConfirmedAt) }}</span></p>
           <button class="btn-primary" @click="goToReview">Review Hirer</button>
           <button class="btn-outline" @click="backToMyJobs">Back to My Jobs</button>
@@ -494,4 +618,15 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .completion-note { font-size: 12px; color: #16803c; margin: 14px 0; }
 .btn-outline { display: block; margin-top: 10px; border: 1px solid #ddd; background: white; border-radius: 8px; padding: 12px; width: 100%; cursor: pointer; }
 .pending-confirmation { margin: 12px 0 0; font-size: 12px; color: #92400e; line-height: 1.45; }
+</style>
+
+<style scoped>
+.proof-panel { margin: 16px 0; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fafafa; }
+.proof-heading { font-size: 15px; font-weight: 700; margin: 0 0 10px; }
+.proof-photo { display: block; max-width: 100%; width: auto; max-height: 320px; object-fit: contain; border-radius: 8px; background: #fff; }
+.proof-caption { display: block; font-size: 12px; color: #555; margin: 8px 0; }
+.proof-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.proof-secondary { background: #fff; border: 1px solid #ccc; color: #222; border-radius: 8px; padding: 9px 12px; cursor: pointer; }
+.proof-primary { background: #facc15; color: #171717; border: none; font-weight: 700; border-radius: 8px; padding: 9px 12px; cursor: pointer; }
+.proof-primary:disabled, .proof-secondary:disabled { opacity: .5; cursor: not-allowed; }
 </style>
