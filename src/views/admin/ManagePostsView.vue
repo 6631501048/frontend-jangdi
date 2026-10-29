@@ -18,11 +18,18 @@ const statuses = [
   { key: "cancelled", label: "ยกเลิก" },
   { key: "disputed", label: "ข้อพิพาท" },
 ];
+const statusGroups = [
+  { key: "all", label: "ทั้งหมด", statuses: ["all"] },
+  { key: "review", label: "รอตรวจสอบ", statuses: ["pending_review", "pending_filter", "rejected"] },
+  { key: "progress", label: "กำลังดำเนินการ", statuses: ["waiting", "assigned", "in_progress", "awaiting_confirmation"] },
+  { key: "finished", label: "สิ้นสุดงาน", statuses: ["completed", "cancelled", "disputed"] },
+];
 const posts = ref([]);
 const counts = ref({});
 const validStatuses = new Set(statuses.map(({ key }) => key));
 const requestedStatus = String(route.query.status || "all");
 const currentStatus = ref(validStatuses.has(requestedStatus) ? requestedStatus : "all");
+const currentGroup = ref(statusGroups.find((group) => group.statuses.includes(currentStatus.value))?.key || "all");
 const search = ref("");
 const appliedSearch = ref("");
 const page = ref(1);
@@ -36,6 +43,15 @@ let requestId = 0;
 const totalCount = computed(() => Object.values(counts.value).reduce((sum, number) => sum + Number(number || 0), 0));
 const activeStatus = (status) => statuses.find((s) => s.key === status)?.label || status;
 const statusCount = (status) => status === "all" ? totalCount.value : Number(counts.value[status] || 0);
+const currentGroupStatuses = computed(() => {
+  const group = statusGroups.find((item) => item.key === currentGroup.value);
+  return (group?.statuses || ["all"]).map((key) => statuses.find((item) => item.key === key));
+});
+function selectGroup(groupKey) {
+  currentGroup.value = groupKey;
+  const group = statusGroups.find((item) => item.key === groupKey);
+  if (group && !group.statuses.includes(currentStatus.value)) currentStatus.value = group.statuses[0];
+}
 function money(value) { return `฿${Number(value || 0).toLocaleString("th-TH", { maximumFractionDigits: 2 })}`; }
 function date(value) {
   if (!value) return "-";
@@ -62,7 +78,11 @@ async function loadPosts() {
     posts.value = [];
   } finally { if (requestId === id) loading.value = false; }
 }
-watch(currentStatus, () => { page.value = 1; loadPosts(); });
+watch(currentStatus, () => {
+  currentGroup.value = statusGroups.find((group) => group.statuses.includes(currentStatus.value))?.key || "all";
+  page.value = 1;
+  loadPosts();
+});
 onMounted(loadPosts);
 function doSearch() { page.value = 1; appliedSearch.value = search.value.trim(); loadPosts(); }
 function changePage(delta) { page.value += delta; loadPosts(); }
@@ -94,8 +114,17 @@ async function reject(post) {
       </div>
       <button class="refresh-btn" :disabled="loading" @click="loadPosts">{{ loading ? "Loading..." : "Refresh" }}</button>
     </div>
-    <nav class="status-tabs" aria-label="กรองสถานะงาน">
-      <button v-for="item in statuses" :key="item.key" type="button" class="tab"
+    <div class="status-filter-heading">
+      <span>กรองตามกลุ่มสถานะ</span>
+      <span class="status-filter-summary">{{ activeStatus(currentStatus) }} · {{ statusCount(currentStatus) }} รายการ</span>
+    </div>
+    <nav class="status-groups" aria-label="กลุ่มสถานะงาน">
+      <button v-for="group in statusGroups" :key="group.key" type="button" class="group-tab"
+        :class="{ chosen: currentGroup === group.key }" :aria-pressed="currentGroup === group.key"
+        @click="selectGroup(group.key)">{{ group.label }}</button>
+    </nav>
+    <nav class="status-tabs" aria-label="สถานะย่อยของงาน">
+      <button v-for="item in currentGroupStatuses" :key="item.key" type="button" class="tab"
         :class="{ chosen: currentStatus === item.key }" :aria-pressed="currentStatus === item.key"
         @click="currentStatus = item.key">{{ item.label }} ({{ statusCount(item.key) }})</button>
     </nav>
@@ -312,9 +341,14 @@ async function reject(post) {
   }
 }
 
-.status-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; }
-.tab { border: 1px solid var(--color-border); background: var(--color-surface); border-radius: 20px; padding: 7px 10px; cursor: pointer; font-size: 12px; }
-.tab.chosen { background: var(--color-primary); font-weight: 700; }
+.status-filter-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; color: var(--color-text-muted); font-size: 12px; }
+.status-filter-summary { color: var(--color-text); font-weight: 700; }
+.status-groups { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
+.group-tab { min-height: 38px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: 8px; padding: 7px 8px; cursor: pointer; color: var(--color-text-muted); font-size: 12px; }
+.group-tab.chosen { border-color: var(--color-primary); background: var(--color-primary-light); color: var(--color-text); font-weight: 700; }
+.status-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; padding: 8px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
+.tab { border: 1px solid transparent; background: transparent; border-radius: 20px; padding: 7px 10px; cursor: pointer; color: var(--color-text-muted); font-size: 12px; }
+.tab.chosen { background: var(--color-primary); color: #3a2a05; font-weight: 700; }
 .status-badge { white-space: nowrap; }
 .status-completed { background: #dcfce7; color: #166534; }
 .status-in_progress, .status-assigned { background: #dbeafe; color: #1d4ed8; }
@@ -329,4 +363,8 @@ async function reject(post) {
 .pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 18px; font-size: 12px; }
 .search-box { border-radius: 12px; }
 .search-box .refresh-btn { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .status-groups { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .status-filter-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
+}
 </style>

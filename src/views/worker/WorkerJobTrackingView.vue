@@ -280,26 +280,43 @@ async function submitStatusUpdate() {
 }
 
 /* ---------- SOS ---------- */
-function sendSOS() {
-  if (!confirm("ยืนยันการส่งสัญญาณฉุกเฉิน (SOS) ใช่หรือไม่?")) return;
-  if (!navigator.geolocation) {
-    alert("เบราว์เซอร์นี้ไม่รองรับการขอตำแหน่ง ไม่สามารถส่ง SOS ได้");
-    return;
+const sosSending = ref(false);
+const sosLocating = ref(false);
+const sosMessage = ref("");
+async function postSOS(coords = null) {
+  if (sosSending.value) return;
+  sosSending.value = true;
+  sosMessage.value = "";
+  try {
+    await api.post("/sos", {
+      jobId: job.value.id,
+      ...(coords ? { lat: coords.latitude, lng: coords.longitude } : {}),
+    });
+    sosMessage.value = coords
+      ? "ส่ง SOS พร้อมตำแหน่งสำเร็จ ผู้ดูแลระบบได้รับข้อมูลเหตุแล้ว"
+      : "ส่ง SOS สำเร็จ (ไม่มีพิกัด) กรุณาติดต่อผู้ดูแลโดยตรงหากยังอยู่ในอันตราย";
+    window.alert(sosMessage.value);
+  } catch (err) {
+    sosMessage.value = err.response?.data?.message || "ส่ง SOS ไม่สำเร็จ กรุณาติดต่อผู้ดูแลโดยตรง";
+    window.alert(sosMessage.value);
+  } finally {
+    sosSending.value = false;
   }
+}
+function offerSOSWithoutLocation() {
+  if (window.confirm("ไม่สามารถรับพิกัดได้ ต้องการส่ง SOS โดยไม่แนบตำแหน่งหรือไม่?")) {
+    void postSOS();
+  }
+}
+function sendSOS() {
+  if (sosSending.value || sosLocating.value || !window.confirm("ยืนยันการส่งสัญญาณฉุกเฉิน (SOS) ใช่หรือไม่?")) return;
+  sosLocating.value = true;
+  sosMessage.value = "กำลังขอตำแหน่งสำหรับแจ้งเหตุ...";
+  if (!navigator.geolocation) { sosLocating.value = false; return offerSOSWithoutLocation(); }
   navigator.geolocation.getCurrentPosition(
-    async (pos) => {
-      try {
-        await api.post("/sos", {
-          jobId: job.value.id,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        });
-        alert("ส่งสัญญาณ SOS สำเร็จ ผู้ดูแลระบบกำลังติดต่อกลับโดยเร็วที่สุด");
-      } catch (err) {
-        alert(err.response?.data?.message || "ส่งสัญญาณ SOS ไม่สำเร็จ");
-      }
-    },
-    () => alert("ไม่ได้รับอนุญาตให้เข้าถึงตำแหน่ง ไม่สามารถส่ง SOS ได้")
+    (pos) => { sosLocating.value = false; void postSOS(pos.coords); },
+    () => { sosLocating.value = false; offerSOSWithoutLocation(); },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
   );
 }
 
@@ -431,7 +448,8 @@ function goToReview() {
                 SOS Emergency
               </p>
               <p class="sos-desc">If you're in an emergency or dangerous situation, tap the red button below to get immediate support and coordination assistance.</p>
-              <button class="btn-sos" @click="sendSOS">
+              <p v-if="sosMessage" role="status" class="sos-desc">{{ sosMessage }}</p>
+              <button class="btn-sos" :disabled="sosSending || sosLocating" @click="sendSOS">
                 <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg>
                 Tap to Send SOS
               </button>

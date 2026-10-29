@@ -12,6 +12,7 @@ const loading = ref(true);
 const errorMessage = ref("");
 const actionLoading = ref(null);
 const expandedId = ref(null);
+const resolutionNotes = ref({});
 
 const counts = computed(() => ({
   all: alerts.value.length,
@@ -92,50 +93,40 @@ async function loadAlerts() {
   }
 }
 
-function contactWorker(alert) {
-  const phone = alert.worker?.phone;
-
+function contactWorker(item) {
+  const phone = String(item.worker?.phone || "").trim();
   if (!phone) {
-    alert("ผู้ใช้รายนี้ไม่มีหมายเลขโทรศัพท์");
+    window.alert("ผู้ใช้รายนี้ไม่มีหมายเลขโทรศัพท์");
     return;
   }
-
-  window.location.href = `tel:${phone}`;
+  // A phone link is initiated only on explicit Admin action.
+  window.location.href = `tel:${encodeURIComponent(phone)}`;
 }
 
-async function markResolved(alert) {
-  if (actionLoading.value) return;
-
-  const notes = window.prompt(
-    "หมายเหตุสำหรับการปิดเคส SOS",
-    ""
-  );
-
-  if (notes === null) return;
-
-  actionLoading.value = alert._id;
-
+async function markResolved(item) {
+  if (actionLoading.value || item.status !== "active") return;
+  const notes = String(resolutionNotes.value[item._id] || "").trim();
+  if (notes.length < 5 || notes.length > 1000) {
+    window.alert("กรุณาระบุหมายเหตุการปิดเคส 5-1000 ตัวอักษร");
+    return;
+  }
+  if (!window.confirm("ยืนยันว่าตรวจสอบเหตุและพร้อมปิดเคส SOS นี้แล้ว?")) return;
+  actionLoading.value = item._id;
   try {
-    const { data } = await api.post(
-      `/admin/sos/${alert._id}/resolve`,
-      {
-        adminNotes: notes,
-      }
-    );
-
-    alerts.value = alerts.value.map((item) =>
-      item._id === alert._id
-        ? data.sos
-        : item
-    );
+    await api.post(`/admin/sos/${item._id}/resolve`, { adminNotes: notes });
+    delete resolutionNotes.value[item._id];
+    await loadAlerts(); // Preserve populated worker and job data from the list API.
   } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถปิดเคส SOS ได้"
-    );
+    window.alert(error.response?.data?.message || "ไม่สามารถปิดเคส SOS ได้");
+    if (error.response?.status === 409) await loadAlerts();
   } finally {
     actionLoading.value = null;
   }
+}
+function mapsLink(item) {
+  const point = item.location?.coordinates;
+  if (!Array.isArray(point) || point.length !== 2 || !point.every(Number.isFinite)) return null;
+  return `https://www.google.com/maps?q=${encodeURIComponent(`${point[1]},${point[0]}`)}`;
 }
 
 onMounted(loadAlerts);
@@ -282,6 +273,10 @@ onMounted(loadAlerts);
             </strong>
           </p>
 
+          <p v-if="mapsLink(alert)" class="detail-row">
+            <span>Map</span>
+            <a :href="mapsLink(alert)" target="_blank" rel="noopener noreferrer">เปิดตำแหน่งบนแผนที่</a>
+          </p>
           <p class="detail-row">
             <span>Triggered</span>
             <strong>
@@ -297,6 +292,13 @@ onMounted(loadAlerts);
             {{ alert.adminNotes }}
           </p>
 
+          <p v-if="alert.resolvedAt" class="detail-row">
+            <span>Resolved</span><strong>{{ formatDate(alert.resolvedAt) }}</strong>
+          </p>
+          <label v-if="alert.status === 'active'" class="resolution-input">
+            หมายเหตุการดำเนินการ (5–1000 ตัวอักษร)
+            <textarea v-model="resolutionNotes[alert._id]" maxlength="1000" rows="3" placeholder="ระบุการช่วยเหลือ/การติดต่อก่อนปิดเคส" />
+          </label>
           <div class="action-row">
             <button
               class="action-btn ghost"
@@ -308,10 +310,10 @@ onMounted(loadAlerts);
             <button
               v-if="alert.status === 'active'"
               class="action-btn primary"
-              :disabled="actionLoading === alert._id"
+              :disabled="!!actionLoading || String(resolutionNotes[alert._id] || '').trim().length < 5"
               @click.stop="markResolved(alert)"
             >
-              Mark Resolved
+              {{ actionLoading === alert._id ? "กำลังบันทึก..." : "Mark Resolved" }}
             </button>
           </div>
         </div>
@@ -564,4 +566,6 @@ onMounted(loadAlerts);
     width: 100%;
   }
 }
+.resolution-input { display: grid; gap: 6px; margin: 12px 0; font-size: 12px; font-weight: 600; }
+.resolution-input textarea { width: 100%; resize: vertical; padding: 10px; border-radius: 8px; border: 1px solid var(--color-border); font: inherit; }
 </style>

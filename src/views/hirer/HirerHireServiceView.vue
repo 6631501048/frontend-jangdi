@@ -57,7 +57,7 @@ async function loadServicePost() {
       fromLabel: data.title,
       fromDetail: "",
     };
-    form.value.serviceFee = data.fee;
+    form.value.serviceFee = Number(data.fee || 0);
     form.value.from = data.title;
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดข้อมูลประกาศบริการไม่สำเร็จ";
@@ -78,7 +78,7 @@ const step1Valid = computed(
     form.value.to.trim() &&
     form.value.estimatedDelivery.trim() &&
     form.value.price !== null &&
-    form.value.price !== ""
+    form.value.price !== "" && Number.isFinite(Number(form.value.price)) && Number(form.value.price) >= 0
 );
 
 const total = computed(() => Number(form.value.serviceFee || 0) + Number(form.value.price || 0));
@@ -106,7 +106,16 @@ async function confirmHiring() {
   submitting.value = true;
   errorMsg.value = "";
   try {
-    await api.post(`/service-posts/${servicePost.value.id}/requests`, { orderDetails });
+    await api.post(`/service-posts/${servicePost.value.id}/requests`, {
+      orderDetails,
+      orderData: {
+        from: form.value.from.trim(),
+        to: form.value.to.trim(),
+        estimatedDelivery: form.value.estimatedDelivery.trim(),
+        requirements: form.value.requirements.trim(),
+        itemBudget: Number(form.value.price),
+      },
+    });
     hired.value = true;
     showSuccessModal.value = true;
   } catch (err) {
@@ -158,7 +167,7 @@ function closeModal() {
 
           <label class="field-label">Service Fee</label>
           <div class="input-suffix">
-            <input v-model.number="form.serviceFee" type="number" min="0" />
+            <input v-model.number="form.serviceFee" type="number" min="0" readonly aria-label="Service Fee จากประกาศ" />
             <span class="suffix">Baht</span>
           </div>
 

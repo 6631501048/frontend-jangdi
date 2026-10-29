@@ -12,6 +12,8 @@ const router = useRouter();
 const hirer = ref({ jobId: route.params.id, name: "", avatarUrl: null });
 const loading = ref(true);
 const errorMsg = ref("");
+const reviewed = ref(false);
+const canReview = ref(false);
 
 function resolveAvatar(pathOrUrl) {
   return resolveBackendAssetUrl(pathOrUrl);
@@ -21,6 +23,9 @@ async function loadJob() {
   loading.value = true;
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+    reviewed.value = review.reviewed;
+    canReview.value = review.eligible && !review.reviewed;
     hirer.value = {
       jobId: data._id,
       name: data.hirer?.fullName || "ผู้ว่าจ้าง",
@@ -60,7 +65,7 @@ const submitting = ref(false);
 const canSubmit = computed(() => rating.value > 0 && !submitting.value);
 
 async function submitReview() {
-  if (!canSubmit.value) return;
+  if (!canSubmit.value || !canReview.value) return;
   submitting.value = true;
   errorMsg.value = "";
   try {
@@ -69,8 +74,10 @@ async function submitReview() {
       tags: selectedTags.value,
       comment: comment.value,
     });
-    router.push("/worker/jobs");
+    reviewed.value = true;
+    canReview.value = false;
   } catch (err) {
+    if (err.response?.status === 409) { reviewed.value = true; canReview.value = false; }
     errorMsg.value = err.response?.data?.message || "ส่งรีวิวไม่สำเร็จ";
   } finally {
     submitting.value = false;
@@ -93,7 +100,10 @@ function goBack() {
     </header>
 
     <main class="content">
-      <div class="card">
+      <p v-if="loading">กำลังโหลดข้อมูล...</p>
+      <p v-else-if="reviewed" role="status">คุณได้รีวิว Hirer ของงานนี้แล้ว</p>
+      <p v-else-if="!canReview">{{ errorMsg || 'ยังไม่สามารถรีวิวงานนี้ได้' }}</p>
+      <div v-if="!loading && canReview" class="card">
         <div class="profile-block">
           <span class="avatar" aria-hidden="true">
             <img v-if="hirer.avatarUrl" :src="hirer.avatarUrl" alt="" />

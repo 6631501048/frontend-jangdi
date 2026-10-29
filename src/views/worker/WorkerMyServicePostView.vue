@@ -24,6 +24,9 @@ function timeAgo(dateStr) {
    หมายเหตุ: หน้านี้ออกแบบไว้สำหรับ 1 โพสต์ต่อครั้ง — ถ้ามีหลายโพสต์ จะเลือกโพสต์ที่ active ล่าสุด
    (หรือโพสต์ล่าสุดถ้าไม่มี active เลย) มาแสดง */
 const post = ref(null);
+const servicePosts = ref([]);
+const chosenPostId = ref("");
+const sortOrder = ref("latest");
 const allRequests = ref([]);
 
 async function load() {
@@ -31,16 +34,20 @@ async function load() {
   errorMsg.value = "";
   try {
     const { data: posts } = await api.get("/service-posts/my");
+    servicePosts.value = posts;
     if (!posts.length) {
       post.value = null;
       return;
     }
-    const chosen = posts.find((p) => p.status === "active") || posts[0];
+    if (!chosenPostId.value || !posts.some(p => p._id === chosenPostId.value)) {
+      chosenPostId.value = (posts.find(p => p.status === "active") || posts[0])._id;
+    }
+    const chosen = posts.find(p => p._id === chosenPostId.value);
     post.value = {
       id: chosen._id,
       title: chosen.title,
       description: chosen.description,
-      isOpen: chosen.status === "active",
+      isOpen: chosen.status === "active" && new Date(chosen.availabilityEnd) >= new Date() && chosen.currentOrderCount < chosen.maxSimultaneousOrders,
       maxOrders: chosen.maxSimultaneousOrders,
       location: chosen.category,
       time: new Date(chosen.availabilityEnd).toLocaleString("th-TH"),
@@ -55,11 +62,11 @@ async function load() {
         requester: r.hirer?.fullName || "ผู้ว่าจ้าง",
         location: "-",
         postedAgo: timeAgo(r.createdAt),
-        items: r.orderDetails,
-        total: r.servicePost?.fee || 0,
-        status: r.status === "accepted" ? "accepted" : "pending", // declined ไม่แสดงในลิสต์นี้
-      }))
-      .filter((r) => r.status !== "declined");
+        postedTimestamp: new Date(r.createdAt).getTime(),
+        items: r.orderData?.requirements || r.orderDetails || "-",
+        total: Number(r.servicePost?.fee || 0) + Number(r.orderData?.itemBudget || 0),
+        status: r.status,
+      }));
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดข้อมูลประกาศบริการไม่สำเร็จ";
   } finally {
@@ -70,9 +77,8 @@ onMounted(load);
 
 const pendingCount = computed(() => allRequests.value.filter((r) => r.status === "pending").length);
 const visibleRequests = computed(() => {
-  // เมื่อโพสต์เต็ม/ปิดแล้ว คำขอที่ยังไม่ตอบรับจะถูกปิดกั้นออกจากลิสต์ (FR-SERV-06)
-  if (!post.value?.isOpen) return allRequests.value.filter((r) => r.status === "accepted");
-  return allRequests.value;
+  // Keep pending requests visible when full/closed, so Worker can inspect/decline them.
+  return [...allRequests.value].sort((a, b) => sortOrder.value === 'oldest' ? a.postedTimestamp - b.postedTimestamp : b.postedTimestamp - a.postedTimestamp);
 });
 
 /* ---------- ยอมรับคำขอ ---------- */
@@ -81,6 +87,10 @@ const acceptedRequester = ref("");
 const accepting = ref(null);
 
 async function acceptRequest(req) {
+  if (!post.value?.isOpen) {
+    errorMsg.value = "ประกาศปิดรับแล้ว ไม่สามารถยอมรับคำขอเพิ่มได้";
+    return;
+  }
   accepting.value = req.id;
   errorMsg.value = "";
   try {
@@ -131,6 +141,11 @@ function createNewPost() {
       </template>
 
       <template v-else>
+      <label class="post-picker">เลือกประกาศบริการ
+        <select v-model="chosenPostId" @change="load">
+          <option v-for="p in servicePosts" :key="p._id" :value="p._id">{{ p.title }} — {{ p.status }}</option>
+        </select>
+      </label>
       <!-- การ์ดสรุป Service Post -->
       <div class="card post-card">
         <div class="post-head">
@@ -143,7 +158,7 @@ function createNewPost() {
           </div>
           <div class="post-status">
             <span :class="post.isOpen ? 'status-open' : 'status-closed'">{{ post.isOpen ? "open" : "Close" }}</span>
-            <span class="status-sub">{{ post.isOpen ? "Accepting Orders" : "Full" }}</span>
+            <span class="status-sub">{{ post.isOpen ? "Accepting Orders" : "Closed / Full / Expired" }}</span>
           </div>
         </div>
 
@@ -166,9 +181,9 @@ function createNewPost() {
       <!-- คำขอที่เข้ามา -->
       <div class="requests-head">
         <h2>Incoming Requests ({{ pendingCount }})</h2>
-        <select class="sort-select">
-          <option>Latest</option>
-          <option>Oldest</option>
+        <select v-model="sortOrder" class="sort-select">
+          <option value="latest">Latest</option>
+          <option value="oldest">Oldest</option>
         </select>
       </div>
 
@@ -182,7 +197,8 @@ function createNewPost() {
               <p class="requester">{{ req.requester }}</p>
               <p class="requester-loc">{{ req.location }}</p>
             </div>
-            <span v-if="req.status === 'accepted'" class="status-accepted">Applied</span>
+            <span v-if="req.status === 'accepted'" class="status-accepted">Accepted</span>
+            <span v-else-if="req.status === 'declined'" class="posted-ago">Declined</span>
             <span v-else class="posted-ago">{{ req.postedAgo }}</span>
           </div>
 
@@ -192,14 +208,14 @@ function createNewPost() {
               <p class="items-value">{{ req.items }}</p>
             </div>
             <div class="items-total">
-              <p class="items-label">Total</p>
+              <p class="items-label">ประมาณการ</p>
               <p class="items-value">{{ req.total }} Baht</p>
             </div>
           </div>
 
           <div class="request-actions" :class="{ single: req.status === 'accepted' }">
             <button class="btn-details" @click="viewDetails(req)">Details</button>
-            <button v-if="req.status === 'pending'" class="btn-apply" :disabled="accepting === req.id" @click="acceptRequest(req)">
+            <button v-if="req.status === 'pending' && post.isOpen" class="btn-apply" :disabled="accepting === req.id" @click="acceptRequest(req)">
               {{ accepting === req.id ? "..." : "Apply" }}
             </button>
           </div>
@@ -321,4 +337,8 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>
+<style scoped>
+.post-picker { display:flex; flex-direction:column; gap:6px; margin:8px 0; font-size:13px; }
+.post-picker select { width:100%; padding:10px; background:#fff; border:1px solid #ddd; border-radius:8px; }
 </style>

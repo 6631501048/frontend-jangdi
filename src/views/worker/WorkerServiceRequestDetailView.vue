@@ -1,84 +1,58 @@
 <script setup>
-// FR-SERV-04: ผู้ว่าจ้างส่ง Service Request พร้อมรายละเอียดคำสั่งซื้อ (รายการ/ที่อยู่/หมายเหตุ)
-// FR-SERV-05: เจ้าของ Service Post ดู ยอมรับ หรือปฏิเสธ Service Request แต่ละรายการ
-// FR-SERV-07: Service Request ที่ยอมรับแล้วจะถูกแปลงเป็นบันทึกงาน (Job) เชื่อมโยงกับ Service Post ต้นทาง
+// MVP-02: Service Request details are the Hirer's persisted orderData (legacy text is still supported).
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
-
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
 const errorMsg = ref("");
-
-/* ---------- ข้อมูลคำขอ ----------
-   TODO: แทนที่ mock ด้วย GET /api/service-posts/{postId}/requests/{route.params.id} */
-/* const request = ref({
-  id: route.params.id,
-  requester: "Marry",
-  location: "F4 Dome",
-  items: [
-    { name: "Fried Rice 1", price: 35 },
-    { name: "Fried Chicken 1", price: 25 },
-  ],
-  serviceFee: 20,
-  address: { label: "F4 Dome", detail: "Building F4 room 204" },
-  notes: "Any place is okay, you can choose for me. Thanks!",
-}); */
-
 const request = ref(null);
+const accepting = ref(false);
+const isPending = computed(() => request.value?.status === "pending");
+const canAccept = computed(() => isPending.value && request.value?.postStatus === "active" && !request.value?.postFull);
+const total = computed(() => request.value?.itemBudget == null ? null : request.value.itemBudget + request.value.serviceFee);
 
 async function loadRequest() {
   loading.value = true;
   errorMsg.value = "";
   try {
-    const { data } = await api.get("/service-posts/requests/my-as-worker");
-    const found = data.find((item) => item._id === route.params.id);
-    if (!found) {
-      errorMsg.value = "ไม่พบคำขอบริการนี้";
-      return;
-    }
+    const { data } = await api.get(`/service-posts/requests/${route.params.id}`);
+    const structured = data.orderData || {};
+    const post = data.servicePost || {};
     request.value = {
-      id: found._id,
-      requester: found.hirer?.fullName || "ผู้ว่าจ้าง",
-      location: found.servicePost?.title || "-",
-      items: [{ name: found.orderDetails || "-", price: 0 }],
-      serviceFee: Number(found.servicePost?.fee || 0),
-      address: { label: found.servicePost?.title || "-", detail: found.servicePost?.description || "-" },
-      notes: found.orderDetails || "-",
+      id: data._id,
+      requester: data.hirer?.fullName || "ผู้ว่าจ้าง",
+      serviceTitle: post.title || "-",
+      details: data.orderDetails || "-",
+      requirements: structured.requirements || "",
+      from: structured.from || "",
+      to: structured.to || "",
+      deliveryTime: structured.estimatedDelivery || "",
+      itemBudget: structured.itemBudget == null ? null : Number(structured.itemBudget),
+      serviceFee: Number(post.fee || 0),
+      status: data.status,
+      postStatus: post.status,
+      postFull: Number(post.currentOrderCount || 0) >= Number(post.maxSimultaneousOrders || 1),
+      jobId: data.resultingJob?._id || data.resultingJob || null,
     };
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดคำขอไม่สำเร็จ";
-  } finally {
-    loading.value = false;
-  }
+  } finally { loading.value = false; }
 }
 onMounted(loadRequest);
 
-const itemsTotal = computed(() => request.value?.items.reduce((sum, i) => sum + i.price, 0) || 0);
-const total = computed(() => itemsTotal.value + (request.value?.serviceFee || 0));
-
-const accepting = ref(false);
-async function acceptOrder() {
-  if (!request.value) return;
+async function respond(action) {
+  if (!isPending.value || accepting.value) return;
+  if (action === "accept" && !canAccept.value) return;
   accepting.value = true;
   errorMsg.value = "";
   try {
-    await api.patch(`/service-posts/requests/${request.value.id}`, { action: "accept" });
-    router.push("/worker/service-posts");
+    await api.patch(`/service-posts/requests/${request.value.id}`, { action });
+    await loadRequest();
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "ยอมรับคำขอไม่สำเร็จ";
-  } finally {
-    accepting.value = false;
-  }
-  return; /*
-  // TODO FR-SERV-05/07: POST /api/service-posts/{postId}/requests/{request.id}/accept
-  // → backend สร้าง Job ใหม่เชื่อมโยงกับ Service Post ต้นทาง แล้วเข้าสู่ Escrow (FR-PAY-01)
-  accepting.value = true;
-  setTimeout(() => {
-    accepting.value = false;
-    router.push("/worker/service-posts");
-  }, 300); */
+    errorMsg.value = err.response?.data?.message || "ดำเนินการคำขอไม่สำเร็จ";
+  } finally { accepting.value = false; }
 }
 </script>
 
@@ -95,60 +69,40 @@ async function acceptOrder() {
 
     <main class="content">
       <p v-if="loading" class="empty">กำลังโหลดรายละเอียด...</p>
-      <p v-else-if="errorMsg" class="empty error-text">{{ errorMsg }}</p>
       <template v-else-if="request">
-      <!-- ผู้ขอ + รายการสินค้า -->
-      <div class="card">
-        <div class="requester-head">
-          <span class="avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-          </span>
-          <div>
-            <p class="requester-name">{{ request.requester }}</p>
-            <p class="requester-loc">{{ request.location }}</p>
+        <div class="card">
+          <div class="requester-head">
+            <span class="avatar" aria-hidden="true">👤</span>
+            <div><p class="requester-name">{{ request.requester }}</p><p class="requester-loc">{{ request.serviceTitle }}</p></div>
           </div>
+          <p class="section-title">รายละเอียดคำขอจาก Hirer</p>
+          <p class="notes-text">{{ request.details }}</p>
+          <p class="request-state">สถานะ: {{ request.status === 'pending' ? 'รอการตอบรับ' : request.status === 'accepted' ? 'รับคำขอแล้ว' : 'ปฏิเสธแล้ว' }}</p>
         </div>
-
-        <p class="items-title">Items Requested</p>
-        <ul class="items-list">
-          <li v-for="(item, i) in request.items" :key="i">
-            <span class="item-name"><span class="dot"></span>{{ item.name }}</span>
-            <span class="item-price">{{ item.price }} THB</span>
-          </li>
-        </ul>
-
-        <div class="fee-row">
-          <span>Service fee</span>
-          <span>{{ request.serviceFee }} THB</span>
+        <div class="card">
+          <p class="section-title">รายละเอียดการจัดส่ง</p>
+          <p class="notes-text">จุดรับ: {{ request.from || 'ไม่ระบุ (ข้อมูลเก่า)' }}</p>
+          <p class="notes-text">ปลายทาง: {{ request.to || 'ไม่ระบุ (ข้อมูลเก่า)' }}</p>
+          <p class="notes-text">เวลาประมาณ: {{ request.deliveryTime || 'ไม่ระบุ (ข้อมูลเก่า)' }}</p>
+          <p class="notes-text">หมายเหตุ: {{ request.requirements || 'ไม่มี' }}</p>
         </div>
-        <div class="total-row">
-          <span>Total</span>
-          <span>{{ total }} THB</span>
+        <div class="card">
+          <p class="section-title">สรุปประมาณการ</p>
+          <div class="fee-row"><span>ค่าบริการ Worker (ใช้คำนวณ Mock Payment)</span><strong>{{ request.serviceFee }} บาท</strong></div>
+          <div class="fee-row"><span>งบสินค้าประมาณการ</span><strong>{{ request.itemBudget == null ? 'ไม่มีข้อมูล' : `${request.itemBudget} บาท` }}</strong></div>
+          <div class="total-row"><span>รวมประมาณการ</span><span>{{ total == null ? 'ไม่สามารถคำนวณ (ข้อมูลเก่า)' : `${total} บาท` }}</span></div>
+          <p class="fine-print">หมายเหตุ: งบสินค้าเป็นข้อมูลประกอบคำขอ ไม่ได้ถูกหักเงินจริงหรือบวกเข้ายอด Mock Payment โดยอัตโนมัติ</p>
         </div>
-      </div>
-
-      <!-- ที่อยู่ -->
-      <div class="card">
-        <p class="section-title">Address</p>
-        <p class="address-line">
-          <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
-          <strong>{{ request.address.label }}</strong>
-        </p>
-        <p class="address-detail">{{ request.address.detail }}</p>
-      </div>
-
-      <!-- หมายเหตุ -->
-      <div class="card">
-        <p class="section-title">Additional Notes</p>
-        <p class="notes-text">{{ request.notes }}</p>
-      </div>
-
-      <div class="accept-wrap">
-        <button class="btn-accept" :disabled="accepting" @click="acceptOrder">
-          {{ accepting ? "Accepting..." : "Accept Order" }}
-        </button>
-      </div>
+        <p v-if="isPending && !canAccept" class="empty">ประกาศนี้ปิดรับหรือเต็มจำนวนแล้ว ไม่สามารถตอบรับเพิ่มได้</p>
+        <div v-if="isPending" class="accept-wrap">
+          <button class="btn-accept" :disabled="accepting || !canAccept" @click="respond('accept')">{{ accepting ? 'กำลังบันทึก...' : 'ยอมรับคำขอ' }}</button>
+          <button class="btn-decline" :disabled="accepting" @click="respond('decline')">ปฏิเสธ</button>
+        </div>
+        <div v-if="request.jobId" class="accept-wrap">
+          <button class="btn-accept" @click="router.push(`/worker/jobs/${request.jobId}/tracking`)">เปิดงานที่สร้างแล้ว</button>
+        </div>
       </template>
+      <p v-if="errorMsg" class="empty error-text" role="alert">{{ errorMsg }}</p>
     </main>
   </div>
 </template>
@@ -213,4 +167,10 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   background: #ffc93c; color: #111; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .btn-accept:disabled { opacity: 0.6; cursor: not-allowed; }
+</style>
+
+<style scoped>
+.btn-decline { min-height:46px; padding:0 22px; background:white; border:1px solid #dc2626; border-radius:10px; color:#b91c1c; cursor:pointer; }
+.fine-print { font-size:12px; color:#666; line-height:1.5; }
+.request-state { font-size:12px; color:#765107; font-weight:700; }
 </style>

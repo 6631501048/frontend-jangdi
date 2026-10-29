@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import api from "../../services/api";
 
 const statusFilter = ref("All Status");
-const filters = ["All Status", "Pending", "Resolved", "Dismissed"];
+const filters = ["All Status", "Pending", "Investigating", "Resolved", "Dismissed"];
 
 const reports = ref([]);
 const loading = ref(true);
@@ -34,6 +34,7 @@ const filteredReports = computed(() => {
 
   const map = {
     Pending: "pending",
+    Investigating: "investigating",
     Resolved: "resolved",
     Dismissed: "dismissed",
   };
@@ -305,7 +306,7 @@ onMounted(loadReports);
             </p>
 
             <div
-              v-if="report.status === 'pending'"
+              v-if="['pending', 'investigating'].includes(report.status)"
               class="action-row"
             >
               <button

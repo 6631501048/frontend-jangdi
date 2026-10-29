@@ -1,219 +1,79 @@
 <script setup>
-import { ref, computed, onMounted } from "vue";
+// MVP-03: All job lifecycle states and Worker service posts (Admin read-only overview).
+import { ref, computed, onMounted, watch } from "vue";
 import api from "../../services/api";
-
-const loading = ref(true);
-const actionLoading = ref(null);
+const loading = ref(false);
 const errorMessage = ref("");
 const search = ref("");
-
-const jobs = ref([]);
-
-const filteredJobs = computed(() => {
-  const q = search.value.trim().toLowerCase();
-
-  if (!q) return jobs.value;
-
-  return jobs.value.filter((job) => {
-    const title = String(job.title || "").toLowerCase();
-    const description = String(job.description || "").toLowerCase();
-    const hirer = String(job.hirer?.fullName || "").toLowerCase();
-    const email = String(job.hirer?.email || "").toLowerCase();
-
-    return (
-      title.includes(q) ||
-      description.includes(q) ||
-      hirer.includes(q) ||
-      email.includes(q)
-    );
-  });
-});
-
-function initials(name) {
-  return String(name || "U")
-    .split(" ")
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
-
-function formatDate(value) {
-  if (!value) return "-";
-
-  return new Date(value).toLocaleString("th-TH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function money(value) {
-  return `฿${Number(value || 0).toLocaleString("en-US")}`;
-}
-
+const type = ref("jobs");
+const status = ref("all");
+const page = ref(1);
+const total = ref(0);
+const totalPages = ref(1);
+const entries = ref([]);
+const expanded = ref(null);
+const jobStatuses = ["all", "pending_review", "rejected", "waiting", "assigned", "in_progress", "awaiting_confirmation", "completed", "cancelled", "disputed"];
+const serviceStatuses = ["all", "active", "closed", "expired"];
+const statuses = computed(() => type.value === "jobs" ? jobStatuses : serviceStatuses);
+const statusText = { pending_review:"รออนุมัติ", waiting:"เปิดรับ", assigned:"มอบหมายงานแล้ว", in_progress:"กำลังทำงาน", awaiting_confirmation:"รอยืนยัน", completed:"เสร็จแล้ว", cancelled:"ยกเลิก", rejected:"ปฏิเสธ", disputed:"มีข้อพิพาท", active:"เปิดบริการ", closed:"ปิดแล้ว", expired:"หมดอายุ" };
+let requestNo = 0;
 async function loadJobs() {
-  loading.value = true;
-  errorMessage.value = "";
-
+  const n = ++requestNo;
+  loading.value = true; errorMessage.value = "";
   try {
-    const { data } = await api.get("/admin/jobs/pending");
-    jobs.value = Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.error(error);
-    errorMessage.value =
-      error.response?.data?.message ||
-      "ไม่สามารถโหลดประกาศงานที่รอตรวจสอบได้";
-  } finally {
-    loading.value = false;
-  }
+    const endpoint = type.value === "jobs" ? "/admin/jobs" : "/admin/service-posts";
+    const { data } = await api.get(endpoint, { params: { status: status.value, page: page.value, limit: 20, search: search.value.trim() } });
+    if (n !== requestNo) return;
+    entries.value = type.value === "jobs" ? data.jobs : data.posts;
+    total.value = data.total;
+    totalPages.value = data.totalPages || 1;
+    expanded.value = null;
+  } catch (err) { if (n === requestNo) errorMessage.value = err.response?.data?.message || "โหลดประกาศไม่สำเร็จ"; }
+  finally { if (n === requestNo) loading.value = false; }
 }
-
-async function approve(job) {
-  if (actionLoading.value) return;
-
-  actionLoading.value = job._id;
-
-  try {
-    await api.post(`/admin/jobs/${job._id}/approve`);
-    jobs.value = jobs.value.filter((item) => item._id !== job._id);
-  } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถอนุมัติประกาศงานได้"
-    );
-  } finally {
-    actionLoading.value = null;
-  }
-}
-
-async function reject(job) {
-  if (actionLoading.value) return;
-
-  const reason = window.prompt(
-    `เหตุผลที่ปฏิเสธ "${job.title}"`,
-    ""
-  );
-
-  if (reason === null) return;
-
-  actionLoading.value = job._id;
-
-  try {
-    await api.post(`/admin/jobs/${job._id}/reject`, {
-      reason,
-    });
-
-    jobs.value = jobs.value.filter((item) => item._id !== job._id);
-  } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถปฏิเสธประกาศงานได้"
-    );
-  } finally {
-    actionLoading.value = null;
-  }
-}
-
+function changeType(next) { type.value = next; status.value = "all"; page.value = 1; loadJobs(); }
+function changeStatus() { page.value = 1; loadJobs(); }
+function changePage(next) { if (next < 1 || next > totalPages.value) return; page.value = next; loadJobs(); }
+let searchTimer;
+watch(search, () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { page.value=1;loadJobs(); }, 350); });
 onMounted(loadJobs);
+function formatDate(value) { return value ? new Date(value).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" }) : "-"; }
+function money(value) { return `฿${Number(value || 0).toLocaleString("th-TH")}`; }
+function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).join("").slice(0,2).toUpperCase(); }
 </script>
 
 <template>
   <section class="browse">
-    <div class="header-row">
-      <div>
-        <p class="greeting">Hello, Admin</p>
-        <p class="subtitle">
-          Job posts waiting for Admin review
-        </p>
-      </div>
-
-      <button
-        class="refresh-btn"
-        :disabled="loading"
-        @click="loadJobs"
-      >
-        {{ loading ? "Loading..." : "Refresh" }}
-      </button>
-    </div>
-
-    <div class="search-box">
-      <span>🔍</span>
-      <input
-        v-model="search"
-        type="text"
-        placeholder="Search jobs or posters"
-      />
-    </div>
-
-    <div v-if="errorMessage" class="error-box">
-      {{ errorMessage }}
-    </div>
-
-    <div v-if="loading" class="empty">
-      กำลังโหลดประกาศงาน...
-    </div>
-
-    <ul v-else class="job-list">
-      <li
-        v-for="job in filteredJobs"
-        :key="job._id"
-        class="job-card"
-      >
-        <div class="avatar-circle">
-          {{ initials(job.hirer?.fullName) }}
-        </div>
-
+    <div class="header-row"><div><p class="greeting">Hello, Admin</p><p class="subtitle">ติดตามประกาศจาก Hirer และ Worker ทุกสถานะ (อ่านอย่างเดียว)</p></div><button class="refresh-btn" :disabled="loading" @click="loadJobs">{{ loading ? 'Loading...' : 'Refresh' }}</button></div>
+    <nav class="post-switch" aria-label="ชนิดประกาศ"><button :class="{active:type==='jobs'}" @click="changeType('jobs')">ประกาศงาน Hirer</button><button :class="{active:type==='services'}" @click="changeType('services')">ประกาศบริการ Worker</button></nav>
+    <div class="search-box"><span>⌕</span><input v-model="search" placeholder="ค้นหาชื่องานหรือรายละเอียด" aria-label="ค้นหาประกาศ" /></div>
+    <label class="filter-label">สถานะ: <select v-model="status" @change="changeStatus"><option v-for="s in statuses" :key="s" :value="s">{{ s === 'all' ? 'ทุกสถานะ' : (statusText[s] || s) }}</option></select></label>
+    <p v-if="errorMessage" class="error-box" role="alert">{{ errorMessage }}</p>
+    <p v-if="loading" class="empty">กำลังโหลดประกาศ...</p>
+    <template v-else>
+      <p class="count">พบ {{ total }} รายการ</p>
+      <ul class="job-list"><li v-for="entry in entries" :key="entry._id" class="job-card">
+        <div class="avatar-circle">{{ initials(type==='jobs' ? entry.hirer?.fullName : entry.worker?.fullName) }}</div>
         <div class="job-body">
-          <p class="job-name">
-            {{ job.hirer?.fullName || "Unknown User" }}
-          </p>
-
-          <p class="job-title">
-            {{ job.title || "Untitled Job" }}
-          </p>
-
-          <p class="job-text">
-            {{ job.description || "-" }}
-          </p>
-
-          <div class="job-info">
-            <span>{{ job.category || "-" }}</span>
-            <span>{{ money(job.price) }}</span>
-            <span>{{ formatDate(job.createdAt) }}</span>
+          <div class="job-heading">
+            <p class="job-name">{{ type==='jobs' ? (entry.hirer?.fullName || 'Hirer') : (entry.worker?.fullName || 'Worker') }}</p>
+            <span class="status-label" :class="`status-${entry.status}`">{{ statusText[entry.status] || entry.status }}</span>
           </div>
-
-          <p class="email">
-            {{ job.hirer?.email || "-" }}
-          </p>
-
-          <div class="action-row">
-            <button
-              class="action-btn approve"
-              :disabled="actionLoading === job._id"
-              @click="approve(job)"
-            >
-              {{
-                actionLoading === job._id
-                  ? "Processing..."
-                  : "Approve"
-              }}
-            </button>
-
-            <button
-              class="action-btn reject"
-              :disabled="actionLoading === job._id"
-              @click="reject(job)"
-            >
-              Reject
-            </button>
+          <p class="job-title">{{ entry.title }}</p>
+          <div class="job-info"><span>{{ entry.category || '-' }}</span><span>{{ money(type==='jobs' ? entry.price : entry.fee) }}</span><span>{{ formatDate(entry.createdAt) }}</span></div>
+          <button class="detail-btn" @click="expanded = expanded === entry._id ? null : entry._id">{{ expanded === entry._id ? 'ซ่อนรายละเอียด' : 'ดูรายละเอียด' }}</button>
+          <div v-if="expanded === entry._id" class="detail-box">
+            <p v-if="entry.description"><b>รายละเอียด:</b> {{ entry.description }}</p>
+            <p><b>อีเมลผู้ประกาศ:</b> {{ type==='jobs' ? entry.hirer?.email : entry.worker?.email }}</p>
+            <p><b>ID:</b> {{ entry._id }}</p><p><b>สถานะ:</b> {{ entry.status }}</p>
+            <template v-if="type==='jobs'"><p><b>Worker:</b> {{ entry.selectedWorker?.fullName || 'ยังไม่มี' }}</p><p><b>นัดหมาย:</b> {{ formatDate(entry.scheduledAt) }}</p><p v-if="entry.rejectionReason"><b>เหตุผลที่ปฏิเสธ:</b> {{ entry.rejectionReason }}</p></template>
+            <template v-else><p><b>จำนวนที่รับ:</b> {{ entry.currentOrderCount }} / {{ entry.maxSimultaneousOrders }}</p><p><b>หมดเขตรับ:</b> {{ formatDate(entry.availabilityEnd) }}</p></template>
+            <RouterLink v-if="type==='jobs' && entry.status==='pending_review'" to="/admin/posts">ไปหน้า Manage Posts เพื่ออนุมัติ/ปฏิเสธ</RouterLink>
           </div>
         </div>
-      </li>
-
-      <li v-if="!filteredJobs.length" class="empty">
-        ไม่มีประกาศงานที่รอตรวจสอบ
-      </li>
-    </ul>
+      </li><li v-if="!entries.length" class="empty">ไม่พบประกาศในเงื่อนไขที่เลือก</li></ul>
+      <div class="pagination"><button :disabled="page<=1" @click="changePage(page-1)">ก่อนหน้า</button><span>หน้า {{ page }} / {{ totalPages }}</span><button :disabled="page>=totalPages" @click="changePage(page+1)">ถัดไป</button></div>
+    </template>
   </section>
 </template>
 
@@ -388,4 +248,25 @@ onMounted(loadJobs);
     width: 100%;
   }
 }
+</style>
+<style scoped>
+.post-switch { display:flex; gap:8px; margin-bottom:12px; }
+.post-switch button { padding:10px; border:1px solid #ddd; border-radius:8px; background:#fff; }
+.post-switch button.active { background:#ffca3a; font-weight:700; }
+.filter-label,.count { display:block; margin-bottom:12px; font-size:13px; }
+.filter-label select { margin-left:8px; padding:8px; border:1px solid #ddd; background:white; border-radius:8px; }
+.job-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.status-label { display:inline-block; flex-shrink:0; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:700; line-height:1.2; }
+.status-pending_review, .status-awaiting_confirmation { background:#fef3c7; color:#92400e; }
+.status-waiting, .status-active { background:#dbeafe; color:#1d4ed8; }
+.status-assigned, .status-in_progress { background:#e0e7ff; color:#4338ca; }
+.status-completed { background:#dcfce7; color:#166534; }
+.status-rejected, .status-cancelled, .status-disputed, .status-closed, .status-expired { background:#fee2e2; color:#b91c1c; }
+.detail-btn { display:block; margin-top:9px; border:1px solid var(--color-border); border-radius:7px; background:transparent; padding:6px 10px; color:var(--color-text); font-size:12px; font-weight:700; }
+.detail-box { margin-top:8px; padding:10px; background:#f8fafc; overflow-wrap:anywhere; font-size:12px; border-radius:8px; }
+.detail-box p { margin:0 0 6px; }
+.detail-box p:last-of-type { margin-bottom:0; }
+.pagination { display:flex; gap:14px; justify-content:center; align-items:center; padding:18px; }
+.pagination button { padding:9px 12px; background:white; border:1px solid #ddd; border-radius:8px; }
+.pagination button:disabled { opacity:.45; }
 </style>

@@ -1,6 +1,6 @@
 <script setup>
 // FR-REV-01: Hirer rates and reviews the selected Worker after a job is complete.
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
@@ -12,6 +12,9 @@ const workerName = ref("Worker");
 const loading = ref(true);
 const submitting = ref(false);
 const errorMsg = ref("");
+const reviewStatus = ref(null);
+const reviewed = computed(() => reviewStatus.value?.reviewed === true);
+
 const rating = ref(4);
 const comment = ref("");
 const tagOptions = ["On time", "Fast & Efficient", "Item as Described", "Friendly", "Communicated Well", "Reliable", "Polite"];
@@ -32,6 +35,8 @@ async function loadJob() {
     const workerId = data.selectedWorker?._id || data.selectedWorker;
     if (!workerId) throw new Error("No worker is assigned to this job.");
     const { data: worker } = await api.get(`/users/${workerId}`);
+    const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+    reviewStatus.value = review;
     job.value = data;
     workerName.value = worker.fullName || "Worker";
   } catch (err) {
@@ -43,7 +48,7 @@ async function loadJob() {
 onMounted(loadJob);
 
 async function submit() {
-  if (!job.value || submitting.value || rating.value < 1 || rating.value > 5) return;
+  if (!job.value || reviewed.value || submitting.value || rating.value < 1 || rating.value > 5) return;
   submitting.value = true;
   errorMsg.value = "";
   try {
@@ -52,8 +57,9 @@ async function submit() {
       tags: selectedTags.value,
       comment: comment.value.trim(),
     });
-    router.push({ name: "hirer-dashboard" });
+    reviewStatus.value = { reviewed: true };
   } catch (err) {
+    if (err.response?.status === 409) reviewStatus.value = { reviewed: true };
     errorMsg.value = err.response?.data?.message || "Unable to submit review.";
   } finally {
     submitting.value = false;
@@ -71,6 +77,8 @@ async function submit() {
     <AppHeader title="Review" />
 
     <section class="content">
+      <p v-if="reviewed" class="form-message" role="status">คุณรีวิว Worker สำหรับงานนี้แล้ว ไม่สามารถส่งซ้ำได้</p>
+      <template v-else>
       <div class="avatar">👤</div>
       <div class="name">{{ workerName }}</div>
       <div class="role">Worker</div>
@@ -102,6 +110,7 @@ async function submit() {
 
       <p v-if="errorMsg" class="form-message error" role="alert">{{ errorMsg }}</p>
       <button class="btn primary" :disabled="submitting" @click="submit">{{ submitting ? "Submitting..." : "Review" }}</button>
+      </template>
     </section>
   </main>
 </template>
