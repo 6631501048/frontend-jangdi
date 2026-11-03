@@ -9,6 +9,7 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { fetchCompletionProof, proofRequestError } from "../../services/completionProof";
+import { createProofImageLoader } from "../../services/proofImageLoader";
 import ReportUserForm from "../../components/ReportUserForm.vue";
 
 const route = useRoute();
@@ -75,8 +76,12 @@ async function loadJob() {
     let events = [];
     if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
       // The timeline endpoint also verifies that the current user belongs to this job.
-      const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
-      events = timeline;
+      try {
+        const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
+        events = timeline;
+      } catch {
+        // A timeline failure must not hide a successfully uploaded image.
+      }
     }
     if (data.status === "assigned") {
       try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); demoPaymentStatus.value = pay.status; }
@@ -112,13 +117,13 @@ async function loadJob() {
       timeline: buildTimeline(data.status, events, data.proofSubmittedAt, data.completionConfirmedAt),
       completionConfirmedAt: data.completionConfirmedAt,
       completionProofUrl: data.completionProofUrl,
+      proofSubmittedAt: data.proofSubmittedAt,
       cancellation: data.status === "cancelled" ? { by: "Hirer", reason: data.cancelReason || "Not specified", at: data.cancelledAt } : null,
     };
     hasLoaded.value = true;
     if (["awaiting_confirmation", "completed"].includes(data.status) && data.completionProofUrl) {
-      await loadSubmittedProof(data);
+      void loadSubmittedProof(data);
     } else {
-      loadedSubmittedProofKey = null;
       clearSubmittedProof();
     }
   } catch (err) {
@@ -131,14 +136,13 @@ let statusRefreshTimer;
 onMounted(async () => {
   await loadJob();
   statusRefreshTimer = window.setInterval(() => {
-    if (["assigned", "awaiting_confirmation"].includes(job.value.backendStatus)) loadJob();
+    if (["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(job.value.backendStatus)) loadJob();
   }, 5000);
 });
 onUnmounted(() => {
   window.clearInterval(statusRefreshTimer);
   clearSelectedProof();
-  clearSubmittedProof();
-  loadedSubmittedProofKey = null;
+  submittedProofLoader.dispose();
 });
 
 const total = computed(() => job.value.price + job.value.serviceFee);
@@ -150,7 +154,7 @@ const statusMeta = {
   awaiting_confirmation: { label: "Waiting for Hirer", class: "purple" },
   completed: { label: "Completed", class: "green" },
   cancelled: { label: "Cancelled", class: "red" },
-  disputed: { label: "Disputed", class: "red" },
+  disputed: { label: "พักงานรอพิจารณาคืนเงิน", class: "red" },
   waiting: { label: "Waiting", class: "purple" },
 };
 
@@ -163,7 +167,15 @@ const selectedProofError = ref("");
 const submittedProofUrl = ref(null);
 const submittedProofLoading = ref(false);
 const submittedProofError = ref("");
-let loadedSubmittedProofKey = null;
+const submittedProofLoader = createProofImageLoader({
+  fetchImage: fetchCompletionProof,
+  describeError: proofRequestError,
+  onChange(state) {
+    submittedProofUrl.value = state.url;
+    submittedProofLoading.value = state.loading;
+    submittedProofError.value = state.error;
+  },
+});
 
 function clearSelectedProof() {
   if (selectedProofUrl.value) URL.revokeObjectURL(selectedProofUrl.value);
@@ -173,28 +185,11 @@ function clearSelectedProof() {
   if (proofInput.value) proofInput.value.value = "";
 }
 function clearSubmittedProof() {
-  if (submittedProofUrl.value) URL.revokeObjectURL(submittedProofUrl.value);
-  submittedProofUrl.value = null;
+  submittedProofLoader.clear();
 }
-async function loadSubmittedProof(data, force = false) {
-  const key = `${data._id}:${data.completionProofUrl}`;
-  if (!force && loadedSubmittedProofKey === key) return;
-  loadedSubmittedProofKey = key;
-  clearSubmittedProof();
-  submittedProofError.value = "";
-  submittedProofLoading.value = true;
-  try {
-    const imageUrl = await fetchCompletionProof(data._id);
-    if (loadedSubmittedProofKey === key) submittedProofUrl.value = imageUrl;
-    else URL.revokeObjectURL(imageUrl);
-  } catch (err) {
-    if (loadedSubmittedProofKey === key) submittedProofError.value = await proofRequestError(err);
-  } finally {
-    if (loadedSubmittedProofKey === key) submittedProofLoading.value = false;
-  }
-}
+const loadSubmittedProof = (data, force = false) => submittedProofLoader.load(data, force);
 function retrySubmittedProof() {
-  if (job.value.id && job.value.completionProofUrl) loadSubmittedProof({ _id: job.value.id, completionProofUrl: job.value.completionProofUrl }, true);
+  if (job.value.id && job.value.completionProofUrl) loadSubmittedProof(job.value, true);
 }
 function selectProof() { if (!updating.value) proofInput.value?.click(); }
 
@@ -249,7 +244,7 @@ async function confirmSelectedProof() {
     }
     clearSelectedProof();
     // Re-fetch authenticated image; don't reuse a previous version after replacement.
-    loadedSubmittedProofKey = null;
+    clearSubmittedProof();
     await loadJob();
   } catch (err) {
     selectedProofError.value = err.response?.data?.message || "ส่งรูปหลักฐานไม่สำเร็จ กรุณาลองอีกครั้ง";
@@ -347,6 +342,7 @@ function goToReview() {
     </header>
 
     <main class="content">
+      <p v-if="job.backendStatus === 'disputed'" class="proof-note" role="status">ผู้ว่าจ้างขอคืนเงิน งานและค่าจ้างพักไว้ระหว่างที่ผู้ดูแลตรวจสอบ</p>
       <p v-if="loading && !hasLoaded" class="page-message">กำลังโหลดรายละเอียดงาน...</p>
       <p v-else-if="!hasLoaded" class="page-message error-msg" role="alert">{{ errorMsg || "ไม่พบรายละเอียดงาน" }}</p>
       <div v-else class="card">
@@ -483,7 +479,7 @@ function goToReview() {
             <h2 class="proof-heading">รูปหลักฐานที่ส่งแล้ว</h2>
             <p v-if="submittedProofLoading" class="proof-caption">กำลังโหลดรูป...</p>
             <a v-else-if="submittedProofUrl" :href="submittedProofUrl" target="_blank" rel="noopener noreferrer">
-              <img :src="submittedProofUrl" class="proof-photo" alt="รูปหลักฐานที่ส่งให้ Hirer" @error="submittedProofError = 'แสดงรูปไม่สำเร็จ กรุณาลองอีกครั้ง'; clearSubmittedProof()" />
+              <img :src="submittedProofUrl" class="proof-photo" alt="รูปหลักฐานที่ส่งให้ Hirer" @error="submittedProofLoader.fail('แสดงรูปไม่สำเร็จ กรุณาลองอีกครั้ง')" />
               <span class="proof-caption">ดูรูปขนาดเต็ม</span>
             </a>
             <div v-else-if="submittedProofError" class="proof-caption error-msg" role="alert">

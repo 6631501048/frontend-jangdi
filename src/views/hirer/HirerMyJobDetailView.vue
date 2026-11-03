@@ -4,9 +4,10 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { fetchCompletionProof, proofRequestError } from "../../services/completionProof";
+import { createProofImageLoader } from "../../services/proofImageLoader";
 import AppHeader from "../../components/AppHeader.vue";
 import StatusBadge from "../../components/StatusBadge.vue";
-import ReportUserForm from "../../components/ReportUserForm.vue";
+
 
 const route = useRoute();
 const router = useRouter();
@@ -27,32 +28,17 @@ const canCancelJob = computed(() => job.value?.status === "waiting");
 const proofObjectUrl = ref(null);
 const proofLoading = ref(false);
 const proofError = ref("");
-let loadedProofKey = null;
-function clearProofImage() {
-  if (proofObjectUrl.value) URL.revokeObjectURL(proofObjectUrl.value);
-  proofObjectUrl.value = null;
-}
-async function loadProofImage(jobData, force = false) {
-  const key = jobData?.completionProofUrl ? `${jobData._id}:${jobData.completionProofUrl}` : null;
-  if (!force && loadedProofKey === key) return;
-  loadedProofKey = key;
-  clearProofImage();
-  proofError.value = "";
-  if (!key) return;
-  proofLoading.value = true;
-  try {
-    const imageUrl = await fetchCompletionProof(jobData._id);
-    // The route or proof could change while the request is pending.
-    if (loadedProofKey === key) proofObjectUrl.value = imageUrl;
-    else URL.revokeObjectURL(imageUrl);
-  } catch (err) {
-    if (loadedProofKey === key) {
-      proofError.value = await proofRequestError(err);
-    }
-  } finally {
-    if (loadedProofKey === key) proofLoading.value = false;
-  }
-}
+const timelineError = ref("");
+const proofLoader = createProofImageLoader({
+  fetchImage: fetchCompletionProof,
+  describeError: proofRequestError,
+  onChange(state) {
+    proofObjectUrl.value = state.url;
+    proofLoading.value = state.loading;
+    proofError.value = state.error;
+  },
+});
+const loadProofImage = (data, force = false) => proofLoader.load(data, force);
 function retryProof() {
   if (job.value) loadProofImage(job.value, true);
 }
@@ -67,18 +53,24 @@ function formatDuration(data) {
 async function loadJob() {
   if (!job.value) loading.value = true;
   errorMsg.value = "";
+  timelineError.value = "";
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
     let events = [];
     if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
-      const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
-      events = timeline;
+      try {
+        const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
+        events = timeline;
+      } catch {
+        timelineError.value = "โหลดประวัติสถานะไม่สำเร็จ แต่ยังตรวจรูปหลักฐานได้";
+      }
     }
-    if (data.status === "assigned") {
+    if (["assigned", "in_progress", "awaiting_confirmation", "disputed", "cancelled"].includes(data.status)) {
       try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); mockPayment.value = pay; }
       catch { mockPayment.value = null; }
     } else mockPayment.value = null;
-    await loadProofImage(data);
+    // Image fetching must not block the job page or the next status poll.
+    void loadProofImage(data);
     const selectedWorkerId = data.selectedWorker?._id || data.selectedWorker;
     if (selectedWorkerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
       try {
@@ -119,12 +111,12 @@ let statusRefreshTimer;
 onMounted(async () => {
   await loadJob();
   statusRefreshTimer = window.setInterval(() => {
-    if (["assigned", "in_progress", "awaiting_confirmation"].includes(job.value?.status)) loadJob();
+    if (["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(job.value?.status)) loadJob();
   }, 5000);
 });
 onUnmounted(() => {
   window.clearInterval(statusRefreshTimer);
-  clearProofImage();
+  proofLoader.dispose();
 });
 
 async function cancelJob() {
@@ -172,8 +164,8 @@ const progressSteps = computed(() => {
 });
 
 async function confirmCompletion() {
-  if (!job.value || job.value.status !== "awaiting_confirmation" || confirmingCompletion.value || !proofObjectUrl.value) return;
-  if (!window.confirm("Have you reviewed the completion photo and received the work? Confirm completion? (Demo payment only.)")) return;
+  if (mockPayment.value?.status !== "held" || !job.value || job.value.status !== "awaiting_confirmation" || confirmingCompletion.value || !proofObjectUrl.value) return;
+  if (!window.confirm("ตรวจสอบรูปหลักฐานและได้รับงานครบแล้วใช่หรือไม่? เมื่อยืนยันแล้วจะปิดงานและบันทึกค่าจ้างให้ผู้รับจ้าง (โหมดทดสอบ)")) return;
 
   confirmingCompletion.value = true;
   completionError.value = "";
@@ -193,9 +185,11 @@ async function confirmCompletion() {
 <template>
   <main v-if="job" class="job-detail">
     <p v-if="errorMsg" class="completion-error" role="alert">{{ errorMsg }}</p>
-    <AppHeader title="Job Details" />
+    <AppHeader title="รายละเอียดงาน" />
 
     <section class="card">
+      <div v-if="job.status === 'disputed'" class="mock-banner" role="status"><strong>งานพักไว้ระหว่างพิจารณาคืนเงิน</strong><p>ยังไม่ยืนยันรับงานและยังไม่ปล่อยค่าจ้าง รอผู้ดูแลตรวจสอบ</p><RouterLink :to="{name:'hirer-refund',params:{id:job._id}}">ดูสถานะคำขอคืนเงิน</RouterLink></div>
+      <div v-if="mockPayment?.status === 'refunded'" class="mock-banner" role="status"><strong>คืนเงินแล้ว (โหมดทดสอบ)</strong><p>จำนวน {{Number(mockPayment.refundAmount || 0).toLocaleString('th-TH')}} บาท</p><p>เหตุผลผู้ดูแล: {{mockPayment.refundNotes || '—'}}</p></div>
       <div class="head">
         <div class="who">
           <div class="avatar">👤</div>
@@ -275,29 +269,30 @@ async function confirmCompletion() {
         </ol>
 
         <p v-if="['assigned', 'in_progress'].includes(job.status)" class="proof-note">หากงานมีปัญหาระหว่างดำเนินการ กรุณาติดต่อผู้ดูแลก่อนยกเลิก เพื่อไม่ให้ข้อมูลการจ่ายเงินจำลองผิดพลาด</p>
-        <ReportUserForm :reported-user="workerProfile" :job-id="job._id" />
+        <RouterLink v-if="mockPayment?.status === 'held'" class="btn danger refund-link" :to="{name:'hirer-refund',params:{id:job._id}}">ไม่ยอมรับงาน / ขอคืนเงิน</RouterLink>
       </template>
 
       <!-- Authorized proof preview is available while pending and after confirmation. -->
       <template v-if="['awaiting_confirmation', 'completed'].includes(job.status)">
-        <h2 class="section-title">Completion proof</h2>
-        <p v-if="proofLoading" class="proof-note">Loading photo...</p>
+        <h2 class="section-title">รูปหลักฐานที่ผู้รับจ้างส่งแล้ว</h2>
+        <p v-if="timelineError" class="proof-note">{{ timelineError }}</p>
+        <p v-if="proofLoading" class="proof-note" role="status">กำลังโหลดรูปหลักฐาน…</p>
         <a v-else-if="proofObjectUrl" class="proof-link" :href="proofObjectUrl" target="_blank" rel="noopener noreferrer">
-          <img class="completion-proof" :src="proofObjectUrl" alt="Worker completion proof" @error="proofError = 'ไม่สามารถแสดงภาพหลักฐานได้ กรุณาลองโหลดใหม่'; clearProofImage()" />
-          Open full-size photo
+          <img class="completion-proof" :src="proofObjectUrl" alt="รูปหลักฐานที่ผู้รับจ้างส่งสำหรับงานนี้" @error="proofLoader.fail('ไม่สามารถแสดงภาพหลักฐานได้ กรุณาลองโหลดใหม่')" />
+          ดูรูปขนาดเต็ม
         </a>
         <div v-else-if="proofError" role="alert" class="proof-missing">
           {{ proofError }}
-          <button type="button" class="btn outline" @click="retryProof">Retry photo</button>
+          <button type="button" class="btn outline" @click="retryProof">ลองโหลดรูปอีกครั้ง</button>
         </div>
-        <p v-else class="proof-missing">The worker has not provided a completion photo.</p>
+        <p v-else class="proof-missing">ยังไม่มีรูปหลักฐานที่ส่งสำเร็จสำหรับงานนี้</p>
       </template>
 
       <template v-if="job.status === 'awaiting_confirmation'">
         <p class="proof-note">Please review the photo and make sure the work was delivered before confirming.</p>
         <p v-if="completionError" class="completion-error" role="alert">{{ completionError }}</p>
-        <button class="btn primary" :disabled="confirmingCompletion || !proofObjectUrl" @click="confirmCompletion">
-          {{ confirmingCompletion ? "Confirming..." : "Confirm Job Completed" }}
+        <button class="btn primary" :disabled="confirmingCompletion || !proofObjectUrl || mockPayment?.status !== 'held'" @click="confirmCompletion">
+          {{ confirmingCompletion ? "กำลังยืนยัน…" : "ยืนยันรับงานและปิดงาน" }}
         </button>
       </template>
       <div v-if="job.status === 'completed'">
@@ -306,8 +301,8 @@ async function confirmCompletion() {
           Payment is recorded in DEMO mode; no real transfer occurred.
         </p>
         <div class="actions">
-          <button class="btn primary" @click="goReview">Review</button>
-          <!-- Refund remains outside this MVP flow; do not route to mock refunds. -->
+          <button class="btn primary" @click="goReview">ให้ดาวและรีวิว</button>
+
         </div>
       </div>
 
@@ -323,7 +318,7 @@ async function confirmCompletion() {
     </section>
   </main>
   <main v-else class="job-detail">
-    <AppHeader title="Job Details" />
+    <AppHeader title="รายละเอียดงาน" />
     <p v-if="loading" class="placeholder">กำลังโหลดรายละเอียดงาน...</p>
     <p v-else class="placeholder" role="alert">{{ errorMsg || "Job not found." }}</p>
   </main>
@@ -382,3 +377,5 @@ async function confirmCompletion() {
 .mock-banner { margin: 14px 0; padding: 14px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px; }
 .mock-banner p { font-size: 12px; }
 </style>
+
+<style scoped>.refund-link{display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:12px}</style>

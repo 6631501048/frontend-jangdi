@@ -15,13 +15,13 @@ const router = useRouter();
 const auth = useAuthStore();
 
 const navItems = [
-  { to: "/admin/jobs", label: "Home", icon: "🏠" },
-  { to: "/admin/dashboard", label: "Dashboard", icon: "📊" },
-  { to: "/admin/users", label: "Manage Users", icon: "👥" },
-  { to: "/admin/posts", label: "Manage Posts", icon: "🗂️" },
-  { to: "/admin/payments", label: "Process Payment", icon: "💳" },
-  { to: "/admin/reports", label: "Handle Reports", icon: "🚩" },
-  { to: "/admin/sos", label: "Receive SOS Alert", icon: "🆘" },
+  { to: "/admin/jobs", label: "หน้าแรก", icon: "🏠" },
+  { to: "/admin/dashboard", label: "ภาพรวมระบบ", icon: "📊" },
+  { to: "/admin/users", label: "จัดการผู้ใช้", icon: "👥" },
+  { to: "/admin/posts", label: "จัดการประกาศ", icon: "🗂️" },
+  { to: "/admin/payments", label: "การเงินและคืนเงิน", icon: "💳" },
+  { to: "/admin/reports", label: "รายงานผู้ใช้", icon: "🚩" },
+  { to: "/admin/sos", label: "แจ้งเหตุฉุกเฉิน", icon: "🆘" },
 ];
 
 function closeDrawer() {

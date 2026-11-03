@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
+import {money,paymentStatus} from "../../services/finance";
 
 const route = useRoute();
 const router = useRouter();
@@ -14,7 +15,7 @@ const errorMsg = ref("");
 const successMsg = ref("");
 const isPending = computed(() => payment.value?.status === "pending" && payment.value?.paymentMode === "demo");
 const isPaid = computed(() => ["held", "released"].includes(payment.value?.status));
-const cash = (amount) => `${Number(amount || 0).toFixed(2)} Baht`;
+const cash = (amount) => `฿ ${money(amount)}`;
 async function load() {
   loading.value = true;
   errorMsg.value = "";
@@ -28,6 +29,17 @@ async function load() {
   finally { loading.value = false; }
 }
 onMounted(load);
+async function checkout() {
+  if (submitting.value) return;
+  submitting.value = true; errorMsg.value = '';
+  try {
+    const {data} = await api.post(`/payments/${route.params.id}/checkout`);
+    const url = new URL(data.url);
+    if (url.protocol !== 'https:' || url.hostname !== 'checkout.stripe.com') throw new Error('Invalid checkout URL');
+    window.location.assign(url.href);
+  } catch(err) { errorMsg.value = err.response?.data?.message || 'เปิดหน้าชำระเงินทดสอบไม่สำเร็จ'; }
+  finally { submitting.value = false; }
+}
 async function pay() {
   if (!isPending.value || submitting.value) return;
   if (!window.confirm("ยืนยันการชำระเงินจำลอง? ไม่มีการหักเงินหรือโอนเงินจริง")) return;
@@ -47,26 +59,30 @@ function next() { router.push({ name: "hirer-job-confirmed", params: { id: route
 
 <template>
   <main class="mock-payment">
-    <AppHeader title="Demo Payment" />
+    <AppHeader title="ชำระเงินสำหรับงานนี้" />
     <section class="payment-card">
-      <div class="demo-tag">SIMULATION · NO REAL MONEY</div>
-      <h2>ชำระเงินจำลอง</h2>
+      <div class="demo-tag">โหมดทดสอบ · ไม่มีการตัดเงินจริง</div>
+      <h2>เลือกวิธีชำระเงินทดสอบ</h2>
       <p class="hint">สำหรับทดสอบกระบวนการจ้างงานเท่านั้น ไม่มีการตัดเงินหรือโอนเงินจริง</p>
       <p v-if="loading">กำลังโหลด...</p>
       <p v-if="errorMsg" role="alert" class="error">{{ errorMsg }}</p>
       <template v-if="job && payment">
         <div class="row"><span>งาน</span><strong>{{ job.title }}</strong></div>
         <div class="row"><span>ค่าจ้างรวม</span><strong>{{ cash(payment.amount) }}</strong></div>
-        <div class="row"><span>Transaction Fee (Demo)</span><strong>{{ cash(payment.platformFeeAmount) }}</strong></div>
+        <div class="row"><span>ค่าบริการแพลตฟอร์ม</span><strong>{{ cash(payment.platformFeeAmount) }}</strong></div>
         <div class="row total"><span>ยอดชำระจำลอง</span><strong>{{ cash(payment.totalDue) }}</strong></div>
-        <p class="state">สถานะ: <strong>{{ payment.status.toUpperCase() }}</strong></p>
+        <p class="state">สถานะ: <strong>{{ paymentStatus(payment.status) }}</strong></p>
         <p v-if="successMsg" class="success" role="status">{{ successMsg }}</p>
+        <p v-if="route.query.checkout === 'success' && payment.status === 'pending'" class="hint" role="status">กลับจาก Stripe แล้ว กำลังรอผลยืนยันจากระบบ กรุณากดตรวจสอบสถานะ</p>
+        <p v-if="route.query.checkout === 'cancelled'" class="hint">ยกเลิกหน้าชำระเงินแล้ว สามารถลองใหม่ได้</p>
+        <button v-if="payment.status === 'pending' && ['demo','stripe_test'].includes(payment.paymentMode)" class="primary" :disabled="submitting" @click="checkout">{{submitting ? 'กำลังเปิด Stripe…' : 'ชำระผ่าน Stripe โหมดทดสอบ'}}</button>
+        <button class="secondary" :disabled="loading || submitting" @click="load">ตรวจสอบสถานะล่าสุด</button>
         <button v-if="isPending" class="primary" :disabled="submitting" @click="pay">
-          {{ submitting ? "Processing..." : "Confirm Mock Payment" }}
+          {{ submitting ? "กำลังบันทึก…" : "ยืนยันด้วยระบบจำลองเดิม" }}
         </button>
         <button v-else-if="isPaid" class="primary" @click="next">ชำระจำลองแล้ว — ดูงานของฉัน</button>
         <p v-else class="hint">สถานะนี้ไม่สามารถชำระเงินซ้ำได้</p>
-        <button class="secondary" @click="router.push({ name: 'hirer-my-jobs' })">กลับ My Jobs</button>
+        <button class="secondary" @click="router.push({ name: 'hirer-my-jobs' })">กลับงานของฉัน</button>
       </template>
     </section>
   </main>

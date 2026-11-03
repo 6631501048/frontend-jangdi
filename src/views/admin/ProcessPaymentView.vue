@@ -1,14 +1,19 @@
 <script setup>
 import { onMounted, ref } from "vue";
+import {useRoute} from "vue-router";
+import RefundEvidence from "../../components/RefundEvidence.vue";
+import {paymentStatus} from "../../services/finance";
 import api from "../../services/api";
 
-const activeTab = ref("Pending");
+const route = useRoute();
+const activeTab = ref(route.query.status === "disputed" ? "Disputed" : "Pending");
 
 const tabs = [
   { label: "Pending", status: "pending" },
   { label: "Held", status: "held" },
   { label: "Released", status: "released" },
   { label: "Disputed", status: "disputed" },
+  { label: "Refunded", status: "refunded" },
 ];
 
 const payments = ref([]);
@@ -33,7 +38,9 @@ function formatDate(value) {
   });
 }
 
+let requestId = 0;
 async function loadPayments() {
+  const currentRequest = ++requestId;
   loading.value = true;
   errorMessage.value = "";
 
@@ -51,15 +58,15 @@ async function loadPayments() {
       }
     );
 
-    payments.value = Array.isArray(data) ? data : [];
+    if (currentRequest === requestId) payments.value = Array.isArray(data) ? data : [];
   } catch (error) {
     console.error(error);
 
-    errorMessage.value =
+    if (currentRequest === requestId) errorMessage.value =
       error.response?.data?.message ||
       "ไม่สามารถโหลดรายการชำระเงินได้";
   } finally {
-    loading.value = false;
+    if (currentRequest === requestId) loading.value = false;
   }
 }
 
@@ -71,14 +78,17 @@ async function decideRefund(payment, decision) {
       ? "ยืนยันอนุมัติการคืนเงินหรือไม่?"
       : "ยืนยันปฏิเสธการคืนเงินหรือไม่?";
 
-  if (!window.confirm(text)) return;
+  const notes = window.prompt('ระบุเหตุผลการพิจารณา (10–1,000 ตัวอักษร):');
+  if (notes === null) return;
+  if (notes.trim().length < 10 || notes.trim().length > 1000) { alert('กรุณาระบุเหตุผล 10–1,000 ตัวอักษร'); return; }
+  if (!window.confirm(text + (decision === 'approved' ? ' คืนเต็มยอดรวมค่าบริการในโหมดทดสอบ' : ' งานจะกลับสู่ขั้นตอนก่อนยื่นคำขอ'))) return;
 
   actionLoading.value = payment._id;
 
   try {
     await api.post(
       `/admin/payments/${payment._id}/refund-decision`,
-      { decision }
+      { decision, notes: notes.trim() }
     );
 
     await loadPayments();
@@ -109,7 +119,7 @@ onMounted(loadPayments);
   <section class="payment">
     <div class="header-row">
       <div>
-        <p class="section-title">Payment (DEMO)</p>
+        <p class="section-title">การเงินและคำขอคืนเงิน (ทดสอบ)</p>
         <p class="subtitle">
           ดูสถานะเงินจำลองเท่านั้น (ยังไม่มีการรับหรือโอนเงินจริง)
         </p>
@@ -120,7 +130,7 @@ onMounted(loadPayments);
         :disabled="loading"
         @click="loadPayments"
       >
-        {{ loading ? "Loading..." : "Refresh" }}
+        {{ loading ? "กำลังโหลด…" : "รีเฟรช" }}
       </button>
     </div>
 
@@ -131,7 +141,7 @@ onMounted(loadPayments);
         :class="{ active: activeTab === tab.label }"
         @click="changeTab(tab.label)"
       >
-        {{ tab.label }}
+        {{ paymentStatus(tab.status) }}
       </button>
     </nav>
 
@@ -158,7 +168,7 @@ onMounted(loadPayments);
         >
           <div>
             <p class="name">
-              {{ payment.job?.title || "Unknown Job" }}
+              {{ payment.job?.title || "ไม่พบชื่องาน" }}
             </p>
 
           </div>
@@ -168,54 +178,58 @@ onMounted(loadPayments);
 
         <div v-show="expandedPaymentId === payment._id" :id="`payment-details-${payment._id}`" class="payment-details">
         <div class="detail-row">
-          <span>Hirer</span>
+          <span>ผู้ว่าจ้าง</span>
           <strong>
             {{ payment.hirer?.fullName || "-" }}
           </strong>
         </div>
 
         <div class="detail-row">
-          <span>Worker</span>
+          <span>ผู้รับจ้าง</span>
           <strong>
             {{ payment.worker?.fullName || "-" }}
           </strong>
         </div>
 
         <div class="detail-row">
-          <span>Amount</span>
+          <span>ค่าจ้าง</span>
           <strong>
             {{ money(payment.amount) }}
           </strong>
         </div>
 
         <div class="detail-row">
-          <span>Platform fee</span>
+          <span>ค่าบริการแพลตฟอร์ม</span>
           <strong>
             {{ money(payment.platformFeeAmount) }}
           </strong>
         </div>
 
         <div class="detail-row">
-          <span>Worker receives</span>
+          <span>ค่าจ้างผู้รับจ้าง</span>
           <strong>
             {{ money(payment.netAmountToWorker) }}
           </strong>
         </div>
 
         <div class="detail-row">
-          <span>Created</span>
+          <span>สร้างรายการเมื่อ</span>
           <strong>
             {{ formatDate(payment.createdAt) }}
           </strong>
         </div>
 
+        <div v-if="payment.disputeReason" class="refund-status"><strong>เหตุผลที่ขอคืนเงิน</strong><p>{{payment.disputeReason}}</p></div>
+        <RefundEvidence v-if="expandedPaymentId === payment._id && payment.refundEvidenceCount" :payment-id="payment._id" :count="payment.refundEvidenceCount" />
+        <p v-if="payment.refundNotes" class="refund-status">เหตุผลผู้ดูแล: {{payment.refundNotes}}</p>
+        <p v-if="payment.refundStatus" class="refund-status">สถานะคืนเงิน: {{({succeeded:'สำเร็จ',pending:'กำลังดำเนินการ',failed:'ไม่สำเร็จ',canceled:'ยกเลิก'})[payment.refundStatus] || 'รอตรวจสอบ'}}</p>
         <div
           v-if="payment.refundDecision"
           class="refund-status"
         >
-          Refund decision:
+          ผลการพิจารณา:
           <strong>
-            {{ payment.refundDecision }}
+            {{payment.refundDecision === 'approved' ? 'อนุมัติ' : 'ปฏิเสธ'}}
           </strong>
         </div>
 
@@ -225,18 +239,18 @@ onMounted(loadPayments);
         >
           <button
             class="action-btn primary"
-            :disabled="actionLoading === payment._id"
+            :disabled="!!actionLoading"
             @click="decideRefund(payment, 'approved')"
           >
-            Approve Refund
+            อนุมัติคืนเงินเต็มจำนวน
           </button>
 
           <button
             class="action-btn danger"
-            :disabled="actionLoading === payment._id"
-            @click="decideRefund(payment, 'rejected')"
+            :disabled="!!actionLoading"
+            v-if="!payment.refundDecision" @click="decideRefund(payment, 'rejected')"
           >
-            Reject
+            ปฏิเสธ
           </button>
         </div>
         </div>

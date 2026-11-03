@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import api from "../../services/api";
+import AdminFinancialSummary from "../../components/AdminFinancialSummary.vue";
 
 const loading = ref(true);
 const errorMessage = ref("");
@@ -11,27 +12,6 @@ const stats = ref({
   pendingJobs: 0,
   openSos: 0,
 });
-
-const finance = ref({
-  totalVolume: 0,
-  totalFees: 0,
-  count: 0,
-});
-
-const hasFinanceData = computed(() => {
-  return (
-    finance.value.totalVolume > 0 ||
-    finance.value.totalFees > 0 ||
-    finance.value.count > 0
-  );
-});
-
-function money(value) {
-  return `฿${Number(value || 0).toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 async function loadDashboard() {
   loading.value = true;
@@ -47,11 +27,6 @@ async function loadDashboard() {
       openSos: Number(data.openSos) || 0,
     };
 
-    finance.value = {
-      totalVolume: Number(data.monthlyFinancials?.totalVolume) || 0,
-      totalFees: Number(data.monthlyFinancials?.totalFees) || 0,
-      count: Number(data.monthlyFinancials?.count) || 0,
-    };
   } catch (error) {
     console.error(error);
 
@@ -74,7 +49,7 @@ onMounted(loadDashboard);
   <section class="dashboard">
     <div class="page-header">
       <div>
-        <h1>Dashboard</h1>
+        <h1>ภาพรวมระบบ</h1>
         <p class="page-description">
           ภาพรวมการทำงานของระบบ JangDi
         </p>
@@ -85,7 +60,7 @@ onMounted(loadDashboard);
         :disabled="loading"
         @click="loadDashboard"
       >
-        {{ loading ? "Loading..." : "Refresh" }}
+        {{ loading ? "กำลังโหลด…" : "รีเฟรช" }}
       </button>
     </div>
 
@@ -104,77 +79,37 @@ onMounted(loadDashboard);
     <template v-else>
       <div class="stat-grid">
         <div class="stat-card fill-primary">
-          <p class="stat-label">All Users</p>
+          <p class="stat-label">ผู้ใช้ทั้งหมด</p>
           <p class="stat-value">{{ stats.totalUsers }}</p>
-          <p class="stat-sub">Users</p>
+          <p class="stat-sub">คน</p>
         </div>
 
         <div class="stat-card fill-muted">
-          <p class="stat-label">All Jobs</p>
+          <p class="stat-label">งานทั้งหมด</p>
           <p class="stat-value">{{ stats.totalJobs }}</p>
-          <p class="stat-sub">Jobs</p>
+          <p class="stat-sub">งาน</p>
         </div>
 
         <RouterLink
           :to="{ path: '/admin/posts', query: { status: 'pending_review' } }"
           class="stat-card outline"
         >
-          <p class="stat-label">Pending</p>
+          <p class="stat-label">งานรออนุมัติ</p>
           <p class="stat-value">{{ stats.pendingJobs }}</p>
-          <p class="stat-sub">Jobs waiting for review</p>
+          <p class="stat-sub">รอผู้ดูแลตรวจสอบ</p>
         </RouterLink>
 
         <RouterLink
           :to="{ path: '/admin/sos', query: { status: 'active' } }"
           class="stat-card outline"
         >
-          <p class="stat-label">SOS Active</p>
+          <p class="stat-label">แจ้งเหตุฉุกเฉิน</p>
           <p class="stat-value">{{ stats.openSos }}</p>
-          <p class="stat-sub">Active alerts</p>
+          <p class="stat-sub">เหตุที่ยังดำเนินการอยู่</p>
         </RouterLink>
       </div>
 
-      <div class="card">
-        <p class="card-title">Work Chart</p>
-
-        <div class="chart-placeholder">
-          <p>ยังไม่มีข้อมูลกราฟรายวัน/รายสัปดาห์</p>
-          <small>
-            Backend Dashboard ปัจจุบันยังไม่ได้ส่งข้อมูลส่วนนี้
-          </small>
-        </div>
-      </div>
-
-      <div class="card finance-card">
-        <div class="finance-heading">
-          <p class="card-title">Monthly Finance Summary</p>
-          <span class="demo-label">Demo / Simulation</span>
-        </div>
-        <p class="finance-disclaimer">ตัวเลขจำลองจากระบบ ไม่ใช่รายการโอนเงินจริง</p>
-
-        <dl class="finance-list">
-          <div class="finance-row">
-            <dt>Total job value</dt>
-            <dd>{{ money(finance.totalVolume) }}</dd>
-          </div>
-
-          <div class="finance-row">
-            <dt>Platform fee earned</dt>
-            <dd class="positive">
-              +{{ money(finance.totalFees) }}
-            </dd>
-          </div>
-
-          <div class="finance-row">
-            <dt>Released jobs</dt>
-            <dd>{{ finance.count }}</dd>
-          </div>
-        </dl>
-
-        <p v-if="!hasFinanceData" class="empty">
-          ยังไม่มีข้อมูลการเงินของเดือนนี้
-        </p>
-      </div>
+      <AdminFinancialSummary />
     </template>
   </section>
 </template>

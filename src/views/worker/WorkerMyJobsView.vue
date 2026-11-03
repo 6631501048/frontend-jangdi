@@ -10,6 +10,7 @@ const router = useRouter();
 const tabs = [
   { value: "waiting", label: "Waiting" },
   { value: "in-progress", label: "In Progress" },
+  { value: "disputed", label: "รอพิจารณาคืนเงิน" },
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
 ];
@@ -53,6 +54,7 @@ const statusMeta = {
   awaiting_confirmation: { label: "Waiting for Hirer", class: "gold" },
   completed: { label: "Completed", class: "green" },
   cancelled: { label: "Cancelled", class: "red" },
+  disputed: { label: "พักงานรอพิจารณาคืนเงิน", class: "gold" },
 };
 
 function openJob(job) {

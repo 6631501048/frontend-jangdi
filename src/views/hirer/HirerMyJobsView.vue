@@ -11,6 +11,7 @@ const tabs = [
   { value: "pending_review", label: "รอตรวจสอบ" },
   { value: "waiting", label: "เปิดรับสมัคร" },
   { value: "assigned", label: "กำลังดำเนินการ" },
+  { value: "disputed", label: "รอคืนเงิน" },
   { value: "completed", label: "เสร็จสิ้น" },
   { value: "cancelled", label: "ยกเลิก" },
   { value: "rejected", label: "ถูกปฏิเสธ" },
