@@ -3,11 +3,19 @@
 // FR-JOB-02: นำทางการสร้างประกาศงานผ่าน 3 ขั้นตอน (1) หมวดหมู่ (2) รายละเอียด+ตำแหน่ง (3) ตรวจสอบก่อนส่ง
 //            (ในไฟล์นี้แบ่งเป็น step UI 1-2-3 เหมือนเดิม + หน้าจอผลลัพธ์ "Post Success" แยกต่างหาก)
 // FR-JOB-03/05: ข้อความจะถูกกรองเนื้อหาอัตโนมัติก่อนเข้าคิวรอ Admin อนุมัติ (ทำที่ backend)
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../../services/api";
 
 const router = useRouter();
+const feePercent = ref(null);
+const configError = ref('');
+async function loadPaymentConfig(){
+  configError.value='';
+  try{const {data}=await api.get('/payments/config');feePercent.value=data.feePercent;}
+  catch{configError.value='โหลดอัตราค่าบริการไม่สำเร็จ กรุณาลองใหม่ก่อนโพสต์งาน';}
+}
+onMounted(loadPaymentConfig);
 
 /* ---------- หมวดหมู่ (เหมือนตัวกรองใน HirerDashboard เพื่อความสอดคล้องกันทั้งแอป) ---------- */
 const categories = [
@@ -42,7 +50,7 @@ const form = ref({
 const categoryLabel = computed(
   () => categories.find((c) => c.id === form.value.category)?.label || "-"
 );
-const transactionFee = computed(() => Math.round(Number(form.value.serviceFee || 0) * 0.05 * 100) / 100);
+const transactionFee = computed(() => Math.round(Number(form.value.serviceFee || 0) * Number(feePercent.value || 0)) / 100);
 const totalPayment = computed(() => Number(form.value.serviceFee || 0) + transactionFee.value);
 const conditionLabel = computed(() =>
   form.value.durationStart && form.value.durationEnd
@@ -89,6 +97,7 @@ function useCurrentLocation() {
 }
 
 async function submit() {
+  if (feePercent.value == null) { await loadPaymentConfig(); if (feePercent.value == null) return; }
   // TODO FR-JOB-01: POST /api/jobs { category, name(title), details(description), serviceFee(price), from, to, startTime, endTime, notes }
   // TODO FR-JOB-03/04/05: backend กรองเนื้อหาอัตโนมัติก่อน แล้วส่งต่อเข้าคิวรอ Admin อนุมัติ
   if (location.value.lat === null || location.value.lng === null) {
@@ -139,6 +148,7 @@ function close() {
     </header>
 
     <main class="content">
+      <p v-if="configError" class="error-msg" role="alert">{{configError}} <button type="button" @click="loadPaymentConfig">ลองใหม่</button></p>
       <div class="card">
         <!-- ===== หน้าจอสำเร็จ ===== -->
         <section v-if="submitted" class="success">
@@ -210,7 +220,7 @@ function close() {
                 </div>
                 <small class="price-hint">Minimum price: 40 Baht</small>
                 <div class="price-breakdown" aria-live="polite">
-                  <div><span>Transaction Fee (5%)</span><strong>{{ transactionFee.toFixed(2) }} Baht</strong></div>
+                  <div><span>ค่าบริการแพลตฟอร์ม ({{feePercent ?? '—'}}%)</span><strong>{{feePercent == null ? 'รอคำนวณ' : transactionFee.toFixed(2)+' บาท'}}</strong></div>
                   <div class="price-total"><span>Total Payment</span><strong>{{ totalPayment.toFixed(2) }} Baht</strong></div>
                 </div>
               </div>
@@ -270,7 +280,7 @@ function close() {
                 <dd>{{ form.serviceFee !== null && form.serviceFee !== "" ? `${form.serviceFee} Baht` : "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Transaction Fee (5%)</dt>
+                <dt>ค่าบริการแพลตฟอร์ม ({{feePercent ?? '—'}}%)</dt>
                 <dd>{{ transactionFee.toFixed(2) }} Baht</dd>
               </div>
               <div class="review-row review-total">

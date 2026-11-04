@@ -3,11 +3,13 @@ import { computed, onMounted, ref } from 'vue';
 import api from '../services/api';
 import AppHeader from './AppHeader.vue';
 import FinancePeriod from './FinancePeriod.vue';
+import PaymentSlipImage from './PaymentSlipImage.vue';
 import { money, paymentStatus, dateTime } from '../services/finance';
 const props = defineProps({ role: { type: String, required: true } });
 const isHirer = computed(() => props.role === 'hirer');
 const filters = ref({ period: 'month', start: '', end: '' });
 const summary = ref(null), loading = ref(false), error = ref(''), showBalance = ref(true), page = ref(1);
+const expandedSlip = ref(null);
 let requestId = 0;
 const rows = computed(() => (summary.value?.transactions || []).slice((page.value - 1) * 10, page.value * 10));
 const pageCount = computed(() => Math.max(1, Math.ceil((summary.value?.transactions?.length || 0) / 10)));
@@ -32,20 +34,20 @@ onMounted(load);
       <p v-if="loading" role="status">กำลังโหลดข้อมูลการเงิน…</p>
       <template v-else-if="summary">
         <section class="card">
-          <div class="heading"><h2>{{ isHirer ? 'ยอดชำระสะสมทั้งหมด' : 'ค่าจ้างสะสมที่ยืนยันรับงานแล้ว' }}</h2><button class="text-button" :aria-pressed="!showBalance" @click="showBalance = !showBalance">{{ showBalance ? 'ซ่อนยอด' : 'แสดงยอด' }}</button></div>
+          <div class="heading"><h2>{{ isHirer ? 'ยอดชำระสะสมทั้งหมด' : 'ค่าจ้างสะสมที่บันทึกจ่ายแล้ว' }}</h2><button class="text-button" :aria-pressed="!showBalance" @click="showBalance = !showBalance">{{ showBalance ? 'ซ่อนยอด' : 'แสดงยอด' }}</button></div>
           <p class="amount">{{ showBalance ? `฿ ${money(summary.lifetime.total)}` : '••••••' }}</p>
-          <p class="muted">{{ isHirer ? 'รวมเงินที่ชำระแล้วและพักอยู่ ไม่รวมยอดรอชำระและยอดคืนเงิน' : 'ค่าจ้างหลังผู้ว่าจ้างยืนยันงาน ยังไม่ใช่หลักฐานการโอนเข้าบัญชีธนาคาร' }}</p>
-          <dl class="details"><div><dt>รอชำระเงิน</dt><dd>฿ {{ money(summary.lifetime.pending) }}</dd></div><div><dt>พักเงินรองานเสร็จ</dt><dd>฿ {{ money(summary.lifetime.held) }}</dd></div><div><dt>รอพิจารณาคืนเงิน</dt><dd>฿ {{ money(summary.lifetime.disputed) }}</dd></div><div><dt>คืนเงินแล้ว</dt><dd>฿ {{ money(summary.lifetime.refunded) }}</dd></div></dl>
+          <p class="muted">{{ isHirer ? 'รวมเงินที่ผู้ดูแลรับแล้วและพักอยู่ ไม่รวมยอดรอตรวจสลิปและยอดคืนเงิน' : 'สลิปจำลองนับหลังผู้ดูแลบันทึกจ่ายแล้ว ข้อมูลเดิมอาจไม่มีสลิปจ่าย ทั้งหมดไม่ใช่การโอนเงินจริง' }}</p>
+          <dl class="details"><div><dt>รอชำระเงิน</dt><dd>฿ {{ money(summary.lifetime.pending) }}</dd></div><div><dt>พักเงินรองานเสร็จ</dt><dd>฿ {{ money(summary.lifetime.held) }}</dd></div><div><dt>รอพิจารณาคืนเงิน</dt><dd>฿ {{ money(summary.lifetime.disputed) }}</dd></div><div><dt>คืนเงินแล้ว</dt><dd>฿ {{ money(summary.lifetime.refunded) }}</dd></div><div><dt>รอตรวจสลิป</dt><dd>฿ {{money(summary.lifetime.awaiting_verification)}}</dd></div><div><dt>สลิปถูกปฏิเสธ รอส่งใหม่</dt><dd>฿ {{money(summary.lifetime.slip_rejected)}}</dd></div><div><dt>งานเสร็จ รอจ่ายค่าจ้าง</dt><dd>฿ {{money(summary.lifetime.payout_pending)}}</dd></div><div><dt>อนุมัติแล้ว รอคืนเงิน</dt><dd>฿ {{money(summary.lifetime.refund_pending)}}</dd></div></dl>
         </section>
         <section class="card">
           <h2>สรุปตามช่วงเวลาที่แสดง</h2><p class="muted">{{ summary.rangeLabel }}</p>
-          <div class="metrics"><div><span>{{ isHirer ? 'ยอดชำระรวมค่าบริการ' : 'ค่าจ้างที่ยืนยันแล้ว' }}</span><strong>฿ {{ money(summary.period.total) }}</strong></div><div><span>งานที่ยืนยันเสร็จแล้ว</span><strong>{{ summary.period.completedJobs }} งาน</strong></div><div><span>{{ isHirer ? 'ค่าบริการแพลตฟอร์มที่ชำระ' : 'ค่าธรรมเนียมที่หักจากผู้รับจ้าง' }}</span><strong>฿ {{ money(summary.period.fees) }}</strong></div></div>
-          <p class="muted">{{ isHirer ? 'ยอดชำระอิงวันที่ชำระเงิน จำนวนงานอิงวันที่ยืนยันเสร็จ' : 'รายได้และจำนวนงานอิงวันที่ผู้ว่าจ้างยืนยันเสร็จ' }}</p>
+          <div class="metrics"><div><span>{{ isHirer ? 'ยอดชำระรวมค่าบริการ' : 'ค่าจ้างที่บันทึกจ่ายแล้ว' }}</span><strong>฿ {{ money(summary.period.total) }}</strong></div><div><span>งานที่ยืนยันเสร็จแล้ว</span><strong>{{ summary.period.completedJobs }} งาน</strong></div><div><span>{{ isHirer ? 'ค่าบริการแพลตฟอร์มที่ชำระ' : 'ค่าธรรมเนียมที่หักจากผู้รับจ้าง' }}</span><strong>฿ {{ money(summary.period.fees) }}</strong></div></div>
+          <p class="muted">{{ isHirer ? 'ยอดชำระอิงวันที่รับเงิน จำนวนงานอิงวันที่ยืนยันเสร็จ' : 'ยอดรับอิงวันที่บันทึกจ่าย จำนวนงานอิงวันที่ผู้ว่าจ้างยืนยันเสร็จ' }}</p>
         </section>
         <section class="card">
           <h2>รายการชำระเงินในช่วงเวลานี้</h2><p class="muted">กรองตามวันที่สร้างรายการ เปิดรายละเอียดงานเพื่อดำเนินการ</p>
           <p v-if="!summary.transactions.length" class="empty">ยังไม่มีรายการในช่วงเวลาที่เลือก</p>
-          <ul v-else class="transactions"><li v-for="tx in rows" :key="tx.id"><RouterLink :to="{ name: isHirer ? 'hirer-job-detail' : 'worker-job-tracking', params: { id: tx.jobId } }"><div class="heading"><strong>{{ tx.jobTitle }}</strong><strong>฿ {{ money(tx.amount) }}</strong></div><div class="heading muted"><span class="status" :class="tx.status">{{ paymentStatus(tx.status) }}</span><time>{{ dateTime(tx.date) }}</time></div><small>{{ tx.paymentMode === 'stripe_test' ? 'Stripe ทดสอบ' : tx.paymentMode === 'manual' ? 'โอนเงินด้วยตนเอง' : 'รายการจำลอง' }} · ดูรายละเอียด ›</small></RouterLink></li></ul>
+          <ul v-else class="transactions"><li v-for="tx in rows" :key="tx.id"><RouterLink :to="{ name: isHirer ? 'hirer-job-detail' : 'worker-job-tracking', params: { id: tx.jobId } }"><div class="heading"><strong>{{ tx.jobTitle }}</strong><strong>฿ {{ money(tx.amount) }}</strong></div><div class="heading muted"><span class="status" :class="tx.status">{{ paymentStatus(tx.status, tx.paymentMode) }}</span><time>{{ dateTime(tx.date) }}</time></div><small>{{ tx.paymentMode === 'stripe_test' ? 'Stripe ทดสอบ' : tx.paymentMode === 'slip_demo' ? 'สลิปจำลอง' : tx.paymentMode === 'manual' ? 'โอนเงินด้วยตนเอง' : 'รายการจำลอง' }} · ดูรายละเอียด ›</small></RouterLink><RouterLink v-if="isHirer" :to="{name:'hirer-mock-payment',params:{id:tx.jobId}}" class="text-button">เปิดหน้าชำระเงิน / ส่งสลิป</RouterLink><button v-if="tx.hasInboundSlip || tx.hasPayoutSlip || tx.hasRefundSlip" class="text-button" @click="expandedSlip=expandedSlip===tx.id?null:tx.id">{{expandedSlip===tx.id?'ซ่อนสลิป':'ดูสลิปจำลอง'}}</button><template v-if="expandedSlip===tx.id"><PaymentSlipImage v-if="tx.hasInboundSlip" :payment-id="tx.id" direction="inbound" /><PaymentSlipImage v-if="tx.hasPayoutSlip" :payment-id="tx.id" direction="payout" /><PaymentSlipImage v-if="tx.hasRefundSlip" :payment-id="tx.id" direction="refund" /></template></li></ul>
           <nav v-if="pageCount > 1" class="pagination" aria-label="หน้าประวัติการชำระเงิน"><button :disabled="page === 1" @click="page--">ก่อนหน้า</button><span>{{ page }} / {{ pageCount }}</span><button :disabled="page === pageCount" @click="page++">ถัดไป</button></nav>
         </section>
       </template>

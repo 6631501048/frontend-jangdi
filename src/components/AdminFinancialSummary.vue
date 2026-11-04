@@ -26,15 +26,17 @@ defineExpose({load});
       <dl>
         <div><dt>ยอดรับชำระรวมค่าบริการ</dt><dd>฿ {{ money(report.gross) }}</dd></div>
         <div><dt>ค่าธรรมเนียม payment gateway</dt><dd>{{ report.gatewayFees == null ? 'รอยืนยันค่าธรรมเนียม' : `− ฿ ${money(report.gatewayFees)}` }}</dd></div>
-        <div><dt>ค่าจ้างที่ยืนยันให้ผู้รับจ้าง</dt><dd>− ฿ {{ money(report.workerPayouts) }}</dd></div>
+        <div><dt>ค่าจ้างที่บันทึกจ่ายให้ผู้รับจ้าง</dt><dd>− ฿ {{ money(report.workerPayouts) }}</dd></div>
         <div><dt>คืนเงินผู้ว่าจ้างรวมค่าบริการ</dt><dd>− ฿ {{ money(report.refunds) }}</dd></div>
         <div class="total"><dt>ยอดรับหักรายการข้างต้น</dt><dd>{{ report.netCash == null ? 'รอสรุป' : `฿ ${money(report.netCash)}` }}</dd></div>
       </dl>
-      <p class="hint">ยอดคงเหลือนี้รวมเงินที่ยังพักไว้ จึงยังไม่ใช่กำไรสุทธิ ค่าจ้างที่ยืนยันแล้วเป็นยอดในระบบ ยังไม่ใช่หลักฐานการโอนธนาคาร</p>
+      <p class="hint">ยอดคงเหลือนี้รวมเงินพักและยอดรอจ่าย จึงยังไม่ใช่กำไรสุทธิ รายการสลิปจำลองหักค่าจ้างเมื่อผู้ดูแลแนบสลิปจ่ายแล้ว</p>
       <p v-if="report.unknownFees" class="notice">มี {{ report.unknownFees }} รายการที่ยังไม่ได้ค่าธรรมเนียม gateway จึงยังสรุปยอดสุทธิไม่ได้</p>
       <div class="metrics"><div><span>ค่าบริการแพลตฟอร์มจากงานที่ปิด</span><strong>฿ {{ money(report.platformFees) }}</strong></div><div><span>เงินพักในระบบ ณ ปัจจุบัน (ทุกช่วงเวลา)</span><strong>฿ {{ money(report.held) }}</strong></div><div><span>งานเสร็จในช่วงเวลานี้</span><strong>{{ report.completedJobs }} งาน</strong></div><RouterLink :to="{name:'admin-payments',query:{status:'disputed'}}"><span>คำขอคืนเงินที่ยื่นในช่วงเวลานี้และรอพิจารณา</span><strong>{{ report.pendingRefunds }} รายการ ›</strong></RouterLink></div>
+      <div class="metrics"><RouterLink :to="{name:'admin-payments',query:{status:'awaiting_verification'}}"><span>สลิปที่รอตรวจปัจจุบัน</span><strong>{{report.pendingSlips}} รายการ ›</strong></RouterLink><RouterLink :to="{name:'admin-payments',query:{status:'payout_pending'}}"><span>ค่าจ้างที่รอจ่ายปัจจุบัน</span><strong>฿ {{money(report.pendingPayouts)}} ›</strong></RouterLink></div>
+      <p class="hint">สลิปจำลองไม่มีการเรียกเก็บค่า gateway · สลิปจำลอง {{report.modes.slip_demo}} รายการ</p>
       <p class="hint">รายการรับชำระ: จำลอง {{ report.modes.demo }} รายการ · Stripe ทดสอบ {{ report.modes.stripe_test }} รายการ</p>
-      <p class="hint">ยอดรับอิงวันที่ชำระ ค่าจ้างอิงวันที่ยืนยันงาน และคืนเงินอิงวันที่คืนสำเร็จ การคืนเต็มจำนวนรวมค่าบริการไม่ผลักค่าธรรมเนียม gateway ให้ผู้ว่าจ้าง</p>
+      <p class="hint">ยอดรับอิงวันที่ชำระ ค่าจ้างอิงวันที่บันทึกจ่าย และคืนเงินอิงวันที่คืนสำเร็จ การคืนเต็มจำนวนรวมค่าบริการไม่ผลักค่าธรรมเนียม gateway ให้ผู้ว่าจ้าง</p>
     </template>
   </section>
 </template>

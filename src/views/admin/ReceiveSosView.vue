@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import api from "../../services/api";
+import AdminDecisionDialog from '../../components/AdminDecisionDialog.vue';
+import {useAdminDecision} from '../../composables/useAdminDecision';
+const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
 
 const route = useRoute();
 const activeFilter = ref(route.query.status === "active" ? "Pending" : "All");
@@ -96,7 +99,7 @@ async function loadAlerts() {
 function contactWorker(item) {
   const phone = String(item.worker?.phone || "").trim();
   if (!phone) {
-    window.alert("ผู้ใช้รายนี้ไม่มีหมายเลขโทรศัพท์");
+    errorMessage.value="ผู้ใช้รายนี้ไม่มีหมายเลขโทรศัพท์";
     return;
   }
   // A phone link is initiated only on explicit Admin action.
@@ -107,17 +110,17 @@ async function markResolved(item) {
   if (actionLoading.value || item.status !== "active") return;
   const notes = String(resolutionNotes.value[item._id] || "").trim();
   if (notes.length < 5 || notes.length > 1000) {
-    window.alert("กรุณาระบุหมายเหตุการปิดเคส 5-1000 ตัวอักษร");
+    errorMessage.value="กรุณาระบุหมายเหตุการปิดเคส 5-1000 ตัวอักษร";
     return;
   }
-  if (!window.confirm("ยืนยันว่าตรวจสอบเหตุและพร้อมปิดเคส SOS นี้แล้ว?")) return;
+  if (await askDecision({title:'ปิดเคส SOS',message:'ยืนยันว่าตรวจสอบเหตุและพร้อมปิดเคสแล้ว? หมายเหตุ: '+notes,confirmLabel:'ยืนยันปิดเคส'}) === null) return;
   actionLoading.value = item._id;
   try {
     await api.post(`/admin/sos/${item._id}/resolve`, { adminNotes: notes });
     delete resolutionNotes.value[item._id];
     await loadAlerts(); // Preserve populated worker and job data from the list API.
   } catch (error) {
-    window.alert(error.response?.data?.message || "ไม่สามารถปิดเคส SOS ได้");
+    errorMessage.value=error.response?.data?.message || "ไม่สามารถปิดเคส SOS ได้";
     if (error.response?.status === 409) await loadAlerts();
   } finally {
     actionLoading.value = null;
@@ -133,6 +136,7 @@ onMounted(loadAlerts);
 </script>
 
 <template>
+  <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
   <section class="sos">
     <div class="header-row">
       <div>

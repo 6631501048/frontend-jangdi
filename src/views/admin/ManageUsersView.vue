@@ -2,6 +2,9 @@
 import { computed, onMounted, ref } from "vue";
 import { useAuthStore } from "../../stores/auth";
 import api from "../../services/api";
+import AdminDecisionDialog from '../../components/AdminDecisionDialog.vue';
+import {useAdminDecision} from '../../composables/useAdminDecision';
+const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
 
 const auth = useAuthStore();
 
@@ -112,19 +115,15 @@ async function statusAction(action) {
     clear: "ต้องการคืนสถานะบัญชีเป็น Active หรือไม่?",
   };
 
-  if (!window.confirm(messages[action])) return;
-  const reason = window.prompt("เหตุผลในการดำเนินการ (5-500 ตัวอักษร)", "");
-  if (reason === null) return;
-  if (reason.trim().length < 5 || reason.trim().length > 500) {
-    window.alert("กรุณากรอกเหตุผล 5-500 ตัวอักษร");
-    return;
-  }
+  const target=selectedUser.value;
+  const reason=await askDecision({title:'จัดการสถานะผู้ใช้',message:messages[action],requireReason:true,minLength:5,maxLength:500});
+  if(reason===null)return;
 
-  actionLoading.value = selectedUser.value._id;
+  actionLoading.value = target._id;
 
   try {
     const { data } = await api.post(
-      `/admin/users/${selectedUser.value._id}/suspend`,
+      `/admin/users/${target._id}/suspend`,
       { action, reason: reason.trim() }
     );
 
@@ -134,10 +133,7 @@ async function statusAction(action) {
     await loadUsers();
     selectedUser.value = users.value.find((user) => user._id === updatedUser._id) || updatedUser;
   } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถเปลี่ยนสถานะบัญชีได้"
-    );
+    errorMessage.value=error.response?.data?.message || 'ไม่สามารถเปลี่ยนสถานะบัญชีได้';
   } finally {
     actionLoading.value = null;
   }
@@ -147,6 +143,7 @@ onMounted(loadUsers);
 </script>
 
 <template>
+  <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
   <section class="users">
     <div class="header-row">
       <p class="section-title">User Management</p>

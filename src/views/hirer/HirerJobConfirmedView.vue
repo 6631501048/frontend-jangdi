@@ -4,6 +4,7 @@ import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
+import {paymentStatus} from '../../services/finance';
 
 const route = useRoute();
 const router = useRouter();
@@ -42,7 +43,7 @@ function goToMyJobs() {
     <section class="content">
       <div class="check">✓</div>
       <p class="label">You have Selected</p>
-      <p class="label">{{ payment?.status === 'pending' ? 'Waiting for Mock Payment (no real money)' : 'Demo payment status: ' + (payment?.status || 'unknown') }}</p>
+      <p class="label">{{paymentStatus(payment?.status)}} · ไม่มีการโอนเงินจริง</p>
       <h2 class="worker-name">{{ job.selectedWorker?.name }}</h2>
 
       <div class="card">
@@ -52,8 +53,8 @@ function goToMyJobs() {
         <div class="row"><span>Total Payment (Demo)</span><strong>{{ Number(payment?.totalDue ?? job.total).toFixed(2) }} Baht</strong></div>
       </div>
 
-      <button v-if="payment?.status === 'pending'" class="btn primary" @click="router.push({ name: 'hirer-mock-payment', params: { id: route.params.id } })">Confirm Mock Payment</button>
-      <button v-else class="btn primary" @click="goToMyJobs">Go to My Jobs</button>
+      <button class="btn primary" @click="router.push({ name: 'hirer-mock-payment', params: { id: route.params.id } })">ดูการชำระเงิน / แนบสลิปจำลอง</button>
+      <button class="btn primary" @click="goToMyJobs">กลับงานของฉัน</button>
     </section>
   </main>
 </template>

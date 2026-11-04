@@ -36,14 +36,14 @@ async function submit(){
     <div v-if="job && payment" class="job-card"><h2 class="title">{{job.title}}</h2><p class="sub">{{job.description}}</p><div class="row"><span>ยอดชำระรวมค่าบริการ</span><strong>฿ {{money(payment.totalDue)}}</strong></div><div class="row"><span>สถานะ</span><strong>{{paymentStatus(payment.status)}}</strong></div></div>
     <p v-if="errorMsg" role="alert" class="notice error">{{errorMsg}}</p><p v-if="successMsg" role="status" class="notice">{{successMsg}}</p>
     <p v-if="payment?.refundNotes" class="notice">เหตุผลผู้ดูแล: {{payment.refundNotes}}</p>
-    <p v-if="payment?.refundStatus === 'pending'" class="notice" role="status">ผู้ดูแลอนุมัติแล้ว กำลังรอ Stripe ยืนยันการคืนเงินทดสอบ</p>
+    <p v-if="payment?.refundStatus === 'pending'" class="notice" role="status">{{payment.paymentMode === 'slip_demo' ? 'ผู้ดูแลอนุมัติแล้ว รอแนบสลิปคืนเงินจำลอง' : 'ผู้ดูแลอนุมัติแล้ว กำลังรอ Stripe ยืนยันการคืนเงินทดสอบ'}}</p>
     <form v-if="payment?.status === 'held' && !successMsg" @submit.prevent="submit">
       <label class="field-label" for="refund-reason">เหตุผลที่ขอคืนเงิน (10–1,000 ตัวอักษร)</label><textarea id="refund-reason" v-model="reason" minlength="10" maxlength="1000" required rows="5" placeholder="อธิบายปัญหาหรือส่วนที่ไม่ได้รับตามข้อตกลง" :disabled="submitting"></textarea>
       <label class="field-label" for="refund-evidence">รูปหลักฐานประกอบ (ไม่บังคับ)</label><input id="refund-evidence" type="file" accept="image/jpeg,image/png,image/webp" multiple :disabled="submitting" @change="chooseFiles" /><p class="sub">สูงสุด 3 ภาพ ภาพละไม่เกิน 2 MB</p><div class="previews"><img v-for="(url,index) in previews" :key="url" :src="url" :alt="`หลักฐานภาพที่ ${index+1}`" /></div>
       <p class="notice">หากอนุมัติ จะคืนเต็มยอดรวมค่าบริการ ฿ {{money(payment.totalDue)}} โดยไม่หักค่า gateway จากผู้ว่าจ้าง ขณะนี้เป็นโหมดทดสอบ ไม่มีการคืนเงินจริง</p>
       <div class="actions"><button type="submit" class="btn danger" :disabled="!canSubmit">{{submitting ? 'กำลังส่ง…' : 'ส่งคำขอคืนเงินให้ผู้ดูแล'}}</button></div>
     </form>
-    <p v-else-if="payment && !successMsg" class="notice">{{payment.status === 'disputed' ? 'คำขอนี้อยู่ระหว่างพิจารณา ไม่สามารถส่งซ้ำได้' : 'ขอคืนเงินได้เฉพาะรายการที่ชำระแล้วและยังไม่ยืนยันรับงาน'}}</p>
+    <p v-else-if="payment && !successMsg" class="notice">{{['disputed','refund_pending'].includes(payment.status) ? 'คำขอนี้อยู่ระหว่างดำเนินการ ไม่สามารถส่งซ้ำได้' : payment.status==='refunded' ? 'ดำเนินการคืนเงินจำลองเรียบร้อยแล้ว' : 'ขอคืนเงินได้เฉพาะรายการที่ชำระแล้วและยังไม่ยืนยันรับงาน'}}</p>
     <button class="btn outline back" @click="router.push({name:'hirer-job-detail',params:{id:route.params.id}})">กลับรายละเอียดงาน</button>
   </section></main>
 </template>

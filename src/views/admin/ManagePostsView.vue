@@ -2,6 +2,9 @@
 import { ref, computed, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import api from "../../services/api";
+import AdminDecisionDialog from '../../components/AdminDecisionDialog.vue';
+import {useAdminDecision} from '../../composables/useAdminDecision';
+const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
 
 const route = useRoute();
 
@@ -88,7 +91,7 @@ function doSearch() { page.value = 1; appliedSearch.value = search.value.trim();
 function changePage(delta) { page.value += delta; loadPosts(); }
 async function approve(post) {
   if (actionLoading.value || post.status !== "pending_review") return;
-  if (!window.confirm(`อนุมัติประกาศ "${post.title}" หรือไม่?`)) return;
+  if (await askDecision({title:'อนุมัติประกาศ',message:post.title,confirmLabel:'ยืนยันอนุมัติ'}) === null) return;
   actionLoading.value = post._id;
   try { await api.post(`/admin/jobs/${post._id}/approve`); await loadPosts(); }
   catch (error) { errorMessage.value = error.response?.data?.message || "อนุมัติประกาศไม่สำเร็จ"; }
@@ -96,7 +99,7 @@ async function approve(post) {
 }
 async function reject(post) {
   if (actionLoading.value || post.status !== "pending_review") return;
-  const reason = window.prompt(`เหตุผลที่ปฏิเสธ "${post.title}"`, "");
+  const reason = await askDecision({title:'ปฏิเสธประกาศ',message:post.title,requireReason:true,minLength:5,maxLength:500});
   if (reason === null) return;
   actionLoading.value = post._id;
   try { await api.post(`/admin/jobs/${post._id}/reject`, { reason: reason.trim() }); await loadPosts(); }
@@ -106,6 +109,7 @@ async function reject(post) {
 </script>
 
 <template>
+  <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
   <section class="posts">
     <div class="header-row">
       <div>

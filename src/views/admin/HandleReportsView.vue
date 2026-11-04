@@ -1,6 +1,9 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import api from "../../services/api";
+import AdminDecisionDialog from '../../components/AdminDecisionDialog.vue';
+import {useAdminDecision} from '../../composables/useAdminDecision';
+const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
 
 const statusFilter = ref("All Status");
 const filters = ["All Status", "Pending", "Investigating", "Resolved", "Dismissed"];
@@ -83,90 +86,25 @@ async function loadReports() {
   }
 }
 
-async function resolve(report) {
-  if (actionLoading.value) return;
-
-  const notes = window.prompt(
-    "หมายเหตุการแก้ไขรายงาน",
-    ""
-  );
-
-  if (notes === null) return;
-  if (notes.trim().length < 5 || notes.trim().length > 1000) {
-    window.alert("กรุณาระบุหมายเหตุ 5-1000 ตัวอักษร");
-    return;
-  }
-
-  actionLoading.value = report._id;
-
+async function updateReport(report, status) {
+  if (actionLoading.value || !['pending','investigating'].includes(report.status)) return;
+  const notes=await askDecision({title:status==='resolved'?'บันทึกแก้ไขรายงานแล้ว':'ยกเลิกรายงาน',message:report.reason,requireReason:true,minLength:5});
+  if(notes===null)return;
+  actionLoading.value=report._id;errorMessage.value='';
   try {
-    const { data } = await api.post(
-      `/admin/reports/${report._id}/resolve`,
-      {
-        status: "resolved",
-        resolutionNotes: notes.trim(),
-      }
-    );
-
-    reports.value = reports.value.map((item) =>
-      item._id === report._id
-        ? data.report
-        : item
-    );
-  } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถปิดรายงานได้"
-    );
-  } finally {
-    actionLoading.value = null;
-  }
+    const {data}=await api.post(`/admin/reports/${report._id}/resolve`,{status,resolutionNotes:notes});
+    reports.value=reports.value.map(item=>item._id===report._id?data.report:item);
+  } catch(error) {errorMessage.value=error.response?.data?.message || 'บันทึกผลการพิจารณารายงานไม่สำเร็จ';}
+  finally {actionLoading.value=null;}
 }
-
-async function dismiss(report) {
-  if (actionLoading.value) return;
-
-  const notes = window.prompt(
-    "หมายเหตุการ dismiss รายงาน",
-    ""
-  );
-
-  if (notes === null) return;
-  if (notes.trim().length < 5 || notes.trim().length > 1000) {
-    window.alert("กรุณาระบุหมายเหตุ 5-1000 ตัวอักษร");
-    return;
-  }
-
-  actionLoading.value = report._id;
-
-  try {
-    const { data } = await api.post(
-      `/admin/reports/${report._id}/resolve`,
-      {
-        status: "dismissed",
-        resolutionNotes: notes.trim(),
-      }
-    );
-
-    reports.value = reports.value.map((item) =>
-      item._id === report._id
-        ? data.report
-        : item
-    );
-  } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถ dismiss รายงานได้"
-    );
-  } finally {
-    actionLoading.value = null;
-  }
-}
+const resolve = report => updateReport(report,'resolved');
+const dismiss = report => updateReport(report,'dismissed');
 
 onMounted(loadReports);
 </script>
 
 <template>
+  <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
   <section class="reports">
     <div class="header-row">
       <p class="section-title">Handle Report</p>
@@ -229,7 +167,7 @@ onMounted(loadReports);
         </select>
       </div>
 
-      <div v-if="errorMessage" class="error-box">
+      <div v-if="errorMessage" class="error-box" role="alert">
         {{ errorMessage }}
       </div>
 
@@ -244,7 +182,7 @@ onMounted(loadReports);
           class="report-item"
         >
           <button
-            class="report-row"
+            type="button" class="report-row"
             @click="toggleExpand(report._id)"
           >
             <span class="report-icon">⚠️</span>
@@ -311,18 +249,18 @@ onMounted(loadReports);
             >
               <button
                 class="action-btn primary"
-                :disabled="actionLoading === report._id"
+                :disabled="!!actionLoading"
                 @click.stop="resolve(report)"
               >
-                Mark Resolved
+                บันทึกแก้ไขแล้ว
               </button>
 
               <button
                 class="action-btn ghost"
-                :disabled="actionLoading === report._id"
+                :disabled="!!actionLoading"
                 @click.stop="dismiss(report)"
               >
-                Dismiss
+                ยกเลิกรายงาน
               </button>
             </div>
           </div>

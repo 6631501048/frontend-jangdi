@@ -1,0 +1,49 @@
+<script setup>
+import { computed, onMounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import api from '../../services/api';
+import AppHeader from '../../components/AppHeader.vue';
+import PaymentSlipForm from '../../components/PaymentSlipForm.vue';
+import PaymentSlipImage from '../../components/PaymentSlipImage.vue';
+import { money,paymentStatus,dateTime } from '../../services/finance';
+const route=useRoute();
+const job=ref(null),payment=ref(null),config=ref(null),loading=ref(false),busy=ref(false),error=ref(''),success=ref('');
+const canSubmit=computed(()=>payment.value && ['pending','slip_rejected'].includes(payment.value.status) && ['demo','slip_demo'].includes(payment.value.paymentMode));
+async function load(){
+  loading.value=true;error.value='';
+  try{const [j,p,c]=await Promise.all([api.get(`/jobs/${route.params.id}`),api.get(`/payments/${route.params.id}/mock`),api.get('/payments/config')]);job.value=j.data;payment.value=p.data;config.value=c.data;}
+  catch(err){error.value=err.response?.data?.message || 'โหลดรายละเอียดการชำระเงินไม่สำเร็จ';}
+  finally{loading.value=false;}
+}
+async function saved(message){success.value=message;await load();}
+async function checkout(){
+  busy.value=true;error.value='';
+  try{const {data}=await api.post(`/payments/${route.params.id}/checkout`);const url=new URL(data.url);if(url.protocol!=='https:' || url.hostname!=='checkout.stripe.com')throw new Error('Invalid URL');window.location.assign(url.href);}
+  catch(err){error.value=err.response?.data?.message || 'เปิด Stripe ทดสอบไม่สำเร็จ';}
+  finally{busy.value=false;}
+}
+onMounted(load);
+</script>
+<template>
+  <main class="payment"><AppHeader title="ชำระเงินและสลิปจำลอง" /><div class="content">
+    <p class="notice">ทดสอบการโอนและตรวจสลิปเท่านั้น ไม่มีการโอนเงินจริง และไม่ต้องตั้งค่า Stripe หากใช้สลิปจำลอง</p>
+    <p v-if="error" class="error" role="alert">{{error}}</p><p v-if="success" class="success" role="status">{{success}}</p>
+    <p v-if="loading" role="status">กำลังโหลดข้อมูล…</p>
+    <template v-else-if="job && payment && config">
+      <section class="card"><h2>{{job.title}}</h2><dl><div><dt>ค่าจ้างผู้รับจ้าง</dt><dd>฿ {{money(payment.amount)}}</dd></div><div><dt>ค่าบริการแพลตฟอร์ม {{payment.platformFeePercent}}%</dt><dd>฿ {{money(payment.platformFeeAmount)}}</dd></div><div class="total"><dt>ยอดโอนจำลอง</dt><dd>฿ {{money(payment.totalDue)}}</dd></div><div><dt>สถานะ</dt><dd>{{paymentStatus(payment.status, payment.paymentMode)}}</dd></div></dl></section>
+      <section v-if="canSubmit" class="card"><h2>1. ตรวจสอบบัญชีทดสอบ</h2><p>{{config.bank.name}}</p><p>เลขบัญชี: <strong>{{config.bank.accountNumber}}</strong></p><p>ชื่อบัญชี: {{config.bank.accountName}}</p><p class="hint">เป็นข้อมูลตัวอย่างสำหรับจำลอง ไม่ใช่บัญชีรับเงินจริง</p><h2>2. แนบสลิปทดสอบ</h2><p class="hint">ตรวจยอด ฿ {{money(payment.totalDue)}} แล้วเลือกภาพสลิปตัวอย่าง ผู้ดูแลจะเป็นผู้ยืนยันรับเงิน</p><PaymentSlipForm :endpoint="`/payments/${route.params.id}/slips/inbound`" label="ยืนยันโอนจำลองและส่งสลิป" @saved="saved" /></section>
+      <section v-if="payment.status==='awaiting_verification'" class="card"><h2>รอผู้ดูแลตรวจรับสลิป</h2><p>ส่งหลักฐานแล้ว ผู้รับจ้างจะเริ่มงานได้หลังผู้ดูแลอนุมัติ กดตรวจสอบสถานะเพื่อดูผลล่าสุด</p></section>
+      <p v-if="payment.slipReviewNotes" class="notice">ผลตรวจสลิป: {{payment.slipReviewNotes}}</p>
+      <section v-if="payment.hasInboundSlip" class="card"><h2>สลิปที่ส่งให้ผู้ดูแล</h2><PaymentSlipImage :payment-id="payment.id" direction="inbound" :version="payment.inboundSlipVersion" /></section>
+      <section v-if="payment.status==='payout_pending'" class="card"><h2>รับงานแล้ว รอผู้ดูแลจ่ายค่าจ้าง</h2><p>ยืนยันงานเสร็จแล้ว แต่ยังไม่มีการบันทึกสลิปจ่ายให้ผู้รับจ้าง</p></section>
+      <section v-if="payment.status==='refund_pending'" class="card"><h2>อนุมัติคืนเงินแล้ว รอสลิปคืนเงิน</h2><p>ผู้ดูแลจะบันทึกคืนเงินจำลองเต็มยอด ฿ {{money(payment.refundAmount)}}</p></section>
+      <section v-if="payment.hasPayoutSlip" class="card"><h2>สลิปจ่ายค่าจ้างจำลอง</h2><p>{{dateTime(payment.paidAt)}}</p><PaymentSlipImage :payment-id="payment.id" direction="payout" /></section>
+      <section v-if="payment.hasRefundSlip" class="card"><h2>สลิปคืนเงินจำลอง</h2><PaymentSlipImage :payment-id="payment.id" direction="refund" /></section>
+      <details v-if="payment.status==='pending'" class="card"><summary>ทางเลือก: Stripe โหมดทดสอบ</summary><p class="hint">เฉพาะกรณีตั้งค่า Stripe test key และ webhook แล้ว การเลือกวิธีนี้จะใช้ขั้นตอน Stripe แทนสลิปจำลอง</p><button class="secondary" :disabled="busy" @click="checkout">{{busy?'กำลังเปิด Stripe…':'ชำระผ่าน Stripe ทดสอบ'}}</button></details>
+      <p v-if="route.query.checkout==='success' && payment.status==='pending'" class="notice">กลับจาก Stripe แล้ว กำลังรอ webhook ยืนยัน กรุณาตรวจสอบสถานะล่าสุด</p>
+    </template>
+    <button class="secondary" :disabled="loading || busy" @click="load">ตรวจสอบสถานะล่าสุด</button>
+    <RouterLink class="primary" :to="{name:'hirer-job-detail',params:{id:route.params.id}}">กลับรายละเอียดงาน</RouterLink>
+  </div></main>
+</template>
+<style scoped>.payment{min-height:100vh;background:#f5f6f8}.content{padding:16px;display:grid;gap:14px;font-size:13px;line-height:1.7}.card{background:white;padding:16px;border-radius:12px;border:1px solid #e5e7eb}h2{font-size:15px;margin:0 0 10px}dl{margin:0}dl div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #eee}dd{margin:0;text-align:right;font-weight:700}.total{font-size:16px}.notice{background:#fff3cd;color:#735200;padding:12px;border-radius:10px;margin:0}.hint{color:#667085;font-size:12px}.error{color:#b42318}.success{color:#167044}.primary,.secondary{display:block;text-align:center;padding:12px;border-radius:9px;font:inherit;cursor:pointer;text-decoration:none}.primary{background:#ffc629;color:#342600;font-weight:700}.secondary{border:1px solid #d1d5db;background:white;color:#344054}button:disabled{opacity:.5}summary{font-weight:700;cursor:pointer}</style>

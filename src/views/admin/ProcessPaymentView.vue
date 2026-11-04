@@ -2,15 +2,24 @@
 import { onMounted, ref } from "vue";
 import {useRoute} from "vue-router";
 import RefundEvidence from "../../components/RefundEvidence.vue";
+import PaymentSlipImage from "../../components/PaymentSlipImage.vue";
+import PaymentSlipForm from "../../components/PaymentSlipForm.vue";
 import {paymentStatus} from "../../services/finance";
 import api from "../../services/api";
+import AdminDecisionDialog from '../../components/AdminDecisionDialog.vue';
+import {useAdminDecision} from '../../composables/useAdminDecision';
+const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
 
 const route = useRoute();
-const activeTab = ref(route.query.status === "disputed" ? "Disputed" : "Pending");
+const activeTab = ref(({disputed:'Disputed',awaiting_verification:'Verify',payout_pending:'Payout',refund_pending:'RefundPending'})[route.query.status] || 'Pending');
 
 const tabs = [
   { label: "Pending", status: "pending" },
+  { label: "Verify", status: "awaiting_verification" },
+  { label: "Rejected", status: "slip_rejected" },
   { label: "Held", status: "held" },
+  { label: "Payout", status: "payout_pending" },
+  { label: "RefundPending", status: "refund_pending" },
   { label: "Released", status: "released" },
   { label: "Disputed", status: "disputed" },
   { label: "Refunded", status: "refunded" },
@@ -21,6 +30,21 @@ const loading = ref(true);
 const errorMessage = ref("");
 const actionLoading = ref(null);
 const expandedPaymentId = ref(null);
+const reviewReady = ref({});
+const successMessage = ref('');
+async function reviewSlip(payment, decision) {
+  if (actionLoading.value) return;
+  if (decision==='approved' && !reviewReady.value[payment._id + payment.inboundSlipVersion]) {
+    errorMessage.value='ยังเปิดรูปสลิปไม่สำเร็จ กรุณาลองโหลดรูปอีกครั้งก่อนอนุมัติ หรือเลือกปฏิเสธพร้อมเหตุผลหากรูปใช้งานไม่ได้';return;
+  }
+  const notes = await askDecision({title:decision==='approved'?'อนุมัติรับเงินจำลอง':'ปฏิเสธสลิป',message:decision==='approved'?'ตรวจสอบรูปและยอดชำระแล้ว ผู้รับจ้างจะเริ่มงานได้หลังยืนยัน':'ผู้ว่าจ้างจะสามารถส่งสลิปใหม่ได้',requireReason:true,minLength:10});
+  if (notes === null) return;
+  actionLoading.value=payment._id;errorMessage.value='';
+  try { const {data}=await api.post(`/admin/payments/${payment._id}/slip-review`,{decision,notes:notes.trim(),version:payment.inboundSlipVersion});successMessage.value=data.message;await loadPayments(); }
+  catch(err){errorMessage.value=err.response?.data?.message || 'บันทึกผลตรวจสลิปไม่สำเร็จ';}
+  finally{actionLoading.value=null;}
+}
+async function savedSlip(message){successMessage.value=message;await loadPayments();}
 
 function money(value) {
   return `฿${Number(value || 0).toLocaleString("en-US", {
@@ -73,15 +97,8 @@ async function loadPayments() {
 async function decideRefund(payment, decision) {
   if (actionLoading.value) return;
 
-  const text =
-    decision === "approved"
-      ? "ยืนยันอนุมัติการคืนเงินหรือไม่?"
-      : "ยืนยันปฏิเสธการคืนเงินหรือไม่?";
-
-  const notes = window.prompt('ระบุเหตุผลการพิจารณา (10–1,000 ตัวอักษร):');
+  const notes = await askDecision({title:decision==='approved'?'อนุมัติคืนเงินเต็มจำนวน':'ปฏิเสธคำขอคืนเงิน',message:decision==='approved'?'คืนยอดรวมค่าบริการในโหมดทดสอบ รายการสลิปจำลองจะรอแนบสลิปคืนเงินต่อไป':'งานจะกลับสู่ขั้นตอนก่อนยื่นคำขอ',requireReason:true,minLength:10});
   if (notes === null) return;
-  if (notes.trim().length < 10 || notes.trim().length > 1000) { alert('กรุณาระบุเหตุผล 10–1,000 ตัวอักษร'); return; }
-  if (!window.confirm(text + (decision === 'approved' ? ' คืนเต็มยอดรวมค่าบริการในโหมดทดสอบ' : ' งานจะกลับสู่ขั้นตอนก่อนยื่นคำขอ'))) return;
 
   actionLoading.value = payment._id;
 
@@ -93,10 +110,7 @@ async function decideRefund(payment, decision) {
 
     await loadPayments();
   } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถบันทึกผลการคืนเงินได้"
-    );
+    errorMessage.value=error.response?.data?.message || "ไม่สามารถบันทึกผลการคืนเงินได้";
   } finally {
     actionLoading.value = null;
   }
@@ -116,6 +130,7 @@ onMounted(loadPayments);
 </script>
 
 <template>
+  <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
   <section class="payment">
     <div class="header-row">
       <div>
@@ -148,6 +163,7 @@ onMounted(loadPayments);
     <div v-if="errorMessage" class="error-box">
       {{ errorMessage }}
     </div>
+    <p v-if="successMessage" role="status" class="refund-status">{{successMessage}}</p>
 
     <div v-if="loading" class="empty">
       กำลังโหลดรายการชำระเงิน...
@@ -177,6 +193,7 @@ onMounted(loadPayments);
         </button>
 
         <div v-show="expandedPaymentId === payment._id" :id="`payment-details-${payment._id}`" class="payment-details">
+        <p class="refund-status">{{payment.paymentMode === 'slip_demo' ? 'สลิปจำลอง · ไม่มีการโอนเงินจริง' : payment.paymentMode === 'stripe_test' ? 'Stripe โหมดทดสอบ' : 'รายการเดิมในระบบจำลอง'}} · {{paymentStatus(payment.status)}}</p>
         <div class="detail-row">
           <span>ผู้ว่าจ้าง</span>
           <strong>
@@ -204,6 +221,7 @@ onMounted(loadPayments);
             {{ money(payment.platformFeeAmount) }}
           </strong>
         </div>
+        <div class="detail-row"><span>ยอดรับรวมค่าบริการ</span><strong>{{money(Number(payment.amount)+Number(payment.platformFeeAmount))}}</strong></div>
 
         <div class="detail-row">
           <span>ค่าจ้างผู้รับจ้าง</span>
@@ -220,6 +238,16 @@ onMounted(loadPayments);
         </div>
 
         <div v-if="payment.disputeReason" class="refund-status"><strong>เหตุผลที่ขอคืนเงิน</strong><p>{{payment.disputeReason}}</p></div>
+        <template v-if="expandedPaymentId === payment._id">
+          <template v-if="payment.hasInboundSlip || payment.status === 'awaiting_verification'"><h3 class="subtitle">สลิปขาเข้า</h3><PaymentSlipImage :payment-id="payment._id" direction="inbound" :version="payment.inboundSlipVersion" @loaded="reviewReady[payment._id + payment.inboundSlipVersion]=$event" /></template>
+          <p v-if="payment.slipReviewNotes" class="refund-status">ผลตรวจสลิป: {{payment.slipReviewNotes}}</p>
+          <p v-if="payment.status === 'awaiting_verification' && !reviewReady[payment._id + payment.inboundSlipVersion]" class="refund-status" role="status">ต้องเปิดรูปสำเร็จก่อนอนุมัติ หากโหลดรูปไม่ได้ สามารถลองโหลดใหม่หรือปฏิเสธสลิปพร้อมเหตุผลได้</p>
+          <div v-if="payment.status === 'awaiting_verification'" class="action-row"><button type="button" class="action-btn primary" :disabled="!!actionLoading" @click="reviewSlip(payment,'approved')">อนุมัติรับเงินจำลอง</button><button type="button" class="action-btn danger" :disabled="!!actionLoading" @click="reviewSlip(payment,'rejected')">ปฏิเสธสลิป</button></div>
+          <template v-if="payment.status === 'payout_pending'"><p class="refund-status">ผู้ว่าจ้างยืนยันงานแล้ว กรุณาแนบสลิปจ่ายจำลองให้ {{payment.worker?.fullName || 'ผู้รับจ้าง'}} จำนวน {{money(payment.netAmountToWorker)}}</p><PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/payout`" label="ยืนยันจ่ายค่าจ้างจำลอง" require-notes @saved="savedSlip" /></template>
+          <template v-if="payment.status === 'refund_pending'"><p class="refund-status">อนุมัติคืนเงินแล้ว กรุณาแนบสลิปคืนจำลองให้ {{payment.hirer?.fullName || 'ผู้ว่าจ้าง'}} จำนวน {{money(payment.refundAmount)}}</p><PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/refund`" label="ยืนยันคืนเงินจำลอง" require-notes @saved="savedSlip" /></template>
+          <template v-if="payment.hasPayoutSlip"><h3 class="subtitle">สลิปจ่ายค่าจ้างจำลอง</h3><PaymentSlipImage :payment-id="payment._id" direction="payout" /></template>
+          <template v-if="payment.hasRefundSlip"><h3 class="subtitle">สลิปคืนเงินจำลอง</h3><PaymentSlipImage :payment-id="payment._id" direction="refund" /></template>
+        </template>
         <RefundEvidence v-if="expandedPaymentId === payment._id && payment.refundEvidenceCount" :payment-id="payment._id" :count="payment.refundEvidenceCount" />
         <p v-if="payment.refundNotes" class="refund-status">เหตุผลผู้ดูแล: {{payment.refundNotes}}</p>
         <p v-if="payment.refundStatus" class="refund-status">สถานะคืนเงิน: {{({succeeded:'สำเร็จ',pending:'กำลังดำเนินการ',failed:'ไม่สำเร็จ',canceled:'ยกเลิก'})[payment.refundStatus] || 'รอตรวจสอบ'}}</p>
@@ -294,7 +322,8 @@ onMounted(loadPayments);
 }
 
 .tabs {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 14px;
 }
@@ -307,6 +336,8 @@ onMounted(loadPayments);
   background: var(--color-primary-light);
   color: var(--color-primary-dark);
   font-weight: 600;
+  padding: 8px;
+  cursor: pointer;
 }
 
 .tabs button.active {

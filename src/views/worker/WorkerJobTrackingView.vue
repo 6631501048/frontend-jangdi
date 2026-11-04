@@ -452,7 +452,7 @@ function goToReview() {
             </div>
           </div>
 
-          <p v-if="job.backendStatus === 'assigned' && demoPaymentStatus !== 'held'" class="pending-confirmation">Waiting for Hirer Mock Payment (no real transfer)</p>
+          <p v-if="job.backendStatus === 'assigned' && demoPaymentStatus !== 'held'" class="pending-confirmation">รอผู้ว่าจ้างส่งสลิปและผู้ดูแลอนุมัติรับเงินจำลองก่อนเริ่มงาน</p>
           <button v-if="job.backendStatus === 'assigned'" class="btn-primary" :disabled="updating || demoPaymentStatus !== 'held'" @click="updateStatus">
             {{ updating ? "Updating..." : "Start Job" }}
           </button>

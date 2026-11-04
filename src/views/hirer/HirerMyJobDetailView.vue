@@ -7,6 +7,7 @@ import { fetchCompletionProof, proofRequestError } from "../../services/completi
 import { createProofImageLoader } from "../../services/proofImageLoader";
 import AppHeader from "../../components/AppHeader.vue";
 import StatusBadge from "../../components/StatusBadge.vue";
+import { paymentStatus } from '../../services/finance';
 
 
 const route = useRoute();
@@ -18,6 +19,7 @@ const applicants = ref([]);
 const applicantsLoaded = ref(false);
 const workerProfile = ref(null);
 const mockPayment = ref(null);
+const feePercent = ref(null);
 function goMockPayment() { router.push({ name: "hirer-mock-payment", params: { id: route.params.id } }); }
 const cancellingJob = ref(false);
 const canCancelJob = computed(() => job.value?.status === "waiting");
@@ -65,7 +67,7 @@ async function loadJob() {
         timelineError.value = "โหลดประวัติสถานะไม่สำเร็จ แต่ยังตรวจรูปหลักฐานได้";
       }
     }
-    if (["assigned", "in_progress", "awaiting_confirmation", "disputed", "cancelled"].includes(data.status)) {
+    if (["assigned", "in_progress", "awaiting_confirmation", "disputed", "cancelled", "completed"].includes(data.status)) {
       try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); mockPayment.value = pay; }
       catch { mockPayment.value = null; }
     } else mockPayment.value = null;
@@ -92,8 +94,8 @@ async function loadJob() {
       id: data._id,
       durationLabel: formatDuration(data),
       serviceFee: data.deliveryFee || 0,
-      transactionFee: Math.round(Number(data.price || 0) * 0.05 * 100) / 100,
-      total: Number(data.price || 0) + Number(data.deliveryFee || 0) + Math.round(Number(data.price || 0) * 0.05 * 100) / 100,
+      transactionFee: mockPayment.value?.platformFeeAmount ?? (feePercent.value == null ? null : Math.round(Number(data.price || 0) * feePercent.value) / 100),
+      total: mockPayment.value?.totalDue ?? (feePercent.value == null ? null : Number(data.price || 0) + Number(data.deliveryFee || 0) + Math.round(Number(data.price || 0) * feePercent.value) / 100),
       from: { label: data.fromText || data.locationText || "-" },
       to: { label: data.toText || "-" },
       applicants: applicants.value,
@@ -109,6 +111,7 @@ async function loadJob() {
 }
 let statusRefreshTimer;
 onMounted(async () => {
+  try { const {data} = await api.get('/payments/config'); feePercent.value=data.feePercent; } catch { /* Stored payment amounts remain authoritative. */ }
   await loadJob();
   statusRefreshTimer = window.setInterval(() => {
     if (["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(job.value?.status)) loadJob();
@@ -206,8 +209,8 @@ async function confirmCompletion() {
         <div class="row"><dt>Time</dt><dd>{{ job.durationLabel }}</dd></div>
         <div class="row"><dt>Worker Fee</dt><dd>{{ Number(job.price || 0).toFixed(2) }} Baht</dd></div>
         <div v-if="job.serviceFee" class="row"><dt>Additional Service Fee</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} Baht</dd></div>
-        <div class="row"><dt>Transaction Fee (5%)</dt><dd>{{ job.transactionFee.toFixed(2) }} Baht</dd></div>
-        <div class="row total"><dt>Total</dt><dd>{{ job.total }} Baht</dd></div>
+        <div class="row"><dt>ค่าบริการแพลตฟอร์ม {{mockPayment?.platformFeePercent ?? feePercent ?? '—'}}%</dt><dd>{{job.transactionFee == null ? 'รอคำนวณ' : job.transactionFee.toFixed(2)+' บาท'}}</dd></div>
+        <div class="row total"><dt>ยอดรวม</dt><dd>{{job.total == null ? 'รอคำนวณ' : job.total+' บาท'}}</dd></div>
       </dl>
 
       <div class="locations">
@@ -236,10 +239,11 @@ async function confirmCompletion() {
 
       <!-- FR-TRACK-01/02/03, FR-SOS-01: งานกำลังดำเนินการ -->
       <!-- Worker contact and progress after selection -->
-      <div v-if="job.status === 'assigned' && mockPayment?.status === 'pending'" class="mock-banner">
-        <strong>Payment Pending (Demo)</strong>
-        <p>กรุณากดชำระเงินจำลองเพื่อให้ Worker เริ่มงานได้ ไม่มีการโอนเงินจริง</p>
-        <button type="button" class="btn primary" @click="goMockPayment">Go to Mock Payment</button>
+      <div v-if="mockPayment" class="mock-banner">
+        <strong>{{paymentStatus(mockPayment.status, mockPayment.paymentMode)}}</strong>
+        <p v-if="mockPayment.status === 'pending' || mockPayment.status === 'slip_rejected'">แนบสลิปทดสอบแล้วรอผู้ดูแลตรวจรับก่อนเริ่มงาน ไม่มีการโอนเงินจริง</p>
+        <p v-if="mockPayment.slipReviewNotes">ผลตรวจสลิป: {{mockPayment.slipReviewNotes}}</p>
+        <button type="button" class="btn primary" @click="goMockPayment">ดูการชำระเงินและสลิปจำลอง</button>
       </div>
       <template v-if="['assigned', 'in_progress', 'awaiting_confirmation', 'completed'].includes(job.status)">
         <h2 class="section-title">Contact</h2>
