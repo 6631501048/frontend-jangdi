@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-BROWSE-03: ดูรายละเอียดงานแบบเต็ม (คำอธิบาย ราคา ตำแหน่งที่ตั้ง ระยะเวลา หมายเหตุ) ก่อนสมัคร
 // FR-BROWSE-04: สมัครงาน โดยเพิ่มใบสมัครเข้าสู่คิวรอของงานนั้น (JOB_WAITING)
 // FR-BROWSE-05: อนุญาตให้สมัครหลายงานพร้อมกันได้
@@ -44,16 +44,16 @@ async function loadJob() {
     job.value = {
       id: data._id,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
-      title: data.title,
+      title: data.title || "ไม่มีชื่อประกาศ",
       backendStatus: data.status,
-      description: data.description,
+      description: data.description || "ไม่ได้ระบุรายละเอียด",
       category: data.category,
-      deliveryFee: data.deliveryFee || 0,
-      price: data.price,
+      deliveryFee: Number(data.deliveryFee || 0),
+      price: data.price == null ? null : Number(data.price),
       duration: data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-",
       from: data.fromText || data.locationText || "-",
       to: data.toText || "-",
-      notes: data.notes || "None",
+      notes: data.notes || "ไม่มีหมายเหตุเพิ่มเติม",
     };
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
@@ -97,7 +97,7 @@ function goBack() {
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="goBack">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">Job Details</h1>
+      <h1 class="title">รายละเอียดงาน</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -119,59 +119,59 @@ function goBack() {
 
         <!-- ===== หน้าจอสำเร็จหลังสมัคร ===== -->
         <section v-if="alreadyApplied" class="success">
-          <p class="success-title">Waiting for Hirer selection</p>
-          <p class="success-sub">You have already applied for this job.</p>
-          <button class="btn-view-request" @click="viewMyRequest">Back to My Jobs</button>
+          <p class="success-title">รอผู้ว่าจ้างเลือกผู้รับจ้าง</p>
+          <p class="success-sub">คุณสมัครงานนี้แล้ว</p>
+          <button class="btn-view-request" @click="viewMyRequest">กลับไปงานของฉัน</button>
         </section>
         <section v-else-if="applied" class="success">
           <div class="check-circle">
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
-          <p class="success-title">Your request has been submitted successfully</p>
-          <p class="success-sub">Please wait for the hirer to select you.</p>
-          <button class="btn-view-request" @click="viewMyRequest">View My Request</button>
+          <p class="success-title">ส่งใบสมัครเรียบร้อยแล้ว</p>
+          <p class="success-sub">กรุณารอผู้ว่าจ้างเลือกผู้รับจ้าง</p>
+          <button class="btn-view-request" @click="viewMyRequest">ดูใบสมัครของฉัน</button>
         </section>
 
         <!-- ===== รายละเอียดงาน + ปุ่มสมัคร ===== -->
         <template v-else>
           <dl class="detail-list">
             <div class="detail-row">
-              <dt>Details</dt>
+              <dt>สถานที่</dt>
               <dd>{{ job.from }}</dd>
             </div>
             <div class="detail-row">
-              <dt>Delivery fee</dt>
-              <dd>{{ job.deliveryFee }} Baht</dd>
+              <dt>ค่าจัดส่ง</dt>
+              <dd>{{ job.deliveryFee.toLocaleString("th-TH") }} บาท</dd>
             </div>
             <div class="detail-row">
-              <dt>Price</dt>
-              <dd>{{ job.price }} Baht</dd>
+              <dt>ค่าจ้าง</dt>
+              <dd>{{ job.price == null ? "ไม่ได้ระบุ" : `${job.price.toLocaleString("th-TH")} บาท` }}</dd>
             </div>
             <div class="detail-row">
-              <dt>Time</dt>
+              <dt>เวลานัดหมาย</dt>
               <dd>{{ job.duration }}</dd>
             </div>
           </dl>
 
           <div class="route-row">
             <div class="route-col">
-              <p class="route-label">From</p>
+              <p class="route-label">จาก</p>
               <p class="route-value">{{ job.from }}</p>
             </div>
             <div class="route-col">
-              <p class="route-label">To</p>
+              <p class="route-label">ถึง</p>
               <p class="route-value">{{ job.to }}</p>
             </div>
           </div>
 
           <div class="notes-row">
-            <p class="notes-label">Additional Notes</p>
+            <p class="notes-label">หมายเหตุเพิ่มเติม</p>
             <p class="notes-value">{{ job.notes }}</p>
           </div>
 
-          <p v-if="job.backendStatus !== 'waiting'" class="error-msg">This job is no longer accepting applications.</p>
+          <p v-if="job.backendStatus !== 'waiting'" class="error-msg">งานนี้ปิดรับสมัครแล้ว</p>
           <button v-else class="btn-apply" :disabled="applying || loading || !!errorMsg" @click="applyForJob">
-            {{ applying ? "Applying..." : "Apply for the job" }}
+            {{ applying ? "กำลังสมัคร…" : "สมัครงานนี้" }}
           </button>
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
         </template>
@@ -248,3 +248,4 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   background: #22c55e; color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 </style>
+

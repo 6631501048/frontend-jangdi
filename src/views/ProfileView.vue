@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-PROF-01: ดู/แก้ไขโปรไฟล์ (รูป ชื่อ เบอร์โทร LINE Facebook Instagram รหัสผ่าน)
 // FR-PROF-02: ดู/แก้ไขที่อยู่สำหรับติดต่อ/จัดส่ง (ชื่อ ที่อยู่ เบอร์โทร)
 // FR-PROF-03: แสดงคะแนนความน่าเชื่อถือปัจจุบันของผู้ใช้
@@ -12,10 +12,14 @@ import api from "../services/api";
 import { resolveBackendAssetUrl } from "../services/backendAssets";
 import { useAuthStore } from "../stores/auth";
 import StatusBadge from "../components/StatusBadge.vue";
+import UserAvatar from "../components/UserAvatar.vue";
+import AppTopBar from "../components/AppTopBar.vue";
+import AppRoleDrawer from "../components/AppRoleDrawer.vue";
 
 const auth = useAuthStore();
 const router = useRouter();
 const loading = ref(true);
+const drawerOpen = ref(false);
 const errorMsg = ref("");
 
 // ปุ่ม "หน้าแรก" ใน bottom nav ต้องพากลับ dashboard ของ role ปัจจุบัน ไม่ผูกตายตัวกับ role ใดรole หนึ่ง
@@ -29,6 +33,7 @@ function logout() {
 /* ---------- รูปโปรไฟล์ ---------- */
 const avatarInput = ref(null);
 const avatarPreview = ref(null);
+const avatarImageFailed = ref(false);
 const uploadingAvatar = ref(false);
 
 function pickAvatar() {
@@ -40,7 +45,7 @@ async function onAvatarChange(e) {
 
   // แสดง preview ทันทีระหว่างอัปโหลด
   const reader = new FileReader();
-  reader.onload = () => (avatarPreview.value = reader.result);
+  reader.onload = () => { avatarPreview.value = reader.result; avatarImageFailed.value = false; };
   reader.readAsDataURL(file);
 
   const formData = new FormData();
@@ -52,6 +57,7 @@ async function onAvatarChange(e) {
       headers: { "Content-Type": "multipart/form-data" },
     });
     avatarPreview.value = resolveUploadUrl(data.avatarUrl);
+    avatarImageFailed.value = false;
     auth.updateUser({ ...auth.user, avatarUrl: data.avatarUrl });
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "อัปโหลดรูปไม่สำเร็จ";
@@ -225,6 +231,7 @@ function applyUserToProfile(user) {
     phoneNumber: user.contactAddress?.phone || user.phone || "",
   };
   if (user.avatarUrl) avatarPreview.value = resolveUploadUrl(user.avatarUrl);
+  avatarImageFailed.value = false;
 }
 
 onMounted(async () => {
@@ -245,18 +252,8 @@ onMounted(async () => {
 <template>
   <div class="page">
     <!-- แถบด้านบน -->
-    <header class="topbar">
-      <button class="icon-btn" aria-label="เปิดเมนู">
-        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
-      </button>
-      <div class="brand">
-        <span class="brand-icon">👥</span>
-        <span class="brand-name">JangDi</span>
-      </div>
-      <RouterLink to="/profile" class="avatar-btn" aria-label="โปรไฟล์ของฉัน">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-      </RouterLink>
-    </header>
+    <AppTopBar role-label="" @menu="drawerOpen = true" />
+    <AppRoleDrawer v-model="drawerOpen" />
 
     <main class="content">
       <h1 class="page-title">Manage Profile</h1>
@@ -264,7 +261,7 @@ onMounted(async () => {
       <!-- รูปโปรไฟล์ -->
       <div class="avatar-section">
         <button class="avatar-large" @click="pickAvatar" aria-label="เปลี่ยนรูปโปรไฟล์">
-          <img v-if="avatarPreview" :src="avatarPreview" alt="" />
+          <img v-if="avatarPreview && !avatarImageFailed" :src="avatarPreview" alt="" @error="avatarImageFailed = true" />
           <svg v-else viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
         </button>
         <input ref="avatarInput" type="file" accept="image/*" class="hidden-input" @change="onAvatarChange" />
@@ -590,3 +587,5 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   display: flex; align-items: center; justify-content: center; padding: 0 3px;
 }
 </style>
+
+

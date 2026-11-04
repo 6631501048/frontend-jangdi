@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-JOB-01/08, FR-TRACK-02/03/04, FR-SOS-01, FR-JOB-07: รายละเอียดงานของ Hirer ปรับเนื้อหาตามสถานะ
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -100,11 +100,11 @@ async function loadJob() {
       to: { label: data.toText || "-" },
       applicants: applicants.value,
       timelineEvents: events,
-      cancellation: data.status === "cancelled" ? { cancelledBy: "Hirer", reason: data.cancelReason || "Not specified", at: data.cancelledAt } : null,
-      statusLabel: ({ assigned: "Worker selected", in_progress: "In Progress", awaiting_confirmation: "Waiting for your confirmation", completed: "Completed", cancelled: "Cancelled" })[data.status] || data.status,
+      cancellation: data.status === "cancelled" ? { cancelledBy: "ผู้ว่าจ้าง", reason: data.cancelReason || "ไม่ได้ระบุเหตุผล", at: data.cancelledAt } : null,
+      statusLabel: ({ pending_review: "รอตรวจสอบ", rejected: "ถูกปฏิเสธ", waiting: "เปิดรับสมัคร", assigned: "เลือกผู้รับจ้างแล้ว", in_progress: "กำลังดำเนินงาน", awaiting_confirmation: "รอคุณยืนยันงาน", completed: "เสร็จสิ้น", cancelled: "ยกเลิก" })[data.status] || data.status,
     };
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "Unable to load job details.";
+    errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
   } finally {
     loading.value = false;
   }
@@ -124,13 +124,13 @@ onUnmounted(() => {
 
 async function cancelJob() {
   if (!canCancelJob.value || cancellingJob.value) return;
-  const reason = window.prompt("เหตุผลที่ต้องการยกเลิกประกาศงาน (งานที่ยังไม่เลือก Worker เท่านั้น):");
+  const reason = window.prompt("ระบุเหตุผลที่ต้องการยกเลิกประกาศงาน (ยกเลิกได้ก่อนเลือกผู้รับจ้าง):");
   if (reason === null) return;
   if (!reason.trim()) {
     errorMsg.value = "กรุณาระบุเหตุผลในการยกเลิก";
     return;
   }
-  if (!window.confirm("ต้องการยกเลิกประกาศงานนี้ใช่หรือไม่?")) return;
+  if (!window.confirm("ยืนยันยกเลิกประกาศงานนี้หรือไม่?")) return;
   cancellingJob.value = true;
   try {
     await api.post(`/jobs/${job.value._id}/cancel`, { reason: reason.trim() });
@@ -157,7 +157,7 @@ function formatStatusTime(value) {
 const progressSteps = computed(() => {
   const currentStep = ({ assigned: 0, in_progress: 1, awaiting_confirmation: 2, completed: 3 })[job.value?.status] ?? -1;
   const statuses = ["assigned", "in_progress", "awaiting_confirmation", "completed"];
-  return ["Assigned", "In Progress", "Awaiting Confirmation", "Completed"].map((label, index) => ({
+  return ["เลือกผู้รับจ้างแล้ว", "กำลังดำเนินงาน", "รอยืนยันงาน", "เสร็จสิ้น"].map((label, index) => ({
     label,
     done: currentStep > index,
     current: currentStep === index,
@@ -174,10 +174,10 @@ async function confirmCompletion() {
   completionError.value = "";
   try {
     const { data } = await api.post(`/jobs/${job.value._id}/confirm-completion`);
-    job.value = { ...job.value, ...data.job, statusLabel: "Completed" };
+    job.value = { ...job.value, ...data.job, statusLabel: "เสร็จสิ้น" };
     await loadJob();
   } catch (err) {
-    completionError.value = err.response?.data?.message || "Unable to confirm job completion.";
+    completionError.value = err.response?.data?.message || "ยืนยันปิดงานไม่สำเร็จ กรุณาลองใหม่";
   } finally {
     confirmingCompletion.value = false;
   }
@@ -205,10 +205,10 @@ async function confirmCompletion() {
       </div>
 
       <dl class="rows">
-        <div class="row"><dt>Details</dt><dd>{{ job.description }}</dd></div>
+        <div class="row"><dt>รายละเอียด</dt><dd>{{ job.description || "ไม่ได้ระบุรายละเอียด" }}</dd></div>
         <div class="row"><dt>Time</dt><dd>{{ job.durationLabel }}</dd></div>
-        <div class="row"><dt>Worker Fee</dt><dd>{{ Number(job.price || 0).toFixed(2) }} Baht</dd></div>
-        <div v-if="job.serviceFee" class="row"><dt>Additional Service Fee</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} Baht</dd></div>
+        <div class="row"><dt>ค่าจ้างผู้รับจ้าง</dt><dd>{{ Number(job.price || 0).toFixed(2) }} บาท</dd></div>
+        <div v-if="job.serviceFee" class="row"><dt>ค่าบริการเพิ่มเติม</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} บาท</dd></div>
         <div class="row"><dt>ค่าบริการแพลตฟอร์ม {{mockPayment?.platformFeePercent ?? feePercent ?? '—'}}%</dt><dd>{{job.transactionFee == null ? 'รอคำนวณ' : job.transactionFee.toFixed(2)+' บาท'}}</dd></div>
         <div class="row total"><dt>ยอดรวม</dt><dd>{{job.total == null ? 'รอคำนวณ' : job.total+' บาท'}}</dd></div>
       </dl>
@@ -216,25 +216,25 @@ async function confirmCompletion() {
       <div class="locations">
         <div class="loc">
           <span class="pin">📍</span>
-          <div><span class="loc-label">From</span><br />{{ job.from.label }}</div>
+          <div><span class="loc-label">จาก</span><br />{{ job.from.label }}</div>
         </div>
         <div class="loc">
           <span class="pin">🏁</span>
-          <div><span class="loc-label">To</span><br />{{ job.to.label }}</div>
+          <div><span class="loc-label">ถึง</span><br />{{ job.to.label }}</div>
         </div>
       </div>
 
       <div class="notes">
-        <span class="loc-label">Additional Notes (Optional)</span>
+        <span class="loc-label">หมายเหตุเพิ่มเติม (ไม่บังคับ)</span>
         <p>{{ job.notes || "-" }}</p>
       </div>
 
       <button v-if="canCancelJob" class="btn danger" :disabled="cancellingJob" @click="cancelJob">
-        {{ cancellingJob ? "Cancelling..." : "Cancel Job" }}
+        {{ cancellingJob ? "Cancelling..." : "ยกเลิกประกาศงาน" }}
       </button>
       <!-- FR-JOB-08 / FR-MATCH-03: ยังไม่เลือกช่าง ให้ดูผู้สมัครได้ -->
       <button v-if="job.status === 'waiting'" class="btn primary" @click="goApplicants">
-        View Applicants ({{ job.applicants.length }})
+        ดูผู้สมัคร ({{ job.applicants.length }})
       </button>
 
       <!-- FR-TRACK-01/02/03, FR-SOS-01: งานกำลังดำเนินการ -->
@@ -246,16 +246,16 @@ async function confirmCompletion() {
         <button type="button" class="btn primary" @click="goMockPayment">ดูการชำระเงินและสลิปจำลอง</button>
       </div>
       <template v-if="['assigned', 'in_progress', 'awaiting_confirmation', 'completed'].includes(job.status)">
-        <h2 class="section-title">Contact</h2>
+        <h2 class="section-title">ช่องทางติดต่อ</h2>
         <div class="contact-row">
           <a v-if="workerProfile?.phone" class="contact-btn" :href="`tel:${workerProfile.phone}`">
-            &#128222; <span>{{ workerProfile.phone }}<br /><small>Phone call</small></span>
+            &#128222; <span>{{ workerProfile.phone }}<br /><small>โทรศัพท์</small></span>
           </a>
-          <div v-else class="contact-btn unavailable">&#128222; <span>Phone unavailable<br /><small>Not provided in profile</small></span></div>
+          <div v-else class="contact-btn unavailable">&#128222; <span>ไม่มีเบอร์โทรศัพท์<br /><small>ไม่ได้ระบุในโปรไฟล์</small></span></div>
           <a v-if="workerProfile?.lineId" class="contact-btn" :href="`https://line.me/R/ti/p/~${encodeURIComponent(workerProfile.lineId)}`" target="_blank" rel="noopener noreferrer">
             &#128172; <span>@{{ workerProfile.lineId }}<br /><small>LINE ID</small></span>
           </a>
-          <div v-else class="contact-btn unavailable">&#128172; <span>LINE ID unavailable<br /><small>Not provided in profile</small></span></div>
+          <div v-else class="contact-btn unavailable">&#128172; <span>ไม่มี LINE ID<br /><small>ไม่ได้ระบุในโปรไฟล์</small></span></div>
         </div>
 
         <ol class="timeline">
@@ -264,10 +264,10 @@ async function confirmCompletion() {
             <div>
               <div class="t-label">{{ step.label }}</div>
               <div v-if="step.timestamp" class="t-time">{{ step.timestamp }}</div>
-              <div v-else-if="step.current && step.label === 'Completed'" class="t-time">Confirmed by Hirer</div>
-              <div v-else-if="step.current && step.label === 'Assigned'" class="t-time">Worker has been selected</div>
-              <div v-else-if="step.current && step.label === 'In Progress'" class="t-time">Worker is doing the job</div>
-              <div v-else-if="step.current && step.label === 'Awaiting Confirmation'" class="t-time">Completion proof submitted, waiting for your approval</div>
+              <div v-else-if="step.current && step.label === 'เสร็จสิ้น'" class="t-time">ผู้ว่าจ้างยืนยันแล้ว</div>
+              <div v-else-if="step.current && step.label === 'เลือกผู้รับจ้างแล้ว'" class="t-time">เลือกผู้รับจ้างแล้ว</div>
+              <div v-else-if="step.current && step.label === 'กำลังดำเนินงาน'" class="t-time">ผู้รับจ้างกำลังทำงาน</div>
+              <div v-else-if="step.current && step.label === 'รอยืนยันงาน'" class="t-time">ส่งหลักฐานแล้ว รอคุณตรวจสอบ</div>
             </div>
           </li>
         </ol>
@@ -293,7 +293,7 @@ async function confirmCompletion() {
       </template>
 
       <template v-if="job.status === 'awaiting_confirmation'">
-        <p class="proof-note">Please review the photo and make sure the work was delivered before confirming.</p>
+        <p class="proof-note">กรุณาตรวจรูปและยืนยันเมื่องานส่งมอบเรียบร้อยแล้ว</p>
         <p v-if="completionError" class="completion-error" role="alert">{{ completionError }}</p>
         <button class="btn primary" :disabled="confirmingCompletion || !proofObjectUrl || mockPayment?.status !== 'held'" @click="confirmCompletion">
           {{ confirmingCompletion ? "กำลังยืนยัน…" : "ยืนยันรับงานและปิดงาน" }}
@@ -301,8 +301,8 @@ async function confirmCompletion() {
       </template>
       <div v-if="job.status === 'completed'">
         <p class="completion-success" role="status">
-          Job confirmed by Hirer<span v-if="job.completionConfirmedAt"> on {{ new Date(job.completionConfirmedAt).toLocaleString('th-TH') }}</span>.
-          Payment is recorded in DEMO mode; no real transfer occurred.
+          ผู้ว่าจ้างยืนยันปิดงานแล้ว<span v-if="job.completionConfirmedAt"> เมื่อ {{ new Date(job.completionConfirmedAt).toLocaleString('th-TH') }}</span>.
+          บันทึกการชำระเงินในโหมดทดสอบ ไม่มีการโอนเงินจริง
         </p>
         <div class="actions">
           <button class="btn primary" @click="goReview">ให้ดาวและรีวิว</button>
@@ -312,19 +312,19 @@ async function confirmCompletion() {
 
       <!-- FR-JOB-07: รายละเอียดการยกเลิก -->
       <template v-if="job.status === 'cancelled' && job.cancellation">
-        <h2 class="section-title">Cancellation Details</h2>
+        <h2 class="section-title">รายละเอียดการยกเลิก</h2>
         <dl class="rows">
-          <div class="row"><dt>Cancelled By</dt><dd>{{ job.cancellation.cancelledBy }}</dd></div>
-          <div class="row"><dt>Reason</dt><dd>{{ job.cancellation.reason }}</dd></div>
+          <div class="row"><dt>ผู้ยกเลิก</dt><dd>{{ job.cancellation.cancelledBy }}</dd></div>
+          <div class="row"><dt>เหตุผล</dt><dd>{{ job.cancellation.reason }}</dd></div>
         </dl>
-        <button class="btn primary" @click="router.push({ name: 'hirer-my-jobs' })">Back to My Jobs</button>
+        <button class="btn primary" @click="router.push({ name: 'hirer-my-jobs' })">กลับไปงานของฉัน</button>
       </template>
     </section>
   </main>
   <main v-else class="job-detail">
     <AppHeader title="รายละเอียดงาน" />
     <p v-if="loading" class="placeholder">กำลังโหลดรายละเอียดงาน...</p>
-    <p v-else class="placeholder" role="alert">{{ errorMsg || "Job not found." }}</p>
+    <p v-else class="placeholder" role="alert">{{ errorMsg || "ไม่พบงานนี้" }}</p>
   </main>
 </template>
 
@@ -383,3 +383,5 @@ async function confirmCompletion() {
 </style>
 
 <style scoped>.refund-link{display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:12px}</style>
+
+

@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-SERV-01: สร้าง Service Post โดยระบุหมวดหมู่ ชื่อ คำอธิบาย ค่าบริการ
 //             จำนวนออร์เดอร์สูงสุดที่รับพร้อมกันได้ ช่วงเวลาที่พร้อมให้บริการ และรัศมีการให้บริการ
 // FR-JOB-02 (รูปแบบเดียวกันฝั่งผู้รับจ้าง): นำทางผ่านขั้นตอน 3 ขั้นตอน (1) หมวดหมู่ (2) รายละเอียด (3) ตรวจสอบก่อนส่ง
@@ -187,7 +187,7 @@ function backToHome() {
 
           <!-- ขั้นตอน 1: หมวดหมู่ -->
           <section v-if="step === 1" class="step-body">
-            <h2 class="section-title">Select Job Category</h2>
+            <h2 class="section-title">Select หมวดหมู่บริการ</h2>
             <div class="category-grid">
               <button
                 v-for="c in categories"
@@ -206,9 +206,9 @@ function backToHome() {
 
           <!-- ขั้นตอน 2: รายละเอียดบริการ -->
           <section v-else-if="step === 2" class="step-body">
-            <h2 class="section-title">Details of Service</h2>
+            <h2 class="section-title">รายละเอียดบริการ</h2>
 
-            <label class="field-label">Name / Service</label>
+            <label class="field-label">ชื่อบริการ</label>
             <input v-model="form.name" type="text" placeholder="เช่น รับไปซื้อของ / รับส่งพัสดุ" />
 
             <label class="field-label">Details</label>
@@ -216,17 +216,17 @@ function backToHome() {
 
             <div class="field-row">
               <div class="field-col">
-                <label class="field-label">Service fee / Order</label>
+                <label class="field-label">ค่าบริการต่อรายการ</label>
                 <div class="input-suffix">
                   <input v-model.number="form.feePerOrder" type="number" min="0" placeholder="0" />
-                  <span class="suffix">Baht</span>
+                  <span class="suffix">บาท</span>
                 </div>
               </div>
               <div class="field-col">
-                <label class="field-label">Maximum Orders</label>
+                <label class="field-label">จำนวนรายการสูงสุด</label>
                 <div class="input-suffix">
                   <input v-model.number="form.maxOrders" type="number" min="1" placeholder="1" />
-                  <span class="suffix">Order</span>
+                  <span class="suffix">รายการ</span>
                 </div>
               </div>
             </div>
@@ -240,7 +240,7 @@ function backToHome() {
                 </select>
               </div>
               <div class="field-col">
-                <label class="field-label">Service Radius</label>
+                <label class="field-label">รัศมีให้บริการ</label>
                 <select v-model="form.radius">
                   <option value="" disabled>เลือกรัศมี</option>
                   <option v-for="r in radiusOptions" :key="r" :value="r">{{ r }}</option>
@@ -248,20 +248,20 @@ function backToHome() {
               </div>
             </div>
 
-            <label class="field-label">Additional Notes (Optional)</label>
+            <label class="field-label">หมายเหตุเพิ่มเติม (ไม่บังคับ)</label>
             <textarea v-model="form.notes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
           </section>
 
           <!-- ขั้นตอน 3: ตรวจสอบก่อนส่ง -->
           <section v-else class="step-body">
-            <h2 class="section-title">Review Details</h2>
+            <h2 class="section-title">ตรวจสอบรายละเอียด</h2>
             <dl class="review-list">
               <div class="review-row">
-                <dt>Job Category</dt>
+                <dt>หมวดหมู่บริการ</dt>
                 <dd>{{ categoryLabel }}</dd>
               </div>
               <div class="review-row">
-                <dt>Name / Service</dt>
+                <dt>ชื่อบริการ</dt>
                 <dd>{{ form.name || "-" }}</dd>
               </div>
               <div class="review-row">
@@ -269,11 +269,11 @@ function backToHome() {
                 <dd>{{ form.details || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Service fee / Order</dt>
-                <dd>{{ form.feePerOrder !== null && form.feePerOrder !== "" ? `${form.feePerOrder} Baht` : "-" }}</dd>
+                <dt>ค่าบริการต่อรายการ</dt>
+                <dd>{{ form.feePerOrder !== null && form.feePerOrder !== "" ? `${form.feePerOrder} บาท` : "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Maximum Orders</dt>
+                <dt>จำนวนรายการสูงสุด</dt>
                 <dd>{{ form.maxOrders || "-" }}</dd>
               </div>
               <div class="review-row">
@@ -281,11 +281,11 @@ function backToHome() {
                 <dd>{{ form.time || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Service Radius</dt>
+                <dt>รัศมีให้บริการ</dt>
                 <dd>{{ form.radius || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Additional Notes (Optional)</dt>
+                <dt>หมายเหตุเพิ่มเติม (ไม่บังคับ)</dt>
                 <dd>{{ form.notes || "-" }}</dd>
               </div>
             </dl>
@@ -293,13 +293,13 @@ function backToHome() {
 
           <!-- ปุ่มควบคุมขั้นตอน -->
           <div class="actions">
-            <button class="btn-muted" @click="back">Previous</button>
+            <button class="btn-muted" @click="back">ย้อนกลับ</button>
             <button
               v-if="step < 3"
               class="btn-primary"
               :disabled="(step === 1 && !step1Valid) || (step === 2 && !step2Valid)"
               @click="next"
-            >Next</button>
+            >ถัดไป</button>
             <button v-else class="btn-primary" :disabled="submitting" @click="submit">
               {{ submitting ? "Posting..." : "Confirm" }}
             </button>

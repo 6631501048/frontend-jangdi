@@ -91,7 +91,7 @@ function useCurrentLocation() {
   locating.value = true;
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => { location.value = { lat: coords.latitude, lng: coords.longitude }; locating.value = false; },
-    () => { errorMsg.value = "Unable to get your location. Please allow location access and try again."; locating.value = false; },
+    () => { errorMsg.value = "ระบุตำแหน่งไม่สำเร็จ กรุณาอนุญาตให้เข้าถึงตำแหน่งแล้วลองอีกครั้ง"; locating.value = false; },
     { enableHighAccuracy: true, timeout: 10000 }
   );
 }
@@ -101,7 +101,7 @@ async function submit() {
   // TODO FR-JOB-01: POST /api/jobs { category, name(title), details(description), serviceFee(price), from, to, startTime, endTime, notes }
   // TODO FR-JOB-03/04/05: backend กรองเนื้อหาอัตโนมัติก่อน แล้วส่งต่อเข้าคิวรอ Admin อนุมัติ
   if (location.value.lat === null || location.value.lng === null) {
-    errorMsg.value = "Please select your current location before posting.";
+    errorMsg.value = "กรุณาระบุตำแหน่งก่อนประกาศงาน";
     return;
   }
   submitting.value = true;
@@ -116,10 +116,10 @@ async function submit() {
       durationStart: form.value.durationStart ? new Date(form.value.durationStart).toISOString() : null,
       durationEnd: form.value.durationEnd ? new Date(form.value.durationEnd).toISOString() : null,
     });
-    rejectionReason.value = data.job?.status === "rejected" ? data.job.rejectionReason || "This post was rejected during review." : "";
+    rejectionReason.value = data.job?.status === "rejected" ? data.job.rejectionReason || "ประกาศนี้ไม่ผ่านการตรวจสอบ" : "";
     submitted.value = true;
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "Unable to post this job. Please try again.";
+    errorMsg.value = err.response?.data?.message || "ประกาศงานไม่สำเร็จ กรุณาลองใหม่";
   } finally {
     submitting.value = false;
   }
@@ -143,7 +143,7 @@ function close() {
       <button class="icon-btn" aria-label="ปิด" @click="close">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
       </button>
-      <h1 class="title">Post Hirer</h1>
+      <h1 class="title">ประกาศงาน</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -155,12 +155,12 @@ function close() {
           <div class="check-circle">
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
-          <h2 class="success-title">Post Success!</h2>
-          <p class="success-sub">Your service has been posted.</p>
+          <h2 class="success-title">ประกาศงานสำเร็จ</h2>
+          <p class="success-sub">ส่งประกาศงานแล้ว</p>
           <p v-if="rejectionReason" class="error-msg">{{ rejectionReason }}</p>
           <div class="success-actions">
-            <button class="btn-primary" @click="viewMyPosts">View My Posts</button>
-            <button class="btn-muted" @click="backToHome">Back to Home</button>
+            <button class="btn-primary" @click="viewMyPosts">ดูประกาศของฉัน</button>
+            <button class="btn-muted" @click="backToHome">กลับหน้าหลัก</button>
           </div>
         </section>
 
@@ -177,7 +177,7 @@ function close() {
 
           <!-- ขั้นตอน 1: หมวดหมู่ -->
           <section v-if="step === 1" class="step-body">
-            <h2 class="section-title">Select Job Category</h2>
+            <h2 class="section-title">เลือกหมวดหมู่งาน</h2>
             <div class="category-grid">
               <button
                 v-for="c in categories"
@@ -196,16 +196,16 @@ function close() {
 
           <!-- ขั้นตอน 2: รายละเอียดงาน + ตำแหน่งที่ตั้ง -->
           <section v-else-if="step === 2" class="step-body">
-            <h2 class="section-title">Work Details</h2>
+            <h2 class="section-title">รายละเอียดงาน</h2>
             <div class="selected-category">
               <div>
-                <span class="selected-category-label">Selected Job Category</span>
+                <span class="selected-category-label">Selected หมวดหมู่งาน</span>
                 <strong>{{ categoryLabel }}</strong>
               </div>
-              <button type="button" class="change-category-btn" @click="step = 1">Change Category</button>
+              <button type="button" class="change-category-btn" @click="step = 1">เปลี่ยนหมวดหมู่</button>
             </div>
 
-            <label class="field-label">Name / Service</label>
+            <label class="field-label">ชื่องาน / บริการ</label>
             <input v-model="form.name" type="text" placeholder="เช่น รับส่งพัสดุ / ซื้อของฝาก" />
 
             <label class="field-label">Details</label>
@@ -213,15 +213,15 @@ function close() {
 
             <div class="field-row">
               <div class="field-col">
-                <label class="field-label">Worker Fee</label>
+                <label class="field-label">ค่าจ้างผู้รับจ้าง</label>
                 <div class="input-suffix">
                   <input v-model.number="form.serviceFee" type="number" min="40" placeholder="40" />
-                  <span class="suffix">Baht</span>
+                  <span class="suffix">บาท</span>
                 </div>
-                <small class="price-hint">Minimum price: 40 Baht</small>
+                <small class="price-hint">ค่าจ้างขั้นต่ำ 40 บาท</small>
                 <div class="price-breakdown" aria-live="polite">
                   <div><span>ค่าบริการแพลตฟอร์ม ({{feePercent ?? '—'}}%)</span><strong>{{feePercent == null ? 'รอคำนวณ' : transactionFee.toFixed(2)+' บาท'}}</strong></div>
-                  <div class="price-total"><span>Total Payment</span><strong>{{ totalPayment.toFixed(2) }} Baht</strong></div>
+                  <div class="price-total"><span>ยอดชำระรวม</span><strong>{{ totalPayment.toFixed(2) }} บาท</strong></div>
                 </div>
               </div>
               <div class="field-col">
@@ -248,59 +248,59 @@ function close() {
               <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
             </div>
 
-            <label class="field-label">Duration window (Optional)</label>
+            <label class="field-label">ช่วงเวลาทำงาน (ไม่บังคับ)</label>
             <div class="time-range">
               <input v-model="form.durationStart" type="datetime-local" aria-label="Duration start" />
               <span class="dash">-</span>
               <input v-model="form.durationEnd" type="datetime-local" aria-label="Duration end" />
             </div>
 
-            <label class="field-label">Additional Notes (Optional)</label>
+            <label class="field-label">หมายเหตุเพิ่มเติม (ไม่บังคับ)</label>
             <textarea v-model="form.notes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
           </section>
 
           <!-- ขั้นตอน 3: ตรวจสอบก่อนส่ง -->
           <section v-else class="step-body">
-            <h2 class="section-title">Review Details</h2>
+            <h2 class="section-title">ตรวจสอบรายละเอียด</h2>
             <dl class="review-list">
               <div class="review-row">
-                <dt>Job Category</dt>
+                <dt>หมวดหมู่งาน</dt>
                 <dd>{{ categoryLabel }}</dd>
               </div>
               <div class="review-row">
-                <dt>Name / Service</dt>
+                <dt>ชื่องาน / บริการ</dt>
                 <dd>{{ form.name || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Details</dt>
+                <dt>รายละเอียด</dt>
                 <dd>{{ form.details || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Worker Fee</dt>
-                <dd>{{ form.serviceFee !== null && form.serviceFee !== "" ? `${form.serviceFee} Baht` : "-" }}</dd>
+                <dt>ค่าจ้างผู้รับจ้าง</dt>
+                <dd>{{ form.serviceFee !== null && form.serviceFee !== "" ? `${form.serviceFee} บาท` : "-" }}</dd>
               </div>
               <div class="review-row">
                 <dt>ค่าบริการแพลตฟอร์ม ({{feePercent ?? '—'}}%)</dt>
-                <dd>{{ transactionFee.toFixed(2) }} Baht</dd>
+                <dd>{{ transactionFee.toFixed(2) }} บาท</dd>
               </div>
               <div class="review-row review-total">
-                <dt>Total Payment</dt>
-                <dd>{{ totalPayment.toFixed(2) }} Baht</dd>
+                <dt>ยอดชำระรวม</dt>
+                <dd>{{ totalPayment.toFixed(2) }} บาท</dd>
               </div>
               <div class="review-row">
                 <dt>Duration window</dt>
                 <dd>{{ conditionLabel }}</dd>
               </div>
               <div class="review-row">
-                <dt>From</dt>
+                <dt>จาก</dt>
                 <dd>{{ form.from || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>To</dt>
+                <dt>ถึง</dt>
                 <dd>{{ form.to || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Additional Notes (Optional)</dt>
+                <dt>หมายเหตุเพิ่มเติม (ไม่บังคับ)</dt>
                 <dd>{{ form.notes || "-" }}</dd>
               </div>
             </dl>
@@ -447,3 +447,4 @@ textarea { resize: vertical; }
 .success-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; }
 .success-actions .btn-primary, .success-actions .btn-muted { width: 100%; }
 </style>
+

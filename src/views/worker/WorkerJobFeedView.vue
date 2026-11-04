@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-BROWSE-01: ฟีดที่เลื่อนดูได้ของ "ประกาศงาน" (Job, จากผู้ว่าจ้าง) + "Service Post" (จากผู้รับจ้าง)
 // FR-BROWSE-02: กรองตามประเภทประกาศ (ทั้งหมด/ผู้ว่าจ้าง/ผู้รับจ้าง) และตามหมวดหมู่
 // FR-BROWSE-03/04: ดูรายละเอียดก่อนสมัคร + สมัครงาน (เฉพาะประกาศงานแบบ Job เข้าคิว JOB_WAITING)
@@ -7,8 +7,13 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
 import api from "../../services/api";
+import { useNotificationsStore } from "../../stores/notifications";
+import UserAvatar from "../../components/UserAvatar.vue";
+import AppTopBar from "../../components/AppTopBar.vue";
+import AppRoleDrawer from "../../components/AppRoleDrawer.vue";
 
 const auth = useAuthStore();
+const notifications = useNotificationsStore();
 const router = useRouter();
 
 /* ---------- ส่วนบน: เมนู/โปรไฟล์ ---------- */
@@ -161,6 +166,7 @@ function mapJob(job) {
     type: "hirer",
     category: job.category,
     name: job.hirer?.fullName || "ผู้ว่าจ้าง",
+    avatarUrl: job.hirer?.avatarUrl,
     postedAt: new Date(job.createdAt),
     description: job.description || job.title || "-",
     price: Number(job.price || 0) + Number(job.deliveryFee || 0),
@@ -175,6 +181,7 @@ function mapServicePost(post) {
     type: "worker",
     category: post.category,
     name: post.worker?.fullName || "ผู้รับจ้าง",
+    avatarUrl: post.worker?.avatarUrl,
     postedAt: new Date(post.createdAt),
     description: post.description || post.title || "-",
     price: Number(post.fee || 0),
@@ -202,6 +209,7 @@ async function loadFeed() {
 }
 onMounted(loadFeed);
 watch([activeCategory, searchQuery], loadFeed);
+watch([activeCategory, activeTab, searchQuery], () => { visiblePostCount.value = 10; });
 
 const filteredPosts = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
@@ -213,6 +221,10 @@ const filteredPosts = computed(() => {
     return matchesTab && matchesCategory && matchesSearch;
   });
 });
+
+const visiblePostCount = ref(10);
+const visiblePosts = computed(() => filteredPosts.value.slice(0, visiblePostCount.value));
+function showMorePosts() { visiblePostCount.value += 10; }
 
 function timeAgo(date) {
   const diffMin = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
@@ -239,7 +251,7 @@ async function applyToJob(post) {
   } catch (err) {
     applyErrors.value = {
       ...applyErrors.value,
-      [post.id]: err.response?.data?.message || "Could not apply for this job. Please try again.",
+      [post.id]: err.response?.data?.message || "สมัครงานไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
     };
   } finally {
     const nextApplyingJobIds = new Set(applyingJobIds.value);
@@ -248,56 +260,18 @@ async function applyToJob(post) {
   }
 }
 
-const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/notifications/unread-count
+const unreadCount = computed(() => notifications.unreadCount);
 </script>
 
 <template>
   <div class="page">
     <!-- แถบด้านบน -->
-    <header class="topbar">
-      <button class="icon-btn" aria-label="เปิดเมนู" @click="drawerOpen = true">
-        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
-      </button>
-      <div class="brand">
-        <span class="brand-icon">👥</span>
-        <span class="brand-name">JangDi</span>
-        <span class="role-pill" aria-label="บทบาทปัจจุบัน">🧰 Worker</span>
-      </div>
-      <RouterLink to="/profile" class="avatar-btn" aria-label="โปรไฟล์ของฉัน">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-      </RouterLink>
-    </header>
-
-    <!-- Drawer เมนู (ตาม Frame 889) -->
-    <Transition name="fade">
-      <div v-if="drawerOpen" class="backdrop" @click="drawerOpen = false"></div>
-    </Transition>
-    <Transition name="slide">
-      <nav v-if="drawerOpen" class="drawer">
-        <div class="drawer-brand">
-          <span class="brand-icon">👥</span>
-          <span class="brand-name">JangDi</span>
-        </div>
-        <div class="drawer-role">
-          กำลังใช้งานในบทบาท <strong>ผู้รับจ้าง (Worker)</strong>
-        </div>
-        <RouterLink
-          v-for="item in drawerItems"
-          :key="item.label"
-          :to="item.to"
-          class="drawer-link"
-          @click="drawerOpen = false"
-        >{{ item.label }}</RouterLink>
-        <button class="drawer-link" :disabled="switching" @click="switchRole">
-          {{ switching ? "กำลังสลับบทบาท…" : "สลับเป็นผู้ว่าจ้าง (Hirer)" }}
-        </button>
-        <button class="drawer-link logout" @click="logout">ออกจากระบบ</button>
-      </nav>
-    </Transition>
+    <AppTopBar role-label="ผู้รับจ้าง" @menu="drawerOpen = true" />
+    <AppRoleDrawer v-model="drawerOpen" />
 
     <!-- ทักทาย + ค้นหา -->
     <div class="search-row">
-      <p class="greeting">Hello! {{ auth.user?.fullName || "Thanawit" }}</p>
+      <p class="greeting">สวัสดี {{ auth.user?.fullName || "ผู้รับจ้าง" }}</p>
       <div class="search-bar">
         <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
         <input v-model="searchQuery" type="search" placeholder="ค้นหา" />
@@ -338,10 +312,8 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
     <section class="feed-list">
       <p v-if="loading" class="empty">กำลังโหลดประกาศ...</p>
       <p v-else-if="errorMsg" class="empty error-text">{{ errorMsg }}</p>
-      <article v-for="post in filteredPosts" :key="post.id" class="card">
-        <div class="card-avatar" aria-hidden="true">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-        </div>
+      <article v-for="post in visiblePosts" :key="post.id" class="card">
+        <div class="card-avatar"><UserAvatar :src="post.avatarUrl" :name="post.name" :label="`รูปโปรไฟล์ ${post.name}`" /></div>
         <div class="card-body">
           <div class="card-head">
             <span class="name">{{ post.name }}</span>
@@ -355,13 +327,15 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
           </div>
         </div>
         <div class="card-actions">
-          <button v-if="post.type === 'hirer'" class="btn-apply" :disabled="applyingJobIds.has(post.id) || appliedJobIds.has(post.id)" @click="applyToJob(post)">{{ appliedJobIds.has(post.id) ? "Applied" : applyingJobIds.has(post.id) ? "Applying..." : "Apply" }}</button>
+          <button v-if="post.type === 'hirer'" class="btn-apply" :disabled="applyingJobIds.has(post.id) || appliedJobIds.has(post.id)" @click="applyToJob(post)">{{ appliedJobIds.has(post.id) ? "สมัครแล้ว" : applyingJobIds.has(post.id) ? "กำลังสมัคร…" : "สมัครงาน" }}</button>
           <p v-if="applyErrors[post.id]" class="apply-error">{{ applyErrors[post.id] }}</p>
           <RouterLink v-if="post.type === 'hirer'" :to="`/worker/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
-          <span v-else class="service-post-note">Service Post</span>
+          <span v-else class="service-post-note">บริการจากผู้รับจ้าง</span>
         </div>
       </article>
 
+      <p v-if="!loading && !errorMsg && filteredPosts.length" class="results-count">แสดง {{ visiblePosts.length }} จาก {{ filteredPosts.length }} รายการ</p>
+      <button v-if="visiblePosts.length < filteredPosts.length" class="show-more" @click="showMorePosts">โหลดเพิ่ม</button>
       <p v-if="!loading && !errorMsg && !filteredPosts.length" class="empty">ไม่พบประกาศที่ตรงกับตัวกรองของคุณ</p>
     </section>
 
@@ -380,10 +354,10 @@ const unreadCount = ref(4); // TODO FR-NOTIF-03: ดึงจาก GET /api/not
         <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></svg>
         <span>หน้าแรก</span>
       </RouterLink>
-      <button class="nav-item">
+      <RouterLink to="/notifications" class="nav-item" aria-label="การแจ้งเตือน">
         <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6" /><path d="M10 21a2 2 0 004 0" /></svg>
         <span v-if="unreadCount" class="badge">{{ unreadCount }}</span>
-      </button>
+      </RouterLink>
     </footer>
   </div>
 </template>
@@ -433,7 +407,7 @@ svg {
   color: #111;
   cursor: pointer;
 }
-.avatar-btn { border: 1px solid #111; }
+.avatar-btn { border: 1px solid #111; padding: 0; cursor: pointer; flex-shrink: 0; position: relative; z-index: 11; }
 .brand { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 18px; }
 .brand-icon { font-size: 18px; }
 .brand-name { color: #111; }
@@ -642,6 +616,8 @@ svg {
 .apply-error { max-width: 180px; margin: 0; color: #e11d48; font-size: 11px; text-align: center; }
 .btn-details { background: #fff; border: 1px solid #ccc; color: #111; }
 
+.results-count { margin: 12px 16px 4px; color: #777; font-size: 12px; text-align: center; }
+.show-more { display:block; margin: 10px auto 20px; padding: 9px 18px; border: 1px solid #ddd; border-radius: 20px; background:#fff; color:#554000; cursor:pointer; }
 .empty { text-align: center; color: #888; margin-top: 40px; font-size: 14px; }
 
 /* ---------- FAB ---------- */
@@ -710,3 +686,11 @@ svg {
   padding: 0 3px;
 }
 </style>
+
+
+
+
+
+
+
+

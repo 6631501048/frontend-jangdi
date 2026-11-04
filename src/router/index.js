@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from "vue-router";
+﻿import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 
 const routes = [
@@ -13,6 +13,8 @@ const routes = [
     component: () => import("../views/auth/VerifyEmailPendingView.vue"),
     meta: { requiresAuth: true },
   },
+
+  { path: "/notifications", name: "notifications", component: () => import("../views/NotificationsView.vue"), meta: { requiresAuth: true } },
 
   // Hirer (FR-JOB-*)
   {
@@ -250,3 +252,4 @@ router.beforeEach((to) => {
 });
 
 export default router;
+

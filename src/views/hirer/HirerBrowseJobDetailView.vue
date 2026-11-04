@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 // FR-BROWSE-01: ดูรายละเอียดประกาศงาน (Job) ของผู้ว่าจ้างรายอื่นในฟีด
 // หมายเหตุ: หน้านี้เป็นแบบอ่านอย่างเดียว ไม่มีปุ่ม "สมัคร" เพราะ FR-BROWSE-04 (สมัครงาน)
 //           เป็นสิทธิ์เฉพาะของผู้รับจ้างเท่านั้น ผู้ว่าจ้างดูได้แค่ข้อมูลประกาศ
@@ -13,11 +13,11 @@ const errorMsg = ref("");
 
 function timeAgo(dateStr) {
   const diffMin = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000));
-  if (diffMin < 1) return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin < 1) return "เมื่อสักครู่";
+  if (diffMin < 60) return `${diffMin} นาทีที่แล้ว`;
   const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr}h ago`;
-  return `${Math.floor(diffHr / 24)}d ago`;
+  if (diffHr < 24) return `${diffHr} ชม.ที่แล้ว`;
+  return `${Math.floor(diffHr / 24)} วันที่แล้ว`;
 }
 
 const job = ref({
@@ -39,8 +39,8 @@ async function loadJob() {
       id: data._id,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
       postedAgo: timeAgo(data.createdAt),
-      description: data.description,
-      serviceFee: data.price,
+      description: data.description || "ไม่ได้ระบุรายละเอียด",
+      serviceFee: data.price == null ? null : Number(data.price),
       from: data.fromText || data.locationText || "-",
       to: data.toText || "-",
       duration: data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-",
@@ -65,7 +65,7 @@ function goBack() {
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="goBack">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">Details</h1>
+      <h1 class="title">รายละเอียดงาน</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -81,28 +81,28 @@ function goBack() {
           </div>
         </div>
         <div class="tags">
-          <span class="tag">฿{{ job.serviceFee }}</span>
+          <span class="tag">{{ job.serviceFee == null ? "ไม่ได้ระบุ" : `฿${job.serviceFee.toLocaleString("th-TH")}` }}</span>
           <span class="tag">{{ job.duration }}</span>
         </div>
       </div>
 
       <div class="card">
-        <p class="section-title">Work details</p>
+        <p class="section-title">ข้อมูลงาน</p>
         <dl class="detail-list">
           <div class="detail-row">
-            <dt>Service Fee</dt>
-            <dd>฿{{ job.serviceFee }}</dd>
+            <dt>ค่าจ้าง</dt>
+            <dd>{{ job.serviceFee == null ? "ไม่ได้ระบุ" : `฿${job.serviceFee.toLocaleString("th-TH")}` }}</dd>
           </div>
           <div class="detail-row">
-            <dt>From</dt>
+            <dt>จาก</dt>
             <dd>{{ job.from }}</dd>
           </div>
           <div class="detail-row">
-            <dt>To</dt>
+            <dt>ถึง</dt>
             <dd>{{ job.to }}</dd>
           </div>
           <div class="detail-row">
-            <dt>Duration</dt>
+            <dt>เวลานัดหมาย</dt>
             <dd>{{ job.duration }}</dd>
           </div>
         </dl>
