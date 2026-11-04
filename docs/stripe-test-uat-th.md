@@ -92,3 +92,54 @@ node scripts/check-stripe-test.cjs --online
 ระบบรองรับคืนเต็มจำนวนตาม flow ในแอป การคืนบางส่วน/คืนจาก Dashboard โดยข้ามการอนุมัติ และการกู้คืน refund ที่ failed/canceled ยังต้องให้ผู้ดูแลตรวจสอบ ไม่สร้าง refund ใหม่อัตโนมัติ การออกแบบการโอนเงินจริงให้ worker อยู่นอกการทดสอบนี้
 
 อ้างอิงพฤติกรรม provider: [Checkout fulfillment](https://docs.stripe.com/checkout/fulfillment.md?ui=full-page), [Refunds](https://docs.stripe.com/refunds), [Idempotent requests](https://docs.stripe.com/api/idempotent_requests)
+
+## แก้ปัญหาเปิด Checkout — 5 พฤศจิกายน 2569
+
+ตรวจบัญชีโครงการแล้วพบว่า Stripe ปฏิเสธ `payment_method_types` ขณะสร้าง Checkout จึงเปลี่ยนเป็น `allowed_payment_method_types[0]=card` ตาม [Checkout API](https://docs.stripe.com/api/checkout/sessions/create) และเปลี่ยนเวอร์ชัน idempotency key สำหรับคำขอรูปแบบใหม่ เพื่อไม่ชนกับผลคำขอเดิมที่ถูกปฏิเสธ
+
+ยืนยันด้วยการสร้าง session ของรายการ pending เดิมยอด 42 บาทสำเร็จ (`livemode=false`, `status=open`) ยังไม่กรอกบัตรหรือยืนยันชำระ และไม่ได้เปลี่ยนข้อมูล Payment ใน DB ระหว่างการตรวจนี้ Backend tests ผ่าน 121 ข้อ หลังอัปเดตโค้ดให้ restart backend แล้วเปิด Checkout ของงานเดิมอีกครั้ง ระบบจะบันทึก session เมื่อกดผ่านแอป การทดสอบนี้ยังไม่แทนการตรวจรับครบทุกกรณีในตารางด้านบน
+
+หากยังล้มเหลว backend จะแยกข้อความ key ไม่ถูกต้อง/สิทธิ์ไม่พอ/sandbox ไม่ตรง/ยอดต่ำเกินไป/วิธีชำระเงิน/การเชื่อมต่อ แทนข้อความรวมเดิม และ log เฉพาะ HTTP status, type, code, param โดยไม่แสดงข้อความดิบหรือ secret จาก Stripe
+
+## PromptPay โหมดทดสอบ — 5 พฤศจิกายน 2569
+
+เพิ่ม `allowed_payment_method_types[1]=promptpay` ร่วมกับบัตรใน Checkout โดยใช้ THB และ webhook ยืนยันยอดแบบเดิม ไม่เปลี่ยนไปใช้การแนบสลิปให้ admin อนุมัติ
+
+ตรวจ sandbox โครงการแล้ว PromptPay มี `available=true` และ preference `on` สร้าง Checkout ทดสอบที่ตอบกลับทั้ง `card` และ `promptpay` สำเร็จ และปิด session ที่ใช้ตรวจแล้วโดยไม่ชำระเงิน ผลตรวจนี้ยังไม่ยืนยันว่าผ่านการกดแสดง QR ชำระ และคืนเงินจากหน้าจอจริง
+
+### วิธีใช้
+
+1. อัปเดตโค้ด backend/frontend แล้ว restart backend เปิด `stripe listen` ตามคำสั่งเดิมในคู่มือนี้ ใช้ key และ listener ของ sandbox เดียวกัน
+2. Hirer เปิดงานที่รอชำระ → ทางเลือก “บัตร / PromptPay ผ่าน Stripe ทดสอบ” → กดชำระ แล้วเลือก PromptPay บนหน้า Stripe
+3. กรอกอีเมลทดสอบที่ทีมควบคุมได้และทำขั้นตอน QR ตามหน้าทดสอบ Stripe ไม่ใช้แอปธนาคารโอนเงินจริง สร้าง QR อย่างเดียวต้องยังไม่เปิดให้ worker เริ่มงาน
+4. หลัง Stripe ยืนยันสำเร็จให้กดตรวจสอบสถานะใน JangDi ต้องเป็น held จึงเริ่มงานได้ ไม่ใช้ URL success เป็นหลักฐานรับเงิน
+5. หากงานเดิมมี Checkout แบบบัตรอย่างเดียวที่ยัง open ระบบจะสั่ง expire ตัวเก่าก่อนสร้างตัวใหม่เพื่อเพิ่ม PromptPay ถ้า expire ไม่สำเร็จจะไม่สร้างตัวใหม่ กรณี complete จะรอผล Stripe ก่อน
+
+PromptPay ใช้ได้ตามคุณสมบัติและการเปิดช่องทางใน Stripe Dashboard ของบัญชี หากเพื่อนใช้ sandbox อื่นต้องตรวจการเปิดใช้แยก ตาม [คู่มือ PromptPay ของ Stripe](https://docs.stripe.com/payments/promptpay)
+
+### ตรวจรับเพิ่มเติม
+
+- เลือก PromptPay แล้วเห็น QR ของยอดที่ถูกต้อง ยัง pending จนกว่า Stripe ยืนยันชำระ
+- ทดลองกลับจาก QR โดยไม่ชำระ/ปล่อย QR หมดอายุ: ต้องไม่เป็น held และไม่เพิ่มยอดรับ ใช้ขั้นตอนเริ่มใหม่ที่หน้า Stripe รองรับ ส่วน Checkout ที่หมดอายุแล้วระบบสร้างใหม่เมื่อกดชำระอีกครั้ง
+- ส่ง event สำเร็จซ้ำหรือสลับลำดับกับ event ล้มเหลว/หมดอายุ ต้องไม่บันทึกเงินซ้ำหรือย้อน held เป็น pending
+- ทดลองขอคืนเงินหลังชำระด้วย PromptPay ผ่าน flow admin เดิม หาก Stripe ต้องการข้อมูลบัญชีคืนเงินให้ดำเนินการผ่านอีเมลที่ใช้ชำระ รายการจะยังไม่เป็น refunded จนกว่าผลเป็น succeeded ไม่ส่งข้อมูลบัญชีผ่านแชท
+- ตรวจบัตรว่ายังชำระได้ และตรวจรายงาน THB/ค่าบริการ/คืนเงินตามตารางหลัก
+
+Automated tests รอบนี้ผ่าน backend 124 ข้อ, frontend 21 ข้อ และ production build ผ่าน ครอบคลุมการอัปเกรด session เดิม การหยุดเมื่อ expire ไม่สำเร็จ และการไม่บันทึกเงินจาก QR/ผลที่ยังไม่ paid ยังต้องทดสอบ QR และคืนเงินครบ flow ผ่านหน้าจอจริง
+
+## จ่ายสำเร็จใน Stripe แต่ JangDi ยังรอชำระ
+
+กรณีตรวจพบวันที่ 5 พฤศจิกายน 2569: listener แสดง `payment_intent.succeeded` และ `checkout.session.completed` แต่เปิดด้วย `stripe listen` โดยไม่มี `--forward-to` จึงเห็น event โดยไม่ส่งเข้าแอป ต้องเปิด listener ด้วยคำสั่ง `--events ... --forward-to localhost:4000/api/payments/stripe/webhook` ในหัวข้อตั้งค่า ตรวจว่า secret ตรงกับ listener และ restart backend เมื่อเปลี่ยน `.env` เมื่อส่งเข้าจริงควรเห็นผล HTTP ตอบกลับจาก webhook ด้วย
+
+การเปิด listener หลังเกิด event ไปแล้วไม่ยืนยันว่าจะส่ง event เก่าให้อัตโนมัติ สำหรับการกู้คืนบนเครื่องพัฒนา มีสคริปต์ตรวจ event จริงจาก Stripe และ session ปัจจุบันก่อนส่งซ้ำไป localhost ด้วยลายเซ็นที่สร้างบนเครื่อง ห้ามใช้แทนการตั้งค่า webhook ปกติหรือเป็นหลักฐานว่า listener ส่งสำเร็จ:
+
+```powershell
+# จาก frontend: ตรวจอย่างเดียวก่อน
+node scripts/replay-stripe-test-event.cjs evt_รหัสจริงของCheckoutCompleted
+# ส่ง event เดิมเข้า local backend และตรวจสถานะใน DB
+node scripts/replay-stripe-test-event.cjs evt_รหัสจริงของCheckoutCompleted --deliver
+```
+
+สคริปต์รับเฉพาะ test Checkout ที่ paid, THB และมี client reference ตรวจยอดกับ session ปัจจุบัน ไม่สร้างรายการหรือเรียกเก็บเงินใหม่ ไม่แก้ DB โดยตรง ใช้ controller webhook เดิม และไม่อนุญาต NODE_ENV=production กรณีที่ตรวจจริงรอบนี้ ส่งผลรายการ 42 บาทได้ HTTP 200 และตรวจ DB เป็น held แล้ว ยังต้องให้ผู้ทดสอบรีเฟรชหน้าเพื่อดูผล
+
+Stripe PromptPay ยืนยันจาก webhook จึงไม่ต้องแนบรูปสลิป ส่วนปุ่มแนบรูปสลิปเป็นคนละ flow ของสลิปจำลองและใช้ข้ามการยืนยัน Stripe ไม่ได้

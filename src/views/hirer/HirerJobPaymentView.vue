@@ -39,7 +39,14 @@ onMounted(load);
       <section v-if="payment.status==='refund_pending'" class="card"><h2>อนุมัติคืนเงินแล้ว รอสลิปคืนเงิน</h2><p>ผู้ดูแลจะบันทึกคืนเงินจำลองเต็มยอด ฿ {{money(payment.refundAmount)}}</p></section>
       <section v-if="payment.hasPayoutSlip" class="card"><h2>สลิปจ่ายค่าจ้างจำลอง</h2><p>{{dateTime(payment.paidAt)}}</p><PaymentSlipImage :payment-id="payment.id" direction="payout" /></section>
       <section v-if="payment.hasRefundSlip" class="card"><h2>สลิปคืนเงินจำลอง</h2><PaymentSlipImage :payment-id="payment.id" direction="refund" /></section>
-      <details v-if="payment.status==='pending'" class="card" :open="payment.paymentMode==='stripe_test'"><summary>ทางเลือก: Stripe โหมดทดสอบ</summary><p class="hint">การเลือกวิธีนี้จะใช้ขั้นตอน Stripe แทนสลิปจำลอง หากยกเลิกหรือบัตรถูกปฏิเสธ สามารถเปิด Stripe เพื่อลองใหม่ได้</p><p v-if="!stripeStatus?.ready" class="notice">Stripe ทดสอบยังไม่พร้อม กรุณาให้ผู้ดูแลตั้งค่า test key และ webhook ที่ backend แล้วเริ่มระบบใหม่</p><button class="secondary" :disabled="busy || !stripeStatus?.ready" @click="checkout">{{busy?'กำลังเปิด Stripe…':'ชำระผ่าน Stripe ทดสอบ'}}</button></details>
+      <details v-if="payment.status==='pending'" class="card" :open="payment.paymentMode==='stripe_test'">
+        <summary>ทางเลือก: บัตร / PromptPay ผ่าน Stripe ทดสอบ</summary>
+        <p class="hint">เลือกบัตรหรือ PromptPay บนหน้า Stripe โดย PromptPay จะแสดง QR สำหรับทดสอบ หากยกเลิกหรือบัตรถูกปฏิเสธ สามารถเปิด Stripe เพื่อลองใหม่ได้</p>
+        <p class="notice">ใช้โหมดทดสอบเท่านั้น ไม่ต้องโอนเงินจริงผ่านแอปธนาคาร สร้าง QR แล้วยังไม่ถือว่าชำระ ต้องรอ Stripe ยืนยันก่อนเริ่มงาน</p>
+        <p class="hint">PromptPay ต้องเปิดใช้ใน sandbox ของโครงการ หากคืนเงิน Stripe อาจขอข้อมูลบัญชีผ่านอีเมลที่กรอกตอนชำระ</p>
+        <p v-if="!stripeStatus?.ready" class="notice">Stripe ทดสอบยังไม่พร้อม กรุณาให้ผู้ดูแลตั้งค่า test key และ webhook ที่ backend แล้วเริ่มระบบใหม่</p>
+        <button class="secondary" :disabled="busy || !stripeStatus?.ready" @click="checkout">{{busy?'กำลังเปิด Stripe…':'ชำระผ่าน Stripe ทดสอบ (บัตร / PromptPay)'}}</button>
+      </details>
       <p v-if="route.query.checkout==='success' && payment.status==='pending'" class="notice" role="status">กลับจาก Stripe แล้ว กำลังรอ webhook ยืนยัน กรุณาตรวจสอบสถานะล่าสุด การกลับมาหน้านี้ยังไม่ถือว่าชำระสำเร็จ</p>
       <p v-if="route.query.checkout==='cancelled' && payment.status==='pending'" class="notice" role="status">คุณกลับจากหน้าชำระเงินโดยยังไม่มีการยืนยันสำเร็จ สามารถเปิด Stripe เพื่อลองใหม่ได้</p>
       <section v-if="payment.paymentMode==='stripe_test' && payment.status==='disputed' && payment.refundDecision==='approved'" class="card"><h2>สถานะคืนเงินผ่าน Stripe ทดสอบ</h2><p v-if="['failed','canceled'].includes(payment.refundStatus)" class="error">Stripe คืนเงินไม่สำเร็จ กรุณาติดต่อผู้ดูแลเพื่อตรวจสอบ</p><p v-else>อนุมัติคำขอแล้ว กำลังรอ Stripe ยืนยันการคืนเงิน ยังไม่บันทึกว่าคืนเงินสำเร็จ</p></section>

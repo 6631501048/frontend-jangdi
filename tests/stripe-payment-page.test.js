@@ -19,6 +19,16 @@ test('payment page disables Stripe when backend configuration is missing',async(
   finally{view.unmount();}
 });
 
+test('Stripe option explains PromptPay QR and does not claim payment on QR creation',async()=>{
+  setup();const view=await mount(PaymentPage);
+  try{
+    assert.ok(text(view.root).includes('บัตร / PromptPay'));
+    assert.ok(text(view.root).includes('สร้าง QR แล้วยังไม่ถือว่าชำระ'));
+    assert.ok(text(view.root).includes('ไม่ต้องโอนเงินจริง'));
+    assert.equal(calls.some(c=>c.method==='post'),false);
+  }finally{view.unmount();}
+});
+
 test('cancelled/success return query never changes payment state or marks it paid',async()=>{
   for(const result of ['cancelled','success']){
     setup({query:{checkout:result}});const view=await mount(PaymentPage);
