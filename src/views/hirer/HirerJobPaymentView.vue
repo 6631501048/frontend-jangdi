@@ -7,11 +7,11 @@ import PaymentSlipForm from '../../components/PaymentSlipForm.vue';
 import PaymentSlipImage from '../../components/PaymentSlipImage.vue';
 import { money,paymentStatus,dateTime } from '../../services/finance';
 const route=useRoute();
-const job=ref(null),payment=ref(null),config=ref(null),loading=ref(false),busy=ref(false),error=ref(''),success=ref('');
+const job=ref(null),payment=ref(null),config=ref(null),stripeStatus=ref(null),loading=ref(false),busy=ref(false),error=ref(''),success=ref('');
 const canSubmit=computed(()=>payment.value && ['pending','slip_rejected'].includes(payment.value.status) && ['demo','slip_demo'].includes(payment.value.paymentMode));
 async function load(){
   loading.value=true;error.value='';
-  try{const [j,p,c]=await Promise.all([api.get(`/jobs/${route.params.id}`),api.get(`/payments/${route.params.id}/mock`),api.get('/payments/config')]);job.value=j.data;payment.value=p.data;config.value=c.data;}
+  try{const [j,p,c,s]=await Promise.all([api.get(`/jobs/${route.params.id}`),api.get(`/payments/${route.params.id}/mock`),api.get('/payments/config'),api.get('/payments/stripe/status')]);job.value=j.data;payment.value=p.data;config.value=c.data;stripeStatus.value=s.data;}
   catch(err){error.value=err.response?.data?.message || 'โหลดรายละเอียดการชำระเงินไม่สำเร็จ';}
   finally{loading.value=false;}
 }
@@ -30,7 +30,7 @@ onMounted(load);
     <p v-if="error" class="error" role="alert">{{error}}</p><p v-if="success" class="success" role="status">{{success}}</p>
     <p v-if="loading" role="status">กำลังโหลดข้อมูล…</p>
     <template v-else-if="job && payment && config">
-      <section class="card"><h2>{{job.title}}</h2><dl><div><dt>ค่าจ้างผู้รับจ้าง</dt><dd>฿ {{money(payment.amount)}}</dd></div><div><dt>ค่าบริการแพลตฟอร์ม {{payment.platformFeePercent}}%</dt><dd>฿ {{money(payment.platformFeeAmount)}}</dd></div><div class="total"><dt>ยอดโอนจำลอง</dt><dd>฿ {{money(payment.totalDue)}}</dd></div><div><dt>สถานะ</dt><dd>{{paymentStatus(payment.status, payment.paymentMode)}}</dd></div></dl></section>
+      <section class="card"><h2>{{job.title}}</h2><dl><div><dt>ค่าจ้างผู้รับจ้าง</dt><dd>฿ {{money(payment.amount)}}</dd></div><div><dt>ค่าบริการแพลตฟอร์ม {{payment.platformFeePercent}}%</dt><dd>฿ {{money(payment.platformFeeAmount)}}</dd></div><div class="total"><dt>{{payment.paymentMode==='stripe_test'?'ยอดชำระผ่าน Stripe ทดสอบ':'ยอดโอนจำลอง'}}</dt><dd>฿ {{money(payment.totalDue)}}</dd></div><div><dt>สถานะ</dt><dd>{{paymentStatus(payment.status, payment.paymentMode)}}</dd></div></dl></section>
       <section v-if="canSubmit" class="card"><h2>1. ตรวจสอบบัญชีทดสอบ</h2><p>{{config.bank.name}}</p><p>เลขบัญชี: <strong>{{config.bank.accountNumber}}</strong></p><p>ชื่อบัญชี: {{config.bank.accountName}}</p><p class="hint">เป็นข้อมูลตัวอย่างสำหรับจำลอง ไม่ใช่บัญชีรับเงินจริง</p><h2>2. แนบสลิปทดสอบ</h2><p class="hint">ตรวจยอด ฿ {{money(payment.totalDue)}} แล้วเลือกภาพสลิปตัวอย่าง ผู้ดูแลจะเป็นผู้ยืนยันรับเงิน</p><PaymentSlipForm :endpoint="`/payments/${route.params.id}/slips/inbound`" label="ยืนยันโอนจำลองและส่งสลิป" @saved="saved" /></section>
       <section v-if="payment.status==='awaiting_verification'" class="card"><h2>รอผู้ดูแลตรวจรับสลิป</h2><p>ส่งหลักฐานแล้ว ผู้รับจ้างจะเริ่มงานได้หลังผู้ดูแลอนุมัติ กดตรวจสอบสถานะเพื่อดูผลล่าสุด</p></section>
       <p v-if="payment.slipReviewNotes" class="notice">ผลตรวจสลิป: {{payment.slipReviewNotes}}</p>
@@ -39,8 +39,10 @@ onMounted(load);
       <section v-if="payment.status==='refund_pending'" class="card"><h2>อนุมัติคืนเงินแล้ว รอสลิปคืนเงิน</h2><p>ผู้ดูแลจะบันทึกคืนเงินจำลองเต็มยอด ฿ {{money(payment.refundAmount)}}</p></section>
       <section v-if="payment.hasPayoutSlip" class="card"><h2>สลิปจ่ายค่าจ้างจำลอง</h2><p>{{dateTime(payment.paidAt)}}</p><PaymentSlipImage :payment-id="payment.id" direction="payout" /></section>
       <section v-if="payment.hasRefundSlip" class="card"><h2>สลิปคืนเงินจำลอง</h2><PaymentSlipImage :payment-id="payment.id" direction="refund" /></section>
-      <details v-if="payment.status==='pending'" class="card"><summary>ทางเลือก: Stripe โหมดทดสอบ</summary><p class="hint">เฉพาะกรณีตั้งค่า Stripe test key และ webhook แล้ว การเลือกวิธีนี้จะใช้ขั้นตอน Stripe แทนสลิปจำลอง</p><button class="secondary" :disabled="busy" @click="checkout">{{busy?'กำลังเปิด Stripe…':'ชำระผ่าน Stripe ทดสอบ'}}</button></details>
-      <p v-if="route.query.checkout==='success' && payment.status==='pending'" class="notice">กลับจาก Stripe แล้ว กำลังรอ webhook ยืนยัน กรุณาตรวจสอบสถานะล่าสุด</p>
+      <details v-if="payment.status==='pending'" class="card" :open="payment.paymentMode==='stripe_test'"><summary>ทางเลือก: Stripe โหมดทดสอบ</summary><p class="hint">การเลือกวิธีนี้จะใช้ขั้นตอน Stripe แทนสลิปจำลอง หากยกเลิกหรือบัตรถูกปฏิเสธ สามารถเปิด Stripe เพื่อลองใหม่ได้</p><p v-if="!stripeStatus?.ready" class="notice">Stripe ทดสอบยังไม่พร้อม กรุณาให้ผู้ดูแลตั้งค่า test key และ webhook ที่ backend แล้วเริ่มระบบใหม่</p><button class="secondary" :disabled="busy || !stripeStatus?.ready" @click="checkout">{{busy?'กำลังเปิด Stripe…':'ชำระผ่าน Stripe ทดสอบ'}}</button></details>
+      <p v-if="route.query.checkout==='success' && payment.status==='pending'" class="notice" role="status">กลับจาก Stripe แล้ว กำลังรอ webhook ยืนยัน กรุณาตรวจสอบสถานะล่าสุด การกลับมาหน้านี้ยังไม่ถือว่าชำระสำเร็จ</p>
+      <p v-if="route.query.checkout==='cancelled' && payment.status==='pending'" class="notice" role="status">คุณกลับจากหน้าชำระเงินโดยยังไม่มีการยืนยันสำเร็จ สามารถเปิด Stripe เพื่อลองใหม่ได้</p>
+      <section v-if="payment.paymentMode==='stripe_test' && payment.status==='disputed' && payment.refundDecision==='approved'" class="card"><h2>สถานะคืนเงินผ่าน Stripe ทดสอบ</h2><p v-if="['failed','canceled'].includes(payment.refundStatus)" class="error">Stripe คืนเงินไม่สำเร็จ กรุณาติดต่อผู้ดูแลเพื่อตรวจสอบ</p><p v-else>อนุมัติคำขอแล้ว กำลังรอ Stripe ยืนยันการคืนเงิน ยังไม่บันทึกว่าคืนเงินสำเร็จ</p></section>
     </template>
     <button class="secondary" :disabled="loading || busy" @click="load">ตรวจสอบสถานะล่าสุด</button>
     <RouterLink class="primary" :to="{name:'hirer-job-detail',params:{id:route.params.id}}">กลับรายละเอียดงาน</RouterLink>

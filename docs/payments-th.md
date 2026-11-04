@@ -20,6 +20,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 - `checkout.session.async_payment_succeeded`
 - `refund.created`
 - `refund.updated`
+- `refund.failed`
 
 สำหรับ local development ใช้ Stripe CLI:
 
@@ -46,6 +47,6 @@ stripe listen --forward-to localhost:4000/api/payments/stripe/webhook
 
 รายงานผู้ดูแลแสดงยอดรับรวม ค่าธรรมเนียม gateway ค่าจ้างที่ยืนยัน คืนเงิน ค่าบริการแพลตฟอร์ม และยอดคงเหลือ ยอดคงเหลือรวมเงินพักและไม่ใช่กำไรสุทธิ หาก Stripe ยังไม่มี balance transaction ระบบจะแสดงค่าธรรมเนียมว่า “รอยืนยัน” โดยไม่แทนด้วยศูนย์
 
-ยังต้องทดสอบ Checkout → webhook → ยืนยันรับงาน / ขอคืนเงินกับบัญชี Stripe test ของโครงการก่อนใช้งาน การทดสอบอัตโนมัติใช้ข้อมูลจำลองและไม่ได้เชื่อมบัญชี Stripe จริง
+ยังต้องทดสอบ Checkout → webhook → ยืนยันรับงาน / ขอคืนเงินกับบัญชี Stripe test ของโครงการก่อนใช้งาน การทดสอบอัตโนมัติใช้ข้อมูลจำลองและไม่ได้เชื่อมบัญชี Stripe จริง ดูขั้นตอนและตารางตรวจรับใน [Stripe test กับบัญชีโครงการ](stripe-test-uat-th.md)
 
 อ้างอิง: [Checkout Sessions](https://docs.stripe.com/api/checkout/sessions/create), [webhook](https://docs.stripe.com/events/manage-webhook-endpoints), [refunds](https://docs.stripe.com/api/refunds/create)
