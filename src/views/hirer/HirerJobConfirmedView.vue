@@ -53,7 +53,7 @@ function goToMyJobs() {
         <div class="row"><span>Total Payment (Demo)</span><strong>{{ Number(payment?.totalDue ?? job.total).toFixed(2) }} Baht</strong></div>
       </div>
 
-      <button class="btn primary" @click="router.push({ name: 'hirer-mock-payment', params: { id: route.params.id } })">ดูการชำระเงิน / แนบสลิปจำลอง</button>
+      <button class="btn primary" @click="router.push({ name: 'hirer-mock-payment', params: { id: route.params.id } })">ชำระเงิน / ติดตามหลักฐานจ่ายค่าจ้าง</button>
       <button class="btn primary" @click="goToMyJobs">กลับงานของฉัน</button>
     </section>
   </main>

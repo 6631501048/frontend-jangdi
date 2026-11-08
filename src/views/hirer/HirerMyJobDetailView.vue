@@ -8,6 +8,7 @@ import { createProofImageLoader } from "../../services/proofImageLoader";
 import AppHeader from "../../components/AppHeader.vue";
 import StatusBadge from "../../components/StatusBadge.vue";
 import { paymentStatus } from '../../services/finance';
+import JobPaymentStatus from '../../components/JobPaymentStatus.vue';
 
 
 const route = useRoute();
@@ -114,7 +115,7 @@ onMounted(async () => {
   try { const {data} = await api.get('/payments/config'); feePercent.value=data.feePercent; } catch { /* Stored payment amounts remain authoritative. */ }
   await loadJob();
   statusRefreshTimer = window.setInterval(() => {
-    if (["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(job.value?.status)) loadJob();
+    if (["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(job.value?.status) || (job.value?.status === 'completed' && (!mockPayment.value || mockPayment.value.status === 'payout_pending')) || (job.value?.status === 'cancelled' && mockPayment.value?.status === 'refunded' && !mockPayment.value.hasRefundSlip)) loadJob();
   }, 5000);
 });
 onUnmounted(() => {
@@ -168,7 +169,7 @@ const progressSteps = computed(() => {
 
 async function confirmCompletion() {
   if (mockPayment.value?.status !== "held" || !job.value || job.value.status !== "awaiting_confirmation" || confirmingCompletion.value || !proofObjectUrl.value) return;
-  if (!window.confirm("ตรวจสอบรูปหลักฐานและได้รับงานครบแล้วใช่หรือไม่? เมื่อยืนยันแล้วจะปิดงานและบันทึกค่าจ้างให้ผู้รับจ้าง (โหมดทดสอบ)")) return;
+  if (!window.confirm("ตรวจสอบรูปหลักฐานและได้รับงานครบแล้วใช่หรือไม่? เมื่อยืนยันแล้วจะปิดงานและส่งเข้าคิวรอ admin จ่ายค่าจ้างพร้อมสลิป ยังไม่ถือว่าผู้รับจ้างได้รับเงิน")) return;
 
   confirmingCompletion.value = true;
   completionError.value = "";
@@ -241,9 +242,10 @@ async function confirmCompletion() {
       <!-- Worker contact and progress after selection -->
       <div v-if="mockPayment" class="mock-banner">
         <strong>{{paymentStatus(mockPayment.status, mockPayment.paymentMode)}}</strong>
-        <p v-if="mockPayment.status === 'pending' || mockPayment.status === 'slip_rejected'">แนบสลิปทดสอบแล้วรอผู้ดูแลตรวจรับก่อนเริ่มงาน ไม่มีการโอนเงินจริง</p>
+        <p v-if="mockPayment.status === 'pending'">ชำระผ่าน Stripe ด้วยบัตรหรือ QR ได้โดยไม่ต้องแนบสลิป ระบบยืนยันเงินก่อนเริ่มงาน</p>
+        <p v-if="mockPayment.status === 'slip_rejected'">สลิปจำลองถูกปฏิเสธ กรุณาตรวจเหตุผลและแนบใหม่</p>
         <p v-if="mockPayment.slipReviewNotes">ผลตรวจสลิป: {{mockPayment.slipReviewNotes}}</p>
-        <button type="button" class="btn primary" @click="goMockPayment">ดูการชำระเงินและสลิปจำลอง</button>
+        <button type="button" class="btn primary" @click="goMockPayment">ดูการชำระเงินและหลักฐานจ่ายค่าจ้าง</button>
       </div>
       <template v-if="['assigned', 'in_progress', 'awaiting_confirmation', 'completed'].includes(job.status)">
         <h2 class="section-title">ช่องทางติดต่อ</h2>
@@ -299,10 +301,11 @@ async function confirmCompletion() {
           {{ confirmingCompletion ? "กำลังยืนยัน…" : "ยืนยันรับงานและปิดงาน" }}
         </button>
       </template>
+      <JobPaymentStatus v-if="['completed','disputed','cancelled'].includes(job.status)" :payment="mockPayment" role="hirer" />
       <div v-if="job.status === 'completed'">
         <p class="completion-success" role="status">
           ผู้ว่าจ้างยืนยันปิดงานแล้ว<span v-if="job.completionConfirmedAt"> เมื่อ {{ new Date(job.completionConfirmedAt).toLocaleString('th-TH') }}</span>.
-          บันทึกการชำระเงินในโหมดทดสอบ ไม่มีการโอนเงินจริง
+          การจ่ายค่าจ้างติดตามแยกจากการตรวจรับงาน ดูสถานะและหลักฐานด้านล่าง
         </p>
         <div class="actions">
           <button class="btn primary" @click="goReview">ให้ดาวและรีวิว</button>

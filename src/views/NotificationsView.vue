@@ -2,11 +2,14 @@
 import { onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useNotificationsStore } from "../stores/notifications";
+import { useAuthStore } from '../stores/auth';
 
 const store = useNotificationsStore();
+const auth = useAuthStore();
 const router = useRouter();
 onMounted(() => { if (!store.loaded) store.refresh(); });
 function destination(item) {
+  if (item.relatedEntityType === 'Job' && item.relatedEntityId) return {name:auth.currentRole==='worker'?'worker-job-tracking':'hirer-job-detail',params:{id:String(item.relatedEntityId)}};
   if (item.to && typeof item.to === "object") return item.to;
   if (typeof item.url === "string" && item.url.startsWith("/")) return item.url;
   const path = item.data?.url || item.data?.path;

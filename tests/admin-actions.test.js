@@ -59,6 +59,40 @@ test('slip payout form confirms inside the page and sends its selected image',as
     const posted=calls.find(c=>c.method==='post');assert.equal(posted.url,'/admin/payments/payment1/slips/payout');assert.equal(posted.args[0].get('slip').name,'slip.png');assert.equal(posted.args[0].get('notes'),'จ่ายค่าจ้างจำลองแล้ว');
   }finally{view.unmount();}
 });
+
+test('admin sees Stripe wages awaiting payout and the recipient bank account with mock fee separated',async()=>{
+  route.query={status:'payout_pending'};
+  resetApi({get:async()=>({data:[{...payment,status:'payout_pending',paymentMode:'stripe_test',hasInboundSlip:false,mockGatewayFeePercent:3,mockGatewayFeeAmount:3,worker:{fullName:'Worker Test',bankAccount:{bankName:'ธนาคารทดสอบ',accountNumber:'1234567890',accountHolderName:'Worker Test'}}}]} )});
+  const view=await mount(Payments);
+  try {
+    fire(find(view.root,'button','งานทดสอบ'),'click');await flush();
+    assert.ok(text(view.root).includes('1234567890'));
+    assert.ok(text(view.root).includes('ค่าธรรมเนียม Stripe mock 3%'));
+    assert.ok(text(view.root).includes('ยืนยันจ่ายค่าจ้างและแนบสลิป'));
+    assert.equal(calls.some(c=>c.method==='post'),false);
+  } finally {view.unmount();}
+});
+
+test('Stripe refund proof uses the evidence endpoint without triggering another refund decision',async()=>{
+  route.query={status:'refund_pending'};
+  resetApi({get:async()=>({data:[{...payment,status:'refunded',paymentMode:'stripe_test',hasInboundSlip:false,refundStatus:'succeeded',stripeRefundId:'re_test_refund',refundAmount:105,hasRefundSlip:false}]}),post:async()=>({data:{message:'แนบหลักฐานแล้ว'}})});
+  const view=await mount(Payments);
+  try {
+    fire(find(view.root,'button','งานทดสอบ'),'click');await flush();
+    assert.ok(text(view.root).includes('ไม่ต้องโอนคืนผ่านธนาคารซ้ำ'));
+    const inputs=walk(view.root).filter(n=>n.tag==='input');
+    fire(inputs.find(n=>n.props.type==='file'),'change',{target:{files:[new File(['proof'],'refund.png',{type:'image/png'})]}});
+    await input(inputs.find(n=>n.props.type==='number'),'105');
+    await input(inputs.find(n=>n.props.type==='text'),'re_test_refund');
+    await input(find(view.root,'textarea'),'แนบหลักฐานการคืนเงินจาก Stripe สำเร็จแล้ว');
+    fire(find(view.root,'form'),'submit');await flush();
+    const dialog=walk(view.root).find(n=>n.props.role==='dialog');assert.ok(dialog);
+    fire(find(dialog,'form'),'submit');await flush();
+    const posts=calls.filter(c=>c.method==='post');assert.equal(posts.length,1);
+    assert.equal(posts[0].url,'/admin/payments/payment1/slips/refund');
+    assert.equal(posts[0].args[0].get('amount'),'105');assert.equal(posts[0].args[0].get('reference'),'re_test_refund');
+  } finally {view.unmount();}
+});
 test('post approval and rejection use page dialogs and send the intended action',async()=>{
   for(const action of ['approve','reject']){
     route.query={};const post={_id:'post1',title:'ประกาศทดสอบ',status:'pending_review'};

@@ -11,6 +11,7 @@ import api from "../../services/api";
 import { fetchCompletionProof, proofRequestError } from "../../services/completionProof";
 import { createProofImageLoader } from "../../services/proofImageLoader";
 import ReportUserForm from "../../components/ReportUserForm.vue";
+import JobPaymentStatus from '../../components/JobPaymentStatus.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -19,6 +20,7 @@ const loading = ref(true);
 const hasLoaded = ref(false);
 const errorMsg = ref("");
 const demoPaymentStatus = ref(null);
+const payment = ref(null);
 const hirerProfile = ref(null);
 
 // backend status: assigned | in_progress | awaiting_confirmation | completed | cancelled -> UI status ที่หน้านี้ใช้
@@ -83,10 +85,8 @@ async function loadJob() {
         // A timeline failure must not hide a successfully uploaded image.
       }
     }
-    if (data.status === "assigned") {
-      try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); demoPaymentStatus.value = pay.status; }
-      catch { demoPaymentStatus.value = null; }
-    } else demoPaymentStatus.value = null;
+    try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); payment.value = pay; demoPaymentStatus.value = pay.status; }
+    catch { payment.value = null; demoPaymentStatus.value = null; }
     const hirerId = data.hirer?._id || data.hirer;
     let profile = data.hirer || {};
     if (hirerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
@@ -136,7 +136,7 @@ let statusRefreshTimer;
 onMounted(async () => {
   await loadJob();
   statusRefreshTimer = window.setInterval(() => {
-    if (["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(job.value.backendStatus)) loadJob();
+    if (["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(job.value.backendStatus) || (job.value.backendStatus === "completed" && (!payment.value || payment.value.status === "payout_pending"))) loadJob();
   }, 5000);
 });
 onUnmounted(() => {
@@ -347,6 +347,7 @@ function goToReview() {
       <p v-else-if="!hasLoaded" class="page-message error-msg" role="alert">{{ errorMsg || "ไม่พบรายละเอียดงาน" }}</p>
       <div v-else class="card">
         <p v-if="errorMsg" class="error-msg" role="alert">{{ errorMsg }}</p>
+        <JobPaymentStatus :payment="payment" role="worker" />
         <!-- หัวข้อ: ผู้ว่าจ้าง + ชื่องาน + สถานะ -->
         <div class="job-head">
           <span class="job-avatar" aria-hidden="true">
@@ -452,7 +453,7 @@ function goToReview() {
             </div>
           </div>
 
-          <p v-if="job.backendStatus === 'assigned' && demoPaymentStatus !== 'held'" class="pending-confirmation">รอผู้ว่าจ้างส่งสลิปและผู้ดูแลอนุมัติรับเงินจำลองก่อนเริ่มงาน</p>
+          <p v-if="job.backendStatus === 'assigned' && demoPaymentStatus !== 'held'" class="pending-confirmation">รอระบบยืนยันการชำระเงินของผู้ว่าจ้างก่อนเริ่มงาน</p>
           <button v-if="job.backendStatus === 'assigned'" class="btn-primary" :disabled="updating || demoPaymentStatus !== 'held'" @click="updateStatus">
             {{ updating ? "Updating..." : "Start Job" }}
           </button>

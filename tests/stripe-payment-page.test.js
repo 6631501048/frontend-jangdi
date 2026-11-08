@@ -42,8 +42,8 @@ test('Stripe sessions reconcile automatically using the stored job, including wi
     setup({query,payment:{hasStripeSession:true}});const view=await mount(PaymentPage);
     try{
       assert.equal(calls.filter(c=>c.method==='post' && c.url==='/payments/job1/stripe/sync').length,1);
-      assert.ok(text(view.root).includes('แนบสลิป / หลักฐาน Stripe (ไม่บังคับ)'));
-      assert.ok(text(view.root).includes('แนบรูปแล้วจะยังไม่ถือว่าชำระสำเร็จ'));
+      assert.equal(text(view.root).includes('แนบสลิป / หลักฐาน Stripe (ไม่บังคับ)'),false);
+      assert.ok(text(view.root).includes('hirer ชำระผ่านบัตรหรือ QR โดยไม่ต้องแนบสลิป'));
       assert.ok(text(view.root).includes('ขั้นตอนการชำระเงิน'));
     }finally{view.unmount();}
   }
@@ -54,7 +54,7 @@ test('completed Stripe payments do not poll or offer another payment',async()=>{
   try{
     assert.equal(calls.some(c=>c.method==='post'),false);
     assert.ok(text(view.root).includes('ชำระแล้ว ผู้รับจ้างเริ่มงานได้'));
-    assert.ok(text(view.root).includes('บันทึกหลักฐาน Stripe'));
+    assert.equal(calls.some(c=>c.url.endsWith('/stripe/slip')),false);
   }finally{view.unmount();}
 });
 
@@ -64,7 +64,7 @@ test('successful reconciliation replaces pending with the server-confirmed state
   const view=await mount(PaymentPage);
   try{
     assert.ok(text(view.root).includes('ชำระแล้ว ผู้รับจ้างเริ่มงานได้'));
-    assert.equal(text(view.root).includes('ตรวจสอบสถานะอัตโนมัติทุก 8 วินาที'),false);
+    assert.ok(text(view.root).includes('ตรวจสอบสถานะอัตโนมัติทุก 8 วินาที'));
   }finally{view.unmount();}
 });
 
@@ -74,7 +74,7 @@ test('a failed Stripe status check keeps payment details and evidence available'
   try{
     assert.ok(text(view.root).includes('เชื่อมต่อ Stripe ไม่สำเร็จ'));
     assert.ok(text(view.root).includes('งานทดสอบ'));
-    assert.ok(text(view.root).includes('บันทึกหลักฐาน Stripe'));
+    assert.equal(calls.some(c=>c.url.endsWith('/stripe/slip')),false);
     assert.equal(text(view.root).includes('ชำระแล้ว ผู้รับจ้างเริ่มงานได้'),false);
   }finally{view.unmount();}
 });

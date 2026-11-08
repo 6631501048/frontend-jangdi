@@ -103,10 +103,11 @@ async function decideRefund(payment, decision) {
   actionLoading.value = payment._id;
 
   try {
-    await api.post(
+    const {data} = await api.post(
       `/admin/payments/${payment._id}/refund-decision`,
       { decision, notes: notes.trim() }
     );
+    successMessage.value=data.message;
 
     await loadPayments();
   } catch (error) {
@@ -222,6 +223,7 @@ onMounted(loadPayments);
           </strong>
         </div>
         <div class="detail-row"><span>ยอดรับรวมค่าบริการ</span><strong>{{money(Number(payment.amount)+Number(payment.platformFeeAmount))}}</strong></div>
+        <template v-if="payment.paymentMode === 'stripe_test'"><div class="detail-row"><span>ค่าธรรมเนียม Stripe mock {{payment.mockGatewayFeePercent ?? '—'}}% ของค่าจ้าง</span><strong>{{payment.mockGatewayFeeAmount==null?'รายการเดิม ยังไม่มีค่า mock':money(payment.mockGatewayFeeAmount)}}</strong></div><p class="refund-status">ต้นทุนจำลองของแพลตฟอร์ม ไม่ใช่อัตราจริงของ Stripe ไม่บวกยอด hirer และไม่หักค่าจ้าง worker</p></template>
 
         <div class="detail-row">
           <span>ค่าจ้างผู้รับจ้าง</span>
@@ -239,13 +241,13 @@ onMounted(loadPayments);
 
         <div v-if="payment.disputeReason" class="refund-status"><strong>เหตุผลที่ขอคืนเงิน</strong><p>{{payment.disputeReason}}</p></div>
         <template v-if="expandedPaymentId === payment._id">
-          <p v-if="payment.paymentMode === 'stripe_test'" class="refund-status">รายการ Stripe ยืนยันยอดจาก Stripe โดยตรง สลิปขาเข้าเป็นหลักฐานประกอบ ไม่ต้องอนุมัติรับเงินจากรูป หากสถานะยังรอชำระ ให้ผู้ว่าจ้างเปิดหน้าชำระเงินเพื่อตรวจสถานะอัตโนมัติ</p>
+          <p v-if="payment.paymentMode === 'stripe_test'" class="refund-status">Stripe ยืนยันเงินจาก hirer โดยตรง ไม่ต้องแนบสลิปขาเข้า หลังตรวจรับงาน admin ต้องจ่ายให้ worker และแนบหลักฐาน ส่วนคืนเงินให้ใช้ Stripe Refund แล้วแนบหลักฐานเมื่อ Stripe ยืนยันสำเร็จ ห้ามโอนคืนซ้ำ</p>
           <template v-if="payment.hasInboundSlip || payment.status === 'awaiting_verification'"><h3 class="subtitle">สลิปขาเข้า</h3><PaymentSlipImage :payment-id="payment._id" direction="inbound" :version="payment.inboundSlipVersion" @loaded="reviewReady[payment._id + payment.inboundSlipVersion]=$event" /></template>
           <p v-if="payment.slipReviewNotes" class="refund-status">ผลตรวจสลิป: {{payment.slipReviewNotes}}</p>
           <p v-if="payment.status === 'awaiting_verification' && !reviewReady[payment._id + payment.inboundSlipVersion]" class="refund-status" role="status">ต้องเปิดรูปสำเร็จก่อนอนุมัติ หากโหลดรูปไม่ได้ สามารถลองโหลดใหม่หรือปฏิเสธสลิปพร้อมเหตุผลได้</p>
           <div v-if="payment.status === 'awaiting_verification'" class="action-row"><button type="button" class="action-btn primary" :disabled="!!actionLoading" @click="reviewSlip(payment,'approved')">อนุมัติรับเงินจำลอง</button><button type="button" class="action-btn danger" :disabled="!!actionLoading" @click="reviewSlip(payment,'rejected')">ปฏิเสธสลิป</button></div>
-          <template v-if="payment.status === 'payout_pending'"><p class="refund-status">ผู้ว่าจ้างยืนยันงานแล้ว กรุณาแนบสลิปจ่ายจำลองให้ {{payment.worker?.fullName || 'ผู้รับจ้าง'}} จำนวน {{money(payment.netAmountToWorker)}}</p><PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/payout`" label="ยืนยันจ่ายค่าจ้างจำลอง" :require-amount="true" :expected-amount="payment.netAmountToWorker" require-notes @saved="savedSlip" /></template>
-          <template v-if="payment.status === 'refund_pending'"><p class="refund-status">อนุมัติคืนเงินแล้ว กรุณาแนบสลิปคืนจำลองให้ {{payment.hirer?.fullName || 'ผู้ว่าจ้าง'}} จำนวน {{money(payment.refundAmount)}}</p><PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/refund`" label="ยืนยันคืนเงินจำลอง" require-notes @saved="savedSlip" /></template>
+          <template v-if="payment.status === 'payout_pending'"><p class="refund-status">ผู้ว่าจ้างตรวจรับงานแล้ว จ่ายค่าจ้างให้ {{payment.worker?.fullName || 'ผู้รับจ้าง'}} จำนวน {{money(payment.netAmountToWorker)}} แล้วแนบหลักฐาน ระบบยังไม่นับเป็นเงินรับของ worker จนกว่าจะบันทึกขั้นตอนนี้</p><p class="refund-status">บัญชีรับเงินของ worker: {{payment.worker?.bankAccount?.bankName || 'ยังไม่ระบุธนาคาร'}} · {{payment.worker?.bankAccount?.accountNumber || 'ยังไม่ระบุเลขบัญชี'}} · {{payment.worker?.bankAccount?.accountHolderName || 'ยังไม่ระบุชื่อบัญชี'}} หากข้อมูลไม่ครบให้ผู้รับจ้างอัปเดตโปรไฟล์ก่อนจ่าย</p><PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/payout`" label="ยืนยันจ่ายค่าจ้างและแนบสลิป" :require-amount="true" :expected-amount="payment.netAmountToWorker" require-notes @saved="savedSlip" /></template>
+          <template v-if="payment.status === 'refund_pending' || (payment.status === 'refunded' && payment.paymentMode === 'stripe_test' && payment.refundStatus === 'succeeded' && !payment.hasRefundSlip)"><p class="refund-status">{{payment.paymentMode === 'stripe_test' ? 'Stripe ยืนยันคืนเงินแล้ว แนบหลักฐานจาก Stripe เท่านั้น ไม่ต้องโอนคืนผ่านธนาคารซ้ำ' : 'อนุมัติคืนเงินจำลองแล้ว รอบันทึกพร้อมสลิป'}} · ผู้รับเงิน {{payment.hirer?.fullName || 'ผู้ว่าจ้าง'}} · {{money(payment.refundAmount)}}</p><p v-if="payment.stripeRefundId" class="refund-status">เลขรายการคืนเงิน Stripe: {{payment.stripeRefundId}}</p><PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/refund`" :label="payment.paymentMode === 'stripe_test' ? 'แนบหลักฐานคืนเงิน Stripe' : 'ยืนยันคืนเงินจำลอง'" :evidence-only="payment.paymentMode === 'stripe_test'" :require-amount="true" :expected-amount="payment.refundAmount" require-notes @saved="savedSlip" /></template>
           <template v-if="payment.hasPayoutSlip"><h3 class="subtitle">สลิปจ่ายค่าจ้างจำลอง</h3><PaymentSlipImage :payment-id="payment._id" direction="payout" /></template>
           <template v-if="payment.hasRefundSlip"><h3 class="subtitle">สลิปคืนเงินจำลอง</h3><PaymentSlipImage :payment-id="payment._id" direction="refund" /></template>
         </template>
@@ -263,7 +265,7 @@ onMounted(loadPayments);
         </div>
 
         <div
-          v-if="activeTab === 'Disputed'"
+          v-if="activeTab === 'Disputed' && payment.status === 'disputed'"
           class="action-row"
         >
           <button

@@ -11,14 +11,15 @@ const job=ref(null),payment=ref(null),config=ref(null),stripeStatus=ref(null),lo
 const canSubmit=computed(()=>payment.value && ['pending','slip_rejected'].includes(payment.value.status) && ['demo','slip_demo'].includes(payment.value.paymentMode));
 const isStripe=computed(()=>payment.value?.paymentMode==='stripe_test');
 const steps=computed(()=>[
-  {title:'ชำระเงิน',description:isStripe.value?'บัตรหรือ PromptPay ผ่าน Stripe':'แนบสลิปจำลองให้ผู้ดูแลตรวจรับ',done:['held','payout_pending','released','disputed','refund_pending','refunded'].includes(payment.value?.status)},
+  {title:'ชำระเงิน',description:'บัตรหรือ PromptPay ผ่าน Stripe ไม่ต้องแนบสลิป',done:['held','payout_pending','released','disputed','refund_pending','refunded'].includes(payment.value?.status)},
   {title:'เริ่มงานและส่งงาน',description:'ผู้รับจ้างทำงานและส่งหลักฐาน',done:['awaiting_confirmation','completed'].includes(job.value?.status)},
   {title:'ตรวจรับงาน',description:'ตรวจผลงานก่อนยืนยันรับงาน',done:job.value?.status==='completed'},
-  {title:'ติดตามการจ่ายค่าจ้าง',description:isStripe.value?'รายการทดสอบ ไม่มีการโอนค่าจ้างจริง':'ผู้ดูแลบันทึกจ่ายพร้อมสลิปจำลอง',done:!!payment.value?.hasPayoutSlip},
+  {title:'ติดตามการจ่ายค่าจ้าง',description:'admin จ่ายค่าจ้างและแนบสลิปให้ worker',done:!!payment.value?.hasPayoutSlip},
 ]);
-const nextAction=computed(()=>({pending:isStripe.value?'ชำระผ่าน Stripe แล้วระบบจะตรวจสถานะให้อัตโนมัติ':'เลือกแนบสลิปจำลอง หรือชำระผ่าน Stripe ด้านล่าง',slip_rejected:'ตรวจเหตุผลที่ถูกปฏิเสธ แล้วแนบสลิปใหม่',awaiting_verification:'รอผู้ดูแลตรวจสลิป เมื่ออนุมัติแล้วผู้รับจ้างจะเริ่มงานได้',held:'ชำระแล้ว ผู้รับจ้างเริ่มงานได้ ติดตามงานและตรวจรับที่หน้ารายละเอียดงาน',payout_pending:'ตรวจรับงานแล้ว รอผู้ดูแลบันทึกจ่ายค่าจ้าง',released:'ตรวจรับงานแล้ว ดูรายละเอียดและหลักฐานการจ่ายด้านล่าง',disputed:'รอผลพิจารณาคืนเงิน ติดตามสถานะได้ที่หน้านี้',refund_pending:'รอผู้ดูแลบันทึกคืนเงินพร้อมสลิป',refunded:'คืนเงินแล้ว ตรวจสอบรายละเอียดรายการได้ด้านล่าง'})[payment.value?.status] || 'ตรวจสอบรายละเอียดรายการด้านล่าง');
+const nextAction=computed(()=>({pending:isStripe.value?'ชำระผ่าน Stripe แล้วระบบจะตรวจสถานะให้อัตโนมัติ':'ชำระผ่าน Stripe ด้านล่างได้โดยไม่ต้องแนบสลิป หรือเลือกทดสอบด้วยสลิปจำลอง',slip_rejected:'ตรวจเหตุผลที่ถูกปฏิเสธ แล้วแนบสลิปใหม่',awaiting_verification:'รอผู้ดูแลตรวจสลิป เมื่ออนุมัติแล้วผู้รับจ้างจะเริ่มงานได้',held:'ชำระแล้ว ผู้รับจ้างเริ่มงานได้ ติดตามงานและตรวจรับที่หน้ารายละเอียดงาน',payout_pending:'ตรวจรับงานแล้ว รอผู้ดูแลบันทึกจ่ายค่าจ้าง',released:'ตรวจรับงานแล้ว ดูรายละเอียดและหลักฐานการจ่ายด้านล่าง',disputed:'รอผลพิจารณาคืนเงิน ติดตามสถานะได้ที่หน้านี้',refund_pending:'รอผู้ดูแลบันทึกคืนเงินพร้อมสลิป',refunded:'คืนเงินแล้ว ตรวจสอบรายละเอียดรายการได้ด้านล่าง'})[payment.value?.status] || 'ตรวจสอบรายละเอียดรายการด้านล่าง');
 let refreshTimer,disposed=false,inFlight=false;
-const needsSync=()=>isStripe.value && ((payment.value.status==='pending' && payment.value.hasStripeSession) || (payment.value.status==='disputed' && payment.value.refundDecision==='approved' && !['failed','canceled'].includes(payment.value.refundStatus)));
+const needsSync=()=>isStripe.value && ((payment.value.status==='pending' && payment.value.hasStripeSession) || (payment.value.status==='disputed' && payment.value.refundDecision==='approved' && payment.value.stripeRefundId && !['failed','canceled'].includes(payment.value.refundStatus)));
+const shouldRefresh=()=>needsSync() || ['held','payout_pending','refund_pending'].includes(payment.value?.status) || (payment.value?.status==='refunded' && !payment.value.hasRefundSlip);
 async function load(quiet=false){
   if(inFlight || disposed)return;
   inFlight=true;clearTimeout(refreshTimer);
@@ -34,7 +35,7 @@ async function load(quiet=false){
     }
   }
   catch(err){error.value=err.response?.data?.message || 'โหลดรายละเอียดการชำระเงินไม่สำเร็จ';}
-  finally{loading.value=false;inFlight=false;if(!disposed && needsSync())refreshTimer=setTimeout(()=>load(true),8000);}
+  finally{loading.value=false;inFlight=false;if(!disposed && shouldRefresh())refreshTimer=setTimeout(()=>load(true),8000);}
 }
 async function saved(message){success.value=message;await load();}
 async function checkout(){
@@ -48,26 +49,27 @@ onBeforeUnmount(()=>{disposed=true;clearTimeout(refreshTimer);});
 </script>
 <template>
   <main class="payment"><AppHeader title="ชำระเงินและติดตามสถานะ" /><div class="content">
-    <p class="notice">ทดสอบการโอนและตรวจสลิปเท่านั้น ไม่มีการโอนเงินจริง และไม่ต้องตั้งค่า Stripe หากใช้สลิปจำลอง</p>
+    <p class="notice">Stripe โหมดทดสอบ: hirer ชำระผ่านบัตรหรือ QR โดยไม่ต้องแนบสลิป เมื่อจบงาน admin จะบันทึกจ่ายพร้อมหลักฐานให้ worker ไม่มีการโอนเงินจริงในระบบทดสอบ</p>
     <p v-if="error" class="error" role="alert">{{error}}</p><p v-if="success" class="success" role="status">{{success}}</p>
     <p v-if="loading" role="status">กำลังโหลดข้อมูล…</p>
     <template v-else-if="job && payment && config">
-      <section class="card"><h2>ขั้นตอนการชำระเงิน</h2><ol class="steps"><li v-for="(step,index) in steps" :key="step.title" :class="{done:step.done}"><span class="step-number">{{step.done?'✓':index+1}}</span><div><strong>{{step.title}}</strong><p class="hint">{{step.description}}</p></div></li></ol><div class="next-action" role="status"><strong>{{paymentStatus(payment.status,payment.paymentMode)}}</strong><p>{{nextAction}}</p></div><p v-if="needsSync()" class="hint">ตรวจสอบสถานะอัตโนมัติทุก 8 วินาทีขณะเปิดหน้านี้</p></section>
-      <section class="card"><h2>{{job.title}}</h2><dl><div><dt>ค่าจ้างผู้รับจ้าง</dt><dd>฿ {{money(payment.amount)}}</dd></div><div><dt>ค่าบริการแพลตฟอร์ม {{payment.platformFeePercent}}%</dt><dd>฿ {{money(payment.platformFeeAmount)}}</dd></div><div class="total"><dt>{{payment.paymentMode==='stripe_test'?'ยอดชำระผ่าน Stripe ทดสอบ':'ยอดโอนจำลอง'}}</dt><dd>฿ {{money(payment.totalDue)}}</dd></div><div><dt>สถานะ</dt><dd>{{paymentStatus(payment.status, payment.paymentMode)}}</dd></div></dl></section>
-      <section v-if="canSubmit" class="card"><h2>1. ตรวจสอบบัญชีทดสอบ</h2><p>{{config.bank.name}}</p><p>เลขบัญชี: <strong>{{config.bank.accountNumber}}</strong></p><p>ชื่อบัญชี: {{config.bank.accountName}}</p><p class="hint">เป็นข้อมูลตัวอย่างสำหรับจำลอง ไม่ใช่บัญชีรับเงินจริง</p><h2>2. แนบสลิปทดสอบ</h2><p class="hint">ตรวจยอด ฿ {{money(payment.totalDue)}} แล้วเลือกภาพสลิปตัวอย่าง ผู้ดูแลจะเป็นผู้ยืนยันรับเงิน</p><PaymentSlipForm :endpoint="`/payments/${route.params.id}/slips/inbound`" label="ยืนยันโอนจำลองและส่งสลิป" @saved="saved" /></section>
+      <section class="card"><h2>ขั้นตอนการชำระเงิน</h2><ol class="steps"><li v-for="(step,index) in steps" :key="step.title" :class="{done:step.done}"><span class="step-number">{{step.done?'✓':index+1}}</span><div><strong>{{step.title}}</strong><p class="hint">{{step.description}}</p></div></li></ol><div class="next-action" role="status"><strong>{{paymentStatus(payment.status,payment.paymentMode,!!payment.hasPayoutSlip)}}</strong><p>{{nextAction}}</p></div><p v-if="shouldRefresh()" class="hint">ตรวจสอบสถานะอัตโนมัติทุก 8 วินาทีขณะเปิดหน้านี้</p></section>
+      <section class="card"><h2>{{job.title}}</h2><dl><div><dt>ค่าจ้างผู้รับจ้าง</dt><dd>฿ {{money(payment.amount)}}</dd></div><div><dt>ค่าบริการแพลตฟอร์ม {{payment.platformFeePercent}}%</dt><dd>฿ {{money(payment.platformFeeAmount)}}</dd></div><div class="total"><dt>{{payment.paymentMode==='stripe_test'?'ยอดชำระผ่าน Stripe ทดสอบ':'ยอดโอนจำลอง'}}</dt><dd>฿ {{money(payment.totalDue)}}</dd></div><div><dt>สถานะ</dt><dd>{{paymentStatus(payment.status, payment.paymentMode, !!payment.hasPayoutSlip)}}</dd></div></dl></section>
+      <details v-if="canSubmit" class="card"><summary>ทางเลือก: ทดสอบรับเงินด้วยสลิปจำลอง</summary><h2>1. ตรวจสอบบัญชีทดสอบ</h2><p>{{config.bank.name}}</p><p>เลขบัญชี: <strong>{{config.bank.accountNumber}}</strong></p><p>ชื่อบัญชี: {{config.bank.accountName}}</p><p class="hint">เป็นข้อมูลตัวอย่างสำหรับจำลอง ไม่ใช่บัญชีรับเงินจริง</p><h2>2. แนบสลิปทดสอบ</h2><p class="hint">ตรวจยอด ฿ {{money(payment.totalDue)}} แล้วเลือกภาพสลิปตัวอย่าง ผู้ดูแลจะเป็นผู้ยืนยันรับเงิน</p><PaymentSlipForm :endpoint="`/payments/${route.params.id}/slips/inbound`" label="ยืนยันโอนจำลองและส่งสลิป" @saved="saved" /></details>
+      <section v-if="isStripe || payment.status==='pending'" class="card"><h2>ค่าธรรมเนียม Stripe จำลอง</h2><p>{{payment.mockGatewayFeePercent ?? config.mockStripeFeePercent ?? 3}}% × ค่าจ้าง ฿ {{money(payment.amount)}} = ฿ {{money(payment.mockGatewayFeeAmount ?? (Number(payment.amount) * Number(payment.mockGatewayFeePercent ?? config.mockStripeFeePercent ?? 3) / 100))}}</p><p class="hint">เป็นต้นทุนจำลองของแพลตฟอร์ม ไม่บวกยอดที่ hirer จ่าย ไม่หักค่าจ้าง worker และไม่ใช่อัตราจริงของ Stripe</p></section>
+      <section v-if="payment.status==='refunded' && !payment.hasRefundSlip" class="card"><h2>คืนเงินแล้ว รอ admin แนบหลักฐาน</h2><p>{{isStripe?'Stripe ยืนยันคืนเงินแล้ว ไม่ต้องโอนคืนซ้ำ':'รายการเดิมบันทึกคืนเงินแล้ว'}} admin จะนำหลักฐานมาแนบในรายการนี้</p></section>
       <section v-if="payment.status==='awaiting_verification'" class="card"><h2>รอผู้ดูแลตรวจรับสลิป</h2><p>ส่งหลักฐานแล้ว ผู้รับจ้างจะเริ่มงานได้หลังผู้ดูแลอนุมัติ กดตรวจสอบสถานะเพื่อดูผลล่าสุด</p></section>
       <p v-if="payment.slipReviewNotes" class="notice">ผลตรวจสลิป: {{payment.slipReviewNotes}}</p>
       <section v-if="payment.hasInboundSlip" class="card"><h2>สลิปที่ส่งให้ผู้ดูแล</h2><PaymentSlipImage :payment-id="payment.id" direction="inbound" :version="payment.inboundSlipVersion" /></section>
-      <section v-if="isStripe && payment.hasStripeSession" class="card"><h2>แนบสลิป / หลักฐาน Stripe (ไม่บังคับ)</h2><p class="hint">แนบภาพหลักฐานไว้ให้ผู้ดูแลตรวจสอบได้ ระบบยืนยันยอดชำระจาก Stripe โดยตรง แนบรูปแล้วจะยังไม่ถือว่าชำระสำเร็จ</p><PaymentSlipForm :endpoint="`/payments/${route.params.id}/stripe/slip`" label="บันทึกหลักฐาน Stripe" evidence-only @saved="saved" /></section>
       <section v-if="payment.status==='payout_pending'" class="card"><h2>รับงานแล้ว รอผู้ดูแลจ่ายค่าจ้าง</h2><p>ยืนยันงานเสร็จแล้ว แต่ยังไม่มีการบันทึกสลิปจ่ายให้ผู้รับจ้าง</p></section>
       <section v-if="payment.status==='refund_pending'" class="card"><h2>อนุมัติคืนเงินแล้ว รอสลิปคืนเงิน</h2><p>ผู้ดูแลจะบันทึกคืนเงินจำลองเต็มยอด ฿ {{money(payment.refundAmount)}}</p></section>
-      <section v-if="payment.hasPayoutSlip" class="card"><h2>สลิปจ่ายค่าจ้างจำลอง</h2><p>{{dateTime(payment.paidAt)}}</p><PaymentSlipImage :payment-id="payment.id" direction="payout" /></section>
-      <section v-if="payment.hasRefundSlip" class="card"><h2>สลิปคืนเงินจำลอง</h2><PaymentSlipImage :payment-id="payment.id" direction="refund" /></section>
+      <section v-if="payment.hasPayoutSlip" class="card"><h2>หลักฐานที่ admin จ่ายค่าจ้างให้ worker</h2><p>บันทึกจ่าย ฿ {{money(payment.payoutAmount ?? payment.netAmountToWorker)}} เมื่อ {{dateTime(payment.paidAt)}} · เลขอ้างอิง {{payment.payoutReference}}</p><PaymentSlipImage :payment-id="payment.id" direction="payout" /></section>
+      <section v-if="payment.hasRefundSlip" class="card"><h2>หลักฐานคืนเงินที่ admin แนบ</h2><p>เลขอ้างอิง {{payment.refundReference}}</p><PaymentSlipImage :payment-id="payment.id" direction="refund" /></section>
       <section v-if="payment.status==='pending'" class="card">
         <h2>ชำระด้วยบัตร / PromptPay ผ่าน Stripe ทดสอบ</h2>
         <p class="hint">เลือกบัตรหรือ PromptPay บนหน้า Stripe โดย PromptPay จะแสดง QR สำหรับทดสอบ หากยกเลิกหรือบัตรถูกปฏิเสธ สามารถเปิด Stripe เพื่อลองใหม่ได้</p>
         <p class="notice">ใช้โหมดทดสอบเท่านั้น ไม่ต้องโอนเงินจริงผ่านแอปธนาคาร สร้าง QR แล้วยังไม่ถือว่าชำระ ต้องรอ Stripe ยืนยันก่อนเริ่มงาน</p>
-        <p class="hint">PromptPay ต้องเปิดใช้ใน sandbox ของโครงการ หากคืนเงิน Stripe อาจขอข้อมูลบัญชีผ่านอีเมลที่กรอกตอนชำระ</p>
+        <p class="hint">ชำระผ่าน Stripe แล้วไม่ต้องแนบสลิป ระบบตรวจผลจาก Stripe โดยตรง ส่วนการคืนเงินใช้ Stripe Refund และ admin แนบหลักฐานหลังคืนสำเร็จ</p>
         <p v-if="!stripeStatus?.ready" class="notice">Stripe ทดสอบยังไม่พร้อม กรุณาให้ผู้ดูแลตั้งค่า test key ที่ backend แล้วเริ่มระบบใหม่</p>
         <button class="secondary" :disabled="busy || !stripeStatus?.ready" @click="checkout">{{busy?'กำลังเปิด Stripe…':'ชำระผ่าน Stripe ทดสอบ (บัตร / PromptPay)'}}</button>
       </section>
