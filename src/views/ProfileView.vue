@@ -11,7 +11,6 @@ import { useRouter } from "vue-router";
 import api from "../services/api";
 import { resolveBackendAssetUrl } from "../services/backendAssets";
 import { useAuthStore } from "../stores/auth";
-import StatusBadge from "../components/StatusBadge.vue";
 import UserAvatar from "../components/UserAvatar.vue";
 import AppTopBar from "../components/AppTopBar.vue";
 import AppRoleDrawer from "../components/AppRoleDrawer.vue";
@@ -185,18 +184,6 @@ async function loadReviews() {
 const myJobs = ref([]);
 const myServicePosts = ref([]);
 const postsError = ref("");
-
-const JOB_STATUS_LABELS = {
-  pending_review: "รอตรวจสอบ",
-  rejected: "ถูกปฏิเสธ",
-  waiting: "เปิดรับสมัคร",
-  assigned: "เลือกผู้รับจ้างแล้ว",
-  in_progress: "กำลังดำเนินการ",
-  completed: "เสร็จสิ้น",
-  cancelled: "ยกเลิก",
-  disputed: "มีข้อพิพาท",
-};
-const SERVICE_STATUS_LABELS = { active: "เปิดอยู่", closed: "ปิดแล้ว", expired: "หมดเวลา" };
 
 async function loadPosts() {
   postsError.value = "";
@@ -397,7 +384,7 @@ onMounted(async () => {
           <span class="rating-count">จาก {{ reviewCount }} รีวิว</span>
         </div>
         <ul class="review-list">
-          <li v-for="r in reviews" :key="r.id" class="review-item">
+          <li v-for="r in reviews.slice(0, 3)" :key="r.id" class="review-item">
             <div class="review-head">
               <span class="reviewer">{{ r.reviewer }}</span>
               <span class="stars small">
@@ -407,6 +394,7 @@ onMounted(async () => {
             <p class="review-comment">{{ r.comment }}</p>
           </li>
         </ul>
+        <RouterLink to="/profile/ratings" class="show-more-btn">ดูรีวิวทั้งหมด</RouterLink>
       </section>
 
       <!-- ประวัติโพสต์ (FR-PROF-04) -->
@@ -414,30 +402,29 @@ onMounted(async () => {
         <h2 class="section-title">Post History</h2>
         <p v-if="postsError" class="posts-empty">{{ postsError }}</p>
         <template v-else>
-          <h3 class="posts-subtitle">งานที่ประกาศ (Hirer)</h3>
+          <h3 class="posts-subtitle role-band hirer-band">งานที่ประกาศ (Hirer)</h3>
           <p v-if="!myJobs.length" class="posts-empty">ยังไม่มีประวัติการประกาศงาน</p>
           <ul v-else class="post-list">
-            <li v-for="j in myJobs" :key="j._id" class="post-item">
+            <li v-for="j in myJobs.slice(0, 3)" :key="j._id" class="post-item">
               <div class="post-head">
                 <span class="post-title">{{ j.title }}</span>
-                <StatusBadge :status="j.status" :label="JOB_STATUS_LABELS[j.status] || j.status" />
               </div>
               <div class="post-meta">{{ j.category }} · {{ j.price }} บาท · {{ formatDate(j.createdAt) }}</div>
               <div v-if="j.status === 'rejected' && j.rejectionReason" class="post-reason">{{ j.rejectionReason }}</div>
             </li>
           </ul>
 
-          <h3 class="posts-subtitle">บริการที่เสนอ (Worker)</h3>
+          <h3 class="posts-subtitle role-band worker-band">บริการที่เสนอ (Worker)</h3>
           <p v-if="!myServicePosts.length" class="posts-empty">ยังไม่มีประวัติการเสนอบริการ</p>
           <ul v-else class="post-list">
-            <li v-for="sp in myServicePosts" :key="sp._id" class="post-item">
+            <li v-for="sp in myServicePosts.slice(0, 3)" :key="sp._id" class="post-item">
               <div class="post-head">
                 <span class="post-title">{{ sp.title }}</span>
-                <StatusBadge :status="sp.status === 'active' ? 'completed' : 'cancelled'" :label="SERVICE_STATUS_LABELS[sp.status] || sp.status" />
               </div>
               <div class="post-meta">{{ sp.category }} · {{ sp.fee }} บาท · {{ formatDate(sp.createdAt) }}</div>
             </li>
           </ul>
+          <RouterLink to="/profile/history" class="show-more-btn">ดูประวัติทั้งหมด</RouterLink>
         </template>
       </section>
     </main>
@@ -547,6 +534,9 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .review-item:first-child { padding-top: 0; border-top: none; }
 .posts-subtitle { margin: 12px 0 6px; font-size: 14px; font-weight: 600; }
 .posts-subtitle:first-of-type { margin-top: 0; }
+.role-band { padding: 9px 11px; border-radius: 8px; }
+.hirer-band { background: #fff5d6; color: #805500; border-left: 4px solid #f0b429; }
+.worker-band { background: #eaf3ff; color: #245b91; border-left: 4px solid #5b9bd5; }
 .posts-empty { margin: 0 0 8px; font-size: 13px; color: #888; }
 .post-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .post-item { padding-top: 10px; border-top: 1px solid #f2f2f2; }
@@ -558,6 +548,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .review-head { display: flex; align-items: center; justify-content: space-between; }
 .reviewer { font-size: 13px; font-weight: 700; color: #111; }
 .review-comment { margin: 4px 0 0; font-size: 12px; color: #555; }
+.show-more-btn { display: block; width: fit-content; margin: 12px auto 0; padding: 7px 12px; border: 1px solid #e5e5e5; border-radius: 8px; background: #fff; color: #8a5a00; font-size: 12px; font-weight: 700; text-align: center; cursor: pointer; }
 
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);

@@ -98,6 +98,12 @@ const routes = [
     component: () => import("../views/hirer/HirerPaymentView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
+  {
+    path: "/hirer/payment/transactions",
+    name: "hirer-payment-transactions",
+    component: () => import("../views/hirer/HirerPaymentTransactionsView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
 
   // Worker (FR-BROWSE-*, FR-TRACK-*)
   {
@@ -160,6 +166,12 @@ const routes = [
     component: () => import("../views/worker/WorkerPaymentView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
+  {
+    path: "/worker/payment/transactions",
+    name: "worker-payment-transactions",
+    component: () => import("../views/worker/WorkerPaymentTransactionsView.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
 
   // Profile — ใช้ร่วมกันระหว่าง Hirer และ Worker (บัญชีเดียวสลับ role ได้ตาม FR-AUTH-06)
   // ไม่ผูก meta.role เพราะเนื้อหาในหน้าไม่มีอะไรเฉพาะ role ใดเลย (FR-PROF-01/02/03, FR-REV-04)
@@ -167,6 +179,18 @@ const routes = [
     path: "/profile",
     name: "profile",
     component: () => import("../views/ProfileView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/profile/ratings",
+    name: "profile-ratings",
+    component: () => import("../views/ProfileRatingsView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/profile/history",
+    name: "profile-history",
+    component: () => import("../views/ProfileHistoryView.vue"),
     meta: { requiresAuth: true },
   },
 
