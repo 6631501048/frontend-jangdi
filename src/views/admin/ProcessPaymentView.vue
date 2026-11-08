@@ -239,6 +239,7 @@ onMounted(loadPayments);
 
         <div v-if="payment.disputeReason" class="refund-status"><strong>เหตุผลที่ขอคืนเงิน</strong><p>{{payment.disputeReason}}</p></div>
         <template v-if="expandedPaymentId === payment._id">
+          <p v-if="payment.paymentMode === 'stripe_test'" class="refund-status">รายการ Stripe ยืนยันยอดจาก Stripe โดยตรง สลิปขาเข้าเป็นหลักฐานประกอบ ไม่ต้องอนุมัติรับเงินจากรูป หากสถานะยังรอชำระ ให้ผู้ว่าจ้างเปิดหน้าชำระเงินเพื่อตรวจสถานะอัตโนมัติ</p>
           <template v-if="payment.hasInboundSlip || payment.status === 'awaiting_verification'"><h3 class="subtitle">สลิปขาเข้า</h3><PaymentSlipImage :payment-id="payment._id" direction="inbound" :version="payment.inboundSlipVersion" @loaded="reviewReady[payment._id + payment.inboundSlipVersion]=$event" /></template>
           <p v-if="payment.slipReviewNotes" class="refund-status">ผลตรวจสลิป: {{payment.slipReviewNotes}}</p>
           <p v-if="payment.status === 'awaiting_verification' && !reviewReady[payment._id + payment.inboundSlipVersion]" class="refund-status" role="status">ต้องเปิดรูปสำเร็จก่อนอนุมัติ หากโหลดรูปไม่ได้ สามารถลองโหลดใหม่หรือปฏิเสธสลิปพร้อมเหตุผลได้</p>

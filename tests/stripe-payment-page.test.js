@@ -32,9 +32,51 @@ test('Stripe option explains PromptPay QR and does not claim payment on QR creat
 test('cancelled/success return query never changes payment state or marks it paid',async()=>{
   for(const result of ['cancelled','success']){
     setup({query:{checkout:result}});const view=await mount(PaymentPage);
-    try{assert.ok(text(view.root).includes(result==='success'?'กำลังรอ webhook ยืนยัน':'สามารถเปิด Stripe เพื่อลองใหม่ได้'));assert.equal(calls.some(c=>c.method==='post'),false);}
+    try{assert.ok(text(view.root).includes(result==='success'?'กำลังตรวจสอบการชำระเงินกับ Stripe อัตโนมัติ':'สามารถเปิด Stripe เพื่อลองใหม่ได้'));assert.equal(calls.some(c=>c.method==='post'),false);}
     finally{view.unmount();}
   }
+});
+
+test('Stripe sessions reconcile automatically using the stored job, including without a return query',async()=>{
+  for(const query of [{},{checkout:'success'}]){
+    setup({query,payment:{hasStripeSession:true}});const view=await mount(PaymentPage);
+    try{
+      assert.equal(calls.filter(c=>c.method==='post' && c.url==='/payments/job1/stripe/sync').length,1);
+      assert.ok(text(view.root).includes('แนบสลิป / หลักฐาน Stripe (ไม่บังคับ)'));
+      assert.ok(text(view.root).includes('แนบรูปแล้วจะยังไม่ถือว่าชำระสำเร็จ'));
+      assert.ok(text(view.root).includes('ขั้นตอนการชำระเงิน'));
+    }finally{view.unmount();}
+  }
+});
+
+test('completed Stripe payments do not poll or offer another payment',async()=>{
+  setup({payment:{hasStripeSession:true,status:'held'}});const view=await mount(PaymentPage);
+  try{
+    assert.equal(calls.some(c=>c.method==='post'),false);
+    assert.ok(text(view.root).includes('ชำระแล้ว ผู้รับจ้างเริ่มงานได้'));
+    assert.ok(text(view.root).includes('บันทึกหลักฐาน Stripe'));
+  }finally{view.unmount();}
+});
+
+test('successful reconciliation replaces pending with the server-confirmed state',async()=>{
+  const payment={hasStripeSession:true};
+  setup({payment,post:async()=>{payment.status='held';return {data:{status:'held'}};}});
+  const view=await mount(PaymentPage);
+  try{
+    assert.ok(text(view.root).includes('ชำระแล้ว ผู้รับจ้างเริ่มงานได้'));
+    assert.equal(text(view.root).includes('ตรวจสอบสถานะอัตโนมัติทุก 8 วินาที'),false);
+  }finally{view.unmount();}
+});
+
+test('a failed Stripe status check keeps payment details and evidence available',async()=>{
+  setup({payment:{hasStripeSession:true},post:async()=>{throw {response:{data:{message:'เชื่อมต่อ Stripe ไม่สำเร็จ'}}};}});
+  const view=await mount(PaymentPage);
+  try{
+    assert.ok(text(view.root).includes('เชื่อมต่อ Stripe ไม่สำเร็จ'));
+    assert.ok(text(view.root).includes('งานทดสอบ'));
+    assert.ok(text(view.root).includes('บันทึกหลักฐาน Stripe'));
+    assert.equal(text(view.root).includes('ชำระแล้ว ผู้รับจ้างเริ่มงานได้'),false);
+  }finally{view.unmount();}
 });
 
 test('Checkout redirects only to the HTTPS Stripe host and sends no client amount',async()=>{
