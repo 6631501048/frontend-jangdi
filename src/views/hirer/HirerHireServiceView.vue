@@ -300,9 +300,9 @@ function closeModal() {
           <div class="check-circle">
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
-          <h2 class="modal-title">Hiring Successful</h2>
-          <p class="modal-sub">You have successfully hired {{ servicePost.workerName }}.</p>
-          <button class="btn-primary" @click="closeModal">Done</button>
+          <h2 class="modal-title">ส่งคำขอบริการแล้ว</h2>
+          <p class="modal-sub">คำขอถึง {{ servicePost.workerName }} แล้ว เมื่อผู้รับจ้างตอบรับ คุณจะไปชำระเงินและดูรายละเอียดงานได้จากหน้า Feed</p>
+          <button class="btn-primary" @click="closeModal">ตกลง</button>
         </div>
       </div>
     </Transition>

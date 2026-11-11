@@ -170,6 +170,7 @@ function goHome() {
   router.push("/hirer");
 }
 const confirmingCompletion = ref(false);
+const showCompletionPopup = ref(false);
 const completionError = ref("");
 function formatStatusTime(value) {
   if (!value) return null;
@@ -198,6 +199,7 @@ async function confirmCompletion() {
     const { data } = await api.post(`/jobs/${job.value._id}/confirm-completion`);
     job.value = { ...job.value, ...data.job, statusLabel: "เสร็จสิ้น" };
     await loadJob();
+    showCompletionPopup.value = true;
   } catch (err) {
     completionError.value = err.response?.data?.message || "ยืนยันปิดงานไม่สำเร็จ กรุณาลองใหม่";
   } finally {
@@ -355,6 +357,14 @@ async function confirmCompletion() {
       </template>
     </section>
     <JobReviewModal v-if="showReviewModal" role="hirer" :job-id="String(job._id)" @close="showReviewModal = false" @reviewed="reviewDone = true; reviewStatusLoaded = true" />
+    <div v-if="showCompletionPopup" class="completion-popup-backdrop" role="presentation" @click.self="showCompletionPopup = false">
+      <section class="completion-popup" role="alertdialog" aria-modal="true" aria-labelledby="completion-popup-title">
+        <div class="completion-popup-icon" aria-hidden="true">✓</div>
+        <h2 id="completion-popup-title">ยืนยันปิดงานสำเร็จ</h2>
+        <p>งานเสร็จเรียบร้อยแล้ว และส่งเข้าคิวรอผู้ดูแลบันทึกจ่ายค่าจ้าง</p>
+        <button class="btn primary" @click="showCompletionPopup = false">ตกลง</button>
+      </section>
+    </div>
   </main>
   <main v-else class="job-detail">
     <AppHeader title="รายละเอียดงาน" />
@@ -418,6 +428,12 @@ async function confirmCompletion() {
 .proof-missing, .completion-error { color: #dc2626; }
 .completion-success { color: #15803d; }
 .review-done { margin: 16px 0 0; color: #555; font-size: 13px; text-align: center; }
+.completion-popup-backdrop { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:20px; background:rgb(15 23 42 / 45%); }
+.completion-popup { width:min(100%,360px); padding:24px; border-radius:16px; background:#fff; text-align:center; box-shadow:0 16px 48px rgb(0 0 0 / 20%); }
+.completion-popup-icon { display:grid; width:48px; height:48px; margin:0 auto 12px; place-items:center; border-radius:50%; background:#dcfce7; color:#15803d; font-size:28px; font-weight:800; }
+.completion-popup h2 { margin:0 0 8px; font-size:17px; }
+.completion-popup p { margin:0 0 16px; color:#475569; font-size:13px; line-height:1.6; }
+.completion-popup .btn { margin:0; }
 .home-button { min-height: 44px; padding: 0 18px; border-radius: 9px; font-weight: 700; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .actions .btn { margin-top: 16px; }

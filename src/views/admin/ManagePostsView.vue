@@ -28,6 +28,9 @@ const statusGroups = [
   { key: "finished", label: "สิ้นสุดงาน", statuses: ["completed", "cancelled", "disputed"] },
 ];
 const posts = ref([]);
+// The Manage Posts route was only querying Hirer jobs. Worker service listings
+// have their own moderation endpoint and need to be visible in this queue too.
+const postType = ref(route.query.type === "services" ? "services" : "jobs");
 const counts = ref({});
 const validStatuses = new Set(statuses.map(({ key }) => key));
 const requestedStatus = String(route.query.status || "all");
@@ -66,11 +69,13 @@ async function loadPosts() {
   loading.value = true;
   errorMessage.value = "";
   try {
-    const { data } = await api.get("/admin/jobs", { params: {
-      status: currentStatus.value, page: page.value, limit: 20, search: appliedSearch.value,
+    const isService = postType.value === "services";
+    const { data } = await api.get(isService ? "/admin/service-posts" : "/admin/jobs", { params: {
+      status: isService ? (currentStatus.value === "all" ? "pending_review" : currentStatus.value) : currentStatus.value,
+      page: page.value, limit: 20, search: appliedSearch.value,
     } });
     if (requestId !== id) return;
-    posts.value = data.jobs || [];
+    posts.value = isService ? (data.posts || []) : (data.jobs || []);
     counts.value = data.counts || {};
     total.value = data.total || 0;
     totalPages.value = data.totalPages || 0;
@@ -80,6 +85,12 @@ async function loadPosts() {
     errorMessage.value = error.response?.data?.message || "ไม่สามารถโหลดงานทั้งหมดได้";
     posts.value = [];
   } finally { if (requestId === id) loading.value = false; }
+}
+function selectPostType(type) {
+  postType.value = type;
+  currentStatus.value = type === "services" ? "pending_review" : "all";
+  page.value = 1;
+  loadPosts();
 }
 watch(currentStatus, () => {
   currentGroup.value = statusGroups.find((group) => group.statuses.includes(currentStatus.value))?.key || "all";
@@ -93,7 +104,11 @@ async function approve(post) {
   if (actionLoading.value || post.status !== "pending_review") return;
   if (await askDecision({title:'อนุมัติประกาศ',message:post.title,confirmLabel:'ยืนยันอนุมัติ'}) === null) return;
   actionLoading.value = post._id;
-  try { await api.post(`/admin/jobs/${post._id}/approve`); await loadPosts(); }
+  try {
+    const endpoint = postType.value === "services" ? "service-posts" : "jobs";
+    await api.post(`/admin/${endpoint}/${post._id}/approve`);
+    await loadPosts();
+  }
   catch (error) { errorMessage.value = error.response?.data?.message || "อนุมัติประกาศไม่สำเร็จ"; }
   finally { actionLoading.value = null; }
 }
@@ -102,7 +117,11 @@ async function reject(post) {
   const reason = await askDecision({title:'ปฏิเสธประกาศ',message:post.title,requireReason:true,minLength:5,maxLength:500});
   if (reason === null) return;
   actionLoading.value = post._id;
-  try { await api.post(`/admin/jobs/${post._id}/reject`, { reason: reason.trim() }); await loadPosts(); }
+  try {
+    const endpoint = postType.value === "services" ? "service-posts" : "jobs";
+    await api.post(`/admin/${endpoint}/${post._id}/reject`, { reason: reason.trim() });
+    await loadPosts();
+  }
   catch (error) { errorMessage.value = error.response?.data?.message || "ปฏิเสธประกาศไม่สำเร็จ"; }
   finally { actionLoading.value = null; }
 }
@@ -118,16 +137,20 @@ async function reject(post) {
       </div>
       <button class="refresh-btn" :disabled="loading" @click="loadPosts">{{ loading ? "Loading..." : "Refresh" }}</button>
     </div>
+    <nav class="post-type-tabs" aria-label="ประเภทโพสต์">
+      <button type="button" :class="{ chosen: postType === 'jobs' }" @click="selectPostType('jobs')">งานจาก Hirer</button>
+      <button type="button" :class="{ chosen: postType === 'services' }" @click="selectPostType('services')">บริการจาก Worker</button>
+    </nav>
     <div class="status-filter-heading">
       <span>กรองตามกลุ่มสถานะ</span>
-      <span class="status-filter-summary">{{ activeStatus(currentStatus) }} · {{ statusCount(currentStatus) }} รายการ</span>
+      <span class="status-filter-summary">{{ activeStatus(currentStatus) }} · {{ postType === 'services' ? total : statusCount(currentStatus) }} รายการ</span>
     </div>
-    <nav class="status-groups" aria-label="กลุ่มสถานะงาน">
+      <nav v-if="postType === 'jobs'" class="status-groups" aria-label="กลุ่มสถานะงาน">
       <button v-for="group in statusGroups" :key="group.key" type="button" class="group-tab"
         :class="{ chosen: currentGroup === group.key }" :aria-pressed="currentGroup === group.key"
         @click="selectGroup(group.key)">{{ group.label }}</button>
     </nav>
-    <nav class="status-tabs" aria-label="สถานะย่อยของงาน">
+    <nav v-if="postType === 'jobs'" class="status-tabs" aria-label="สถานะย่อยของงาน">
       <button v-for="item in currentGroupStatuses" :key="item.key" type="button" class="tab"
         :class="{ chosen: currentStatus === item.key }" :aria-pressed="currentStatus === item.key"
         @click="currentStatus = item.key">{{ item.label }} ({{ statusCount(item.key) }})</button>
@@ -146,15 +169,15 @@ async function reject(post) {
           <div class="post-top">
             <div>
               <p class="post-title">{{ post.title }}</p>
-              <p class="post-meta">{{ post.hirer?.fullName || "ไม่ทราบชื่อ" }} · {{ date(post.createdAt) }}</p>
+              <p class="post-meta">{{ (postType === 'services' ? post.worker?.fullName : post.hirer?.fullName) || "ไม่ทราบชื่อ" }} · {{ date(post.createdAt) }}</p>
             </div>
             <span class="status-badge" :class="`status-${post.status}`">{{ activeStatus(post.status) }}</span>
           </div>
           <p class="post-text">{{ post.description || "-" }}</p>
           <div class="post-info">
             <span>ประเภท: {{ post.category || "-" }}</span>
-            <span>ค่าจ้าง: {{ money(post.price) }}</span>
-            <span>Worker: {{ post.selectedWorker?.fullName || "ยังไม่ได้เลือก" }}</span>
+            <span>{{ postType === 'services' ? 'ค่าบริการ' : 'ค่าจ้าง' }}: {{ money(postType === 'services' ? post.fee : post.price) }}</span>
+            <span v-if="postType === 'jobs'">Worker: {{ post.selectedWorker?.fullName || "ยังไม่ได้เลือก" }}</span>
           </div>
           <div class="action-row">
             <button type="button" class="action-btn outline" @click="expandedId = expandedId === post._id ? null : post._id">
@@ -167,9 +190,9 @@ async function reject(post) {
           </div>
           <dl v-if="expandedId === post._id" class="detail-box">
             <div><dt>รหัสงาน</dt><dd>{{ post._id }}</dd></div>
-            <div><dt>ผู้ว่าจ้าง</dt><dd>{{ post.hirer?.fullName || '-' }} ({{ post.hirer?.email || '-' }})</dd></div>
+            <div><dt>{{ postType === 'services' ? 'Worker' : 'ผู้ว่าจ้าง' }}</dt><dd>{{ (postType === 'services' ? post.worker?.fullName : post.hirer?.fullName) || '-' }} ({{ (postType === 'services' ? post.worker?.email : post.hirer?.email) || '-' }})</dd></div>
             <div><dt>สถานะปัจจุบัน</dt><dd>{{ activeStatus(post.status) }}</dd></div>
-            <div><dt>ผู้รับงาน</dt><dd>{{ post.selectedWorker?.fullName || '-' }}</dd></div>
+            <div v-if="postType === 'jobs'"><dt>ผู้รับงาน</dt><dd>{{ post.selectedWorker?.fullName || '-' }}</dd></div>
             <div><dt>กำหนดนัดหมาย</dt><dd>{{ date(post.scheduledAt) }}</dd></div>
             <div><dt>อนุมัติเมื่อ</dt><dd>{{ date(post.approvedAt) }}</dd></div>
             <div v-if="post.rejectionReason"><dt>เหตุผลปฏิเสธ</dt><dd>{{ post.rejectionReason }}</dd></div>
@@ -191,6 +214,29 @@ async function reject(post) {
 <style scoped>
 .posts {
   padding: 16px;
+}
+
+.post-type-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.post-type-tabs button {
+  flex: 1;
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.post-type-tabs button.chosen {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-text);
+  font-weight: 700;
 }
 
 .header-row {

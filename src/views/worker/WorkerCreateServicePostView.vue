@@ -87,18 +87,15 @@ const step2Valid = computed(
     form.value.feePerOrder !== null &&
     form.value.feePerOrder !== "" &&
     (form.value.category !== "delivery" || Number(form.value.feePerOrder) > 0) &&
-    (!canTakeMultiple.value || Number(form.value.maxOrders) >= 1 && Number(form.value.maxOrders) <= 3) &&
     form.value.maxOrders !== null &&
     form.value.maxOrders !== "" && Number(form.value.maxOrders) >= 1 && Number(form.value.maxOrders) <= 3 &&
     form.value.time &&
     (form.value.category === "delivery" || form.value.serviceLocation.trim()) &&
     (form.value.category !== "delivery" || form.value.radius)
 );
-const canTakeMultiple = computed(() => ["delivery", "tutoring"].includes(form.value.category));
-
 function selectCategory(id) {
   form.value.category = id;
-  form.value.maxOrders = canTakeMultiple.value ? 3 : 1;
+  form.value.maxOrders = 3;
   if (id !== "delivery") form.value.radius = "";
 }
 function next() {
@@ -182,8 +179,8 @@ function backToHome() {
           <div class="check-circle">
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
-          <h2 class="success-title">Post Success!</h2>
-          <p class="success-sub">Your service has been posted.</p>
+          <h2 class="success-title">ส่งประกาศบริการแล้ว</h2>
+          <p class="success-sub">ประกาศกำลังรอผู้ดูแลตรวจสอบ เมื่ออนุมัติแล้วจึงจะแสดงใน Feed</p>
           <div class="success-actions">
             <button class="btn-primary" @click="viewMyPosts">View My Posts</button>
             <button class="btn-muted" @click="backToHome">Back to Home</button>
@@ -251,12 +248,11 @@ function backToHome() {
               </div>
               <div class="field-col">
                 <label class="field-label">จำนวนงานที่รับพร้อมกัน</label>
-                <div v-if="canTakeMultiple" class="input-suffix">
+                <div class="input-suffix">
                   <input v-model.number="form.maxOrders" type="number" min="1" max="3" step="1" placeholder="3" />
                   <span class="suffix">งาน</span>
                 </div>
-                <p v-else class="fixed-capacity">1 งาน</p>
-                <small v-if="canTakeMultiple" class="price-hint">กำหนดได้ตั้งแต่ 1 ถึง 3 งานพร้อมกัน</small>
+                <small class="price-hint">กำหนดได้ตั้งแต่ 1 ถึง 3 งานพร้อมกัน</small>
               </div>
             </div>
 

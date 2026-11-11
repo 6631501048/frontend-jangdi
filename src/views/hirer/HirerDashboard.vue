@@ -103,8 +103,11 @@ function mapJob(job) {
   };
 }
 
-function mapServicePost(post) {
+function mapServicePost(post, requests = []) {
   const deliveryModeLabels = { shopping: "รับหิ้ว", pickup_delivery: "รับของไปส่ง", passenger: "รับส่งผู้โดยสาร" };
+  const existingRequest = requests
+    .filter((request) => String(request.servicePost?._id || request.servicePost) === String(post._id) && ["pending", "accepted"].includes(request.status))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
   return {
     id: post._id,
     type: "worker", // Service Post ของผู้รับจ้าง — กด "Hiring" เพื่อส่ง Service Request ได้
@@ -120,10 +123,13 @@ function mapServicePost(post) {
       ? (post.serviceRadiusMeters ? `รัศมี ${(post.serviceRadiusMeters / 1000).toFixed(1)} กม.` : "-")
       : post.locationLabel || "-",
     hiring: true,
+    requestStatus: existingRequest?.status || "",
+    requestJobId: existingRequest?.resultingJob?._id || existingRequest?.resultingJob || null,
   };
 }
 
 const posts = ref([]);
+const myServiceRequests = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
 
@@ -131,13 +137,16 @@ async function loadFeed() {
   loading.value = true;
   errorMsg.value = "";
   try {
-    const [jobsResponse, servicePostsResponse] = await Promise.all([
+    const [jobsResponse, servicePostsResponse, requestsResponse] = await Promise.all([
       api.get("/jobs", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value, search: searchQuery.value.trim() || undefined } }),
       api.get("/service-posts", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value } }),
+      api.get("/service-posts/requests/my-as-hirer").catch(() => ({ data: [] })),
     ]);
     const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data.jobs || [];
     const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
-    posts.value = [...jobs.map(mapJob), ...servicePosts.map(mapServicePost)].sort((a, b) => b.postedAt - a.postedAt);
+    const requests = Array.isArray(requestsResponse.data) ? requestsResponse.data : [];
+    myServiceRequests.value = requests;
+    posts.value = [...jobs.map(mapJob), ...servicePosts.map((post) => mapServicePost(post, requests))].sort((a, b) => b.postedAt - a.postedAt);
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
   } finally {
@@ -219,6 +228,17 @@ function timeAgo(date) {
       </button>
     </div>
 
+    <section v-if="myServiceRequests.some(request => ['pending', 'accepted'].includes(request.status))" class="outgoing-requests">
+      <h2>คำขอบริการของฉัน</h2>
+      <article v-for="request in myServiceRequests.filter(row => ['pending', 'accepted'].includes(row.status))" :key="request._id" class="outgoing-request">
+        <div>
+          <strong>{{ request.servicePost?.title || 'บริการจากผู้รับจ้าง' }}</strong>
+          <span>{{ request.status === 'pending' ? 'รอผู้รับจ้างตอบรับ' : 'ผู้รับจ้างตอบรับแล้ว' }}</span>
+        </div>
+        <RouterLink v-if="request.status === 'accepted' && (request.resultingJob?._id || request.resultingJob)" :to="{name:'hirer-mock-payment',params:{id:request.resultingJob?._id || request.resultingJob}}">ดูงาน / ชำระเงิน</RouterLink>
+      </article>
+    </section>
+
     <!-- ฟีดประกาศ -->
     <section class="feed-list">
       <p v-if="loading" class="empty">กำลังโหลดประกาศ...</p>
@@ -240,7 +260,9 @@ function timeAgo(date) {
         </div>
         <div class="card-actions">
           <template v-if="post.type === 'worker'">
-            <RouterLink :to="`/hirer/hire/${post.id}`" class="btn-apply">รับบริการ</RouterLink>
+            <button v-if="post.requestStatus === 'pending'" class="btn-apply" disabled>รอผู้รับจ้างตอบรับ</button>
+            <RouterLink v-else-if="post.requestStatus === 'accepted' && post.requestJobId" :to="{name:'hirer-mock-payment',params:{id:post.requestJobId}}" class="btn-apply">ไปหน้าชำระเงิน</RouterLink>
+            <RouterLink v-else :to="`/hirer/hire/${post.id}`" class="btn-apply">รับบริการ</RouterLink>
             <RouterLink :to="`/hirer/service-posts/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
           </template>
           <RouterLink v-else :to="post.isMine ? `/hirer/my-jobs/${post.id}` : `/hirer/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
@@ -371,6 +393,13 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .results-count { margin: 12px 16px 4px; color: #777; font-size: 12px; text-align: center; }
 .show-more { display:block; margin: 10px auto 20px; padding: 9px 18px; border: 1px solid #ddd; border-radius: 20px; background:#fff; color:#554000; cursor:pointer; }
 .empty { text-align: center; color: #888; margin-top: 40px; font-size: 14px; }
+.outgoing-requests { margin:12px 16px 0; padding:12px; border:1px solid #f0d98d; border-radius:12px; background:#fffdf5; }
+.outgoing-requests h2 { margin:0 0 8px; font-size:14px; }
+.outgoing-request { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid #f2ead2; font-size:12px; }
+.outgoing-request div { display:flex; min-width:0; flex-direction:column; gap:3px; }
+.outgoing-request strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.outgoing-request span { color:#6b7280; }
+.outgoing-request a { flex-shrink:0; color:#755200; font-weight:700; text-decoration:none; }
 
 /* ---------- FAB ---------- */
 .fab {
@@ -380,6 +409,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 }
 
 @media (min-width: 768px) {
+  .outgoing-requests { margin-left:24px; margin-right:24px; }
   .search-row { padding-left: 24px; padding-right: 24px; }
   .tabs { margin: 12px 24px 0; }
   .categories { padding-left: 24px; padding-right: 24px; }

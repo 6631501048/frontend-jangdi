@@ -162,6 +162,7 @@ function mapJob(job) {
   return {
     id: job._id,
     type: "hirer",
+    status: job.status,
     category: job.category,
     name: job.hirer?.fullName || "ผู้ว่าจ้าง",
     avatarUrl: job.hirer?.avatarUrl,
@@ -178,6 +179,7 @@ function mapServicePost(post) {
   return {
     id: post._id,
     type: "worker",
+    status: post.status,
     category: post.category,
     name: post.worker?.fullName || "ผู้รับจ้าง",
     avatarUrl: post.worker?.avatarUrl,
@@ -200,7 +202,16 @@ async function loadFeed() {
     ]);
     const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data.jobs || [];
     const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
-    posts.value = [...jobs.map(mapJob), ...servicePosts.map(mapServicePost)].sort((a, b) => b.postedAt - a.postedAt);
+    const ownWorkerId = String(auth.user?._id || auth.user?.id || "");
+    const openJobs = jobs.filter((job) => job.status === "waiting");
+    const availableServicePosts = servicePosts.filter((post) =>
+      (!ownWorkerId || String(post.worker?._id || post.worker?.id || post.worker || "") !== ownWorkerId) &&
+      post.status === "active" &&
+      new Date(post.availabilityEnd).getTime() >= Date.now() &&
+      Number(post.currentOrderCount || 0) < Number(post.maxSimultaneousOrders ?? Infinity),
+    );
+    posts.value = [...openJobs.map(mapJob), ...availableServicePosts.map(mapServicePost)]
+      .sort((a, b) => b.postedAt - a.postedAt);
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
   } finally {

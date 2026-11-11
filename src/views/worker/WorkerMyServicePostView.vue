@@ -47,6 +47,8 @@ async function load() {
       id: chosen._id,
       title: chosen.title,
       description: chosen.description,
+      status: chosen.status,
+      rejectionReason: chosen.rejectionReason || "",
       isOpen: chosen.status === "active" && new Date(chosen.availabilityEnd) >= new Date() && chosen.currentOrderCount < chosen.maxSimultaneousOrders,
       maxOrders: chosen.maxSimultaneousOrders,
       location: chosen.category,
@@ -157,8 +159,8 @@ function createNewPost() {
             <p class="post-desc">{{ post.description }}</p>
           </div>
           <div class="post-status">
-            <span :class="post.isOpen ? 'status-open' : 'status-closed'">{{ post.isOpen ? "open" : "Close" }}</span>
-            <span class="status-sub">{{ post.isOpen ? "Accepting Orders" : "Closed / Full / Expired" }}</span>
+            <span :class="post.status === 'pending_review' ? 'status-review' : post.isOpen ? 'status-open' : 'status-closed'">{{ post.status === 'pending_review' ? "รอผู้ดูแลอนุมัติ" : post.status === 'rejected' ? "ไม่ผ่านการอนุมัติ" : post.isOpen ? "open" : "Close" }}</span>
+            <span class="status-sub">{{ post.status === 'pending_review' ? "ประกาศยังไม่แสดงใน Feed" : post.status === 'rejected' ? post.rejectionReason : post.isOpen ? "Accepting Orders" : "Closed / Full / Expired" }}</span>
           </div>
         </div>
 
@@ -276,6 +278,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .post-status { flex-shrink: 0; text-align: right; }
 .status-open { display: block; font-size: 13px; font-weight: 700; color: #1a9c4a; }
 .status-closed { display: block; font-size: 13px; font-weight: 700; color: #e11d48; }
+.status-review { display:block; font-size:13px; font-weight:700; color:#a16207; }
 .status-sub { font-size: 10px; color: #999; }
 
 .post-info-row { display: flex; margin-top: 14px; padding-top: 12px; border-top: 1px solid #f2f2f2; }
