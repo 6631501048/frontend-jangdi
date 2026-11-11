@@ -161,6 +161,12 @@ const routes = [
     meta: { requiresAuth: true, role: "worker" },
   },
   {
+    path: "/worker/service-posts/:id",
+    name: "worker-service-post-detail",
+    component: () => import("../views/hirer/HirerServicePostDetailView.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
     path: "/worker/service-requests/:id",
     name: "worker-service-request-detail",
     component: () => import("../views/worker/WorkerServiceRequestDetailView.vue"),

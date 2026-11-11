@@ -111,6 +111,7 @@ function mapServicePost(post, requests = []) {
   return {
     id: post._id,
     type: "worker", // Service Post ของผู้รับจ้าง — กด "Hiring" เพื่อส่ง Service Request ได้
+    isMine: String(post.worker?._id || post.worker?.id || post.worker || "") === String(auth.user?._id || auth.user?.id || ""),
     category: post.category,
     name: post.worker?.fullName || "ผู้รับจ้าง",
     avatarUrl: post.worker?.avatarUrl,
@@ -146,7 +147,12 @@ async function loadFeed() {
     const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
     const requests = Array.isArray(requestsResponse.data) ? requestsResponse.data : [];
     myServiceRequests.value = requests;
-    posts.value = [...jobs.map(mapJob), ...servicePosts.map((post) => mapServicePost(post, requests))].sort((a, b) => b.postedAt - a.postedAt);
+    const availableServicePosts = servicePosts.filter((post) =>
+      post.status === "active" &&
+      new Date(post.availabilityEnd).getTime() >= Date.now() &&
+      Number(post.currentOrderCount || 0) < Number(post.maxSimultaneousOrders ?? Infinity),
+    );
+    posts.value = [...jobs.map(mapJob), ...availableServicePosts.map((post) => mapServicePost(post, requests))].sort((a, b) => b.postedAt - a.postedAt);
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
   } finally {
@@ -228,17 +234,6 @@ function timeAgo(date) {
       </button>
     </div>
 
-    <section v-if="myServiceRequests.some(request => ['pending', 'accepted'].includes(request.status))" class="outgoing-requests">
-      <h2>คำขอบริการของฉัน</h2>
-      <article v-for="request in myServiceRequests.filter(row => ['pending', 'accepted'].includes(row.status))" :key="request._id" class="outgoing-request">
-        <div>
-          <strong>{{ request.servicePost?.title || 'บริการจากผู้รับจ้าง' }}</strong>
-          <span>{{ request.status === 'pending' ? 'รอผู้รับจ้างตอบรับ' : 'ผู้รับจ้างตอบรับแล้ว' }}</span>
-        </div>
-        <RouterLink v-if="request.status === 'accepted' && (request.resultingJob?._id || request.resultingJob)" :to="{name:'hirer-mock-payment',params:{id:request.resultingJob?._id || request.resultingJob}}">ดูงาน / ชำระเงิน</RouterLink>
-      </article>
-    </section>
-
     <!-- ฟีดประกาศ -->
     <section class="feed-list">
       <p v-if="loading" class="empty">กำลังโหลดประกาศ...</p>
@@ -260,10 +255,11 @@ function timeAgo(date) {
         </div>
         <div class="card-actions">
           <template v-if="post.type === 'worker'">
-            <button v-if="post.requestStatus === 'pending'" class="btn-apply" disabled>รอผู้รับจ้างตอบรับ</button>
+            <RouterLink v-if="post.isMine" :to="`/hirer/service-posts/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
+            <button v-else-if="post.requestStatus === 'pending'" class="btn-apply" disabled>รอผู้รับจ้างตอบรับ</button>
             <RouterLink v-else-if="post.requestStatus === 'accepted' && post.requestJobId" :to="{name:'hirer-mock-payment',params:{id:post.requestJobId}}" class="btn-apply">ไปหน้าชำระเงิน</RouterLink>
             <RouterLink v-else :to="`/hirer/hire/${post.id}`" class="btn-apply">รับบริการ</RouterLink>
-            <RouterLink :to="`/hirer/service-posts/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
+            <RouterLink v-if="!post.isMine" :to="`/hirer/service-posts/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
           </template>
           <RouterLink v-else :to="post.isMine ? `/hirer/my-jobs/${post.id}` : `/hirer/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
         </div>

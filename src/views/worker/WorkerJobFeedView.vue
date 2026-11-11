@@ -202,10 +202,8 @@ async function loadFeed() {
     ]);
     const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data.jobs || [];
     const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
-    const ownWorkerId = String(auth.user?._id || auth.user?.id || "");
     const openJobs = jobs.filter((job) => job.status === "waiting");
     const availableServicePosts = servicePosts.filter((post) =>
-      (!ownWorkerId || String(post.worker?._id || post.worker?.id || post.worker || "") !== ownWorkerId) &&
       post.status === "active" &&
       new Date(post.availabilityEnd).getTime() >= Date.now() &&
       Number(post.currentOrderCount || 0) < Number(post.maxSimultaneousOrders ?? Infinity),
@@ -340,7 +338,7 @@ async function applyToJob(post) {
           <button v-if="post.type === 'hirer'" class="btn-apply" :disabled="applyingJobIds.has(post.id) || appliedJobIds.has(post.id)" @click="applyToJob(post)">{{ appliedJobIds.has(post.id) ? "สมัครแล้ว" : applyingJobIds.has(post.id) ? "กำลังสมัคร…" : "สมัครงาน" }}</button>
           <p v-if="applyErrors[post.id]" class="apply-error">{{ applyErrors[post.id] }}</p>
           <RouterLink v-if="post.type === 'hirer'" :to="`/worker/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
-          <span v-else class="service-post-note">บริการจากผู้รับจ้าง</span>
+          <RouterLink v-else :to="`/worker/service-posts/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
         </div>
       </article>
 

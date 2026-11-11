@@ -10,6 +10,11 @@ import api from "../../services/api";
 const router = useRouter();
 const loading = ref(true);
 const errorMsg = ref("");
+const categoryLabels = { delivery: "จัดส่ง", cleaning: "ทำความสะอาด", tutoring: "ติว/การศึกษา", writing: "เขียน/พิมพ์เอกสาร", errands: "งานจิปาถะ", it: "IT/โปรแกรมมิ่ง" };
+
+function postStatusLabel(status) {
+  return ({ pending_review: "Pending", active: "เปิดรับบริการ", rejected: "ไม่อนุมัติ", closed: "ปิดรับบริการ", expired: "หมดเวลา" })[status] || status;
+}
 
 function timeAgo(dateStr) {
   const diffMin = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000));
@@ -51,9 +56,17 @@ async function load() {
       rejectionReason: chosen.rejectionReason || "",
       isOpen: chosen.status === "active" && new Date(chosen.availabilityEnd) >= new Date() && chosen.currentOrderCount < chosen.maxSimultaneousOrders,
       maxOrders: chosen.maxSimultaneousOrders,
-      location: chosen.category,
-      time: new Date(chosen.availabilityEnd).toLocaleString("th-TH"),
+      location: chosen.category === "delivery"
+        ? `รัศมี ${((chosen.serviceRadiusMeters || 0) / 1000).toFixed(1)} กม.`
+        : chosen.locationLabel || categoryLabels[chosen.category] || chosen.category,
+      time: [chosen.availabilityStart, chosen.availabilityEnd]
+        .filter(Boolean)
+        .map((value) => new Date(value).toLocaleString("th-TH", { dateStyle: "short", timeStyle: "short" }))
+        .join(" – ") || "-",
       serviceFee: chosen.fee,
+      feeUnit: chosen.category === "delivery"
+        ? chosen.serviceType === "shopping" || !chosen.serviceType ? "ต่อออร์เดอร์" : "ต่อเที่ยว"
+        : "ต่อรายการ",
     };
 
     const { data: requests } = await api.get("/service-posts/requests/my-as-worker");
@@ -129,7 +142,7 @@ function createNewPost() {
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="router.back()">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">My Service Post</h1>
+      <h1 class="title">บริการของฉัน</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -139,13 +152,13 @@ function createNewPost() {
 
       <template v-else-if="!post">
         <p class="empty">คุณยังไม่มีประกาศบริการ</p>
-        <button class="btn-apply" style="margin: 0 16px;" @click="createNewPost">+ สร้างประกาศบริการใหม่</button>
+        <button class="btn-apply create-button" @click="createNewPost">+ สร้างประกาศบริการใหม่</button>
       </template>
 
       <template v-else>
       <label class="post-picker">เลือกประกาศบริการ
         <select v-model="chosenPostId" @change="load">
-          <option v-for="p in servicePosts" :key="p._id" :value="p._id">{{ p.title }} — {{ p.status }}</option>
+          <option v-for="p in servicePosts" :key="p._id" :value="p._id">{{ p.title }} — {{ postStatusLabel(p.status) }}</option>
         </select>
       </label>
       <!-- การ์ดสรุป Service Post -->
@@ -159,33 +172,33 @@ function createNewPost() {
             <p class="post-desc">{{ post.description }}</p>
           </div>
           <div class="post-status">
-            <span :class="post.status === 'pending_review' ? 'status-review' : post.isOpen ? 'status-open' : 'status-closed'">{{ post.status === 'pending_review' ? "รอผู้ดูแลอนุมัติ" : post.status === 'rejected' ? "ไม่ผ่านการอนุมัติ" : post.isOpen ? "open" : "Close" }}</span>
-            <span class="status-sub">{{ post.status === 'pending_review' ? "ประกาศยังไม่แสดงใน Feed" : post.status === 'rejected' ? post.rejectionReason : post.isOpen ? "Accepting Orders" : "Closed / Full / Expired" }}</span>
+            <span :class="post.status === 'pending_review' ? 'status-review' : post.isOpen ? 'status-open' : 'status-closed'">{{ post.status === 'pending_review' ? "Pending" : post.status === 'rejected' ? "ไม่อนุมัติ" : post.isOpen ? "เปิดรับบริการ" : "ปิดรับบริการ" }}</span>
+            <span v-if="post.status === 'rejected' && post.rejectionReason" class="status-sub">{{ post.rejectionReason }}</span>
           </div>
         </div>
 
         <div class="post-info-row">
           <div class="info-col">
-            <p class="info-label"><svg class="mini" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>Location</p>
+            <p class="info-label"><svg class="mini" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>สถานที่ให้บริการ</p>
             <p class="info-value">{{ post.location }}</p>
           </div>
           <div class="info-col">
-            <p class="info-label"><svg class="mini" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>Time</p>
+            <p class="info-label"><svg class="mini" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>ช่วงเวลา</p>
             <p class="info-value">{{ post.time }}</p>
           </div>
           <div class="info-col">
-            <p class="info-label"><svg class="mini" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M3 10h18M8 7V5h8v2" /></svg>Service Fee</p>
-            <p class="info-value">{{ post.serviceFee }} Baht<small>per order</small></p>
+            <p class="info-label"><svg class="mini" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M3 10h18M8 7V5h8v2" /></svg>ค่าบริการ</p>
+            <p class="info-value">฿{{ Number(post.serviceFee).toLocaleString("th-TH") }}<small>{{ post.feeUnit }}</small></p>
           </div>
         </div>
       </div>
 
       <!-- คำขอที่เข้ามา -->
       <div class="requests-head">
-        <h2>Incoming Requests ({{ pendingCount }})</h2>
+        <h2>คำขอเข้ามา ({{ pendingCount }})</h2>
         <select v-model="sortOrder" class="sort-select">
-          <option value="latest">Latest</option>
-          <option value="oldest">Oldest</option>
+          <option value="latest">ใหม่สุด</option>
+          <option value="oldest">เก่าสุด</option>
         </select>
       </div>
 
@@ -199,26 +212,26 @@ function createNewPost() {
               <p class="requester">{{ req.requester }}</p>
               <p class="requester-loc">{{ req.location }}</p>
             </div>
-            <span v-if="req.status === 'accepted'" class="status-accepted">Accepted</span>
-            <span v-else-if="req.status === 'declined'" class="posted-ago">Declined</span>
+            <span v-if="req.status === 'accepted'" class="status-accepted">รับคำขอแล้ว</span>
+            <span v-else-if="req.status === 'declined'" class="posted-ago">ปฏิเสธแล้ว</span>
             <span v-else class="posted-ago">{{ req.postedAgo }}</span>
           </div>
 
           <div class="request-items">
             <div>
-              <p class="items-label">Items Requested</p>
+              <p class="items-label">รายละเอียดคำขอ</p>
               <p class="items-value">{{ req.items }}</p>
             </div>
             <div class="items-total">
               <p class="items-label">ประมาณการ</p>
-              <p class="items-value">{{ req.total }} Baht</p>
+              <p class="items-value">฿{{ Number(req.total).toLocaleString("th-TH") }}</p>
             </div>
           </div>
 
           <div class="request-actions" :class="{ single: req.status === 'accepted' }">
-            <button class="btn-details" @click="viewDetails(req)">Details</button>
+            <button class="btn-details" @click="viewDetails(req)">รายละเอียด</button>
             <button v-if="req.status === 'pending' && post.isOpen" class="btn-apply" :disabled="accepting === req.id" @click="acceptRequest(req)">
-              {{ accepting === req.id ? "..." : "Apply" }}
+              {{ accepting === req.id ? "กำลังบันทึก…" : "ยอมรับคำขอ" }}
             </button>
           </div>
         </article>
@@ -235,9 +248,9 @@ function createNewPost() {
           <div class="check-circle">
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
-          <h3 class="success-title">Apply Successful!</h3>
-          <p class="success-sub">You have accepted {{ acceptedRequester }}'s order.</p>
-          <button class="btn-view-order" @click="viewMyOrder">View My Order</button>
+          <h3 class="success-title">รับคำขอเรียบร้อยแล้ว</h3>
+          <p class="success-sub">รับคำขอจาก {{ acceptedRequester }} แล้ว</p>
+          <button class="btn-view-order" @click="viewMyOrder">ดูงานของฉัน</button>
         </div>
       </div>
     </Transition>
@@ -276,9 +289,10 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .post-title { margin: 0; font-size: 13.5px; font-weight: 700; color: #111; }
 .post-desc { margin: 2px 0 0; font-size: 11px; color: #999; }
 .post-status { flex-shrink: 0; text-align: right; }
-.status-open { display: block; font-size: 13px; font-weight: 700; color: #1a9c4a; }
-.status-closed { display: block; font-size: 13px; font-weight: 700; color: #e11d48; }
-.status-review { display:block; font-size:13px; font-weight:700; color:#a16207; }
+.status-open, .status-closed, .status-review { display:inline-flex; align-items:center; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+.status-open { background:#dcfce7; color:#166534; }
+.status-closed { background:#fee2e2; color:#b91c1c; }
+.status-review { background:#fff1c2; color:#8a5a00; }
 .status-sub { font-size: 10px; color: #999; }
 
 .post-info-row { display: flex; margin-top: 14px; padding-top: 12px; border-top: 1px solid #f2f2f2; }
@@ -313,8 +327,9 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .btn-details, .btn-apply {
   flex: 1; min-height: 40px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;
 }
-.btn-details { background: #e5e5e5; border: none; color: #333; }
+.btn-details { background: #fff; border: 1px solid #d1d5db; color: #222; }
 .btn-apply { background: #ffc93c; border: none; color: #111; }
+.create-button { flex:none; margin:0; padding:0 16px; }
 
 .empty { text-align: center; color: #888; margin-top: 20px; font-size: 14px; }
 .error-text { color: #e11d48; }
@@ -342,6 +357,22 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>
 <style scoped>
-.post-picker { display:flex; flex-direction:column; gap:6px; margin:8px 0; font-size:13px; }
-.post-picker select { width:100%; padding:10px; background:#fff; border:1px solid #ddd; border-radius:8px; }
+.post-picker { display:flex; flex-direction:column; gap:7px; margin:0; color:#555; font-size:12px; font-weight:600; }
+.post-picker select, .sort-select { min-height:42px; padding:9px 12px; background:#fff; border:1px solid #d7dbe0; border-radius:9px; color:#222; font:inherit; }
+.post-picker select:focus, .sort-select:focus { outline:2px solid #ffe08a; border-color:#e9ad10; }
+.post-card { border:1px solid #e5e7eb; }
+.request-card { border:1px solid #e5e7eb; }
+.requests-head { margin-top:2px; }
+.requests-head h2 { font-size:15px; }
+.request-list { gap:12px; }
+.btn-details, .btn-apply { padding:0 14px; text-align:center; }
+@media (max-width: 640px) {
+  .content { padding:12px; gap:12px; }
+  .post-head { flex-wrap:wrap; }
+  .post-status { margin-left:auto; }
+  .post-info-row { display:grid; grid-template-columns:1fr; gap:12px; }
+  .info-col { padding:0; }
+  .request-items { align-items:flex-start; }
+  .request-actions { flex-wrap:wrap; }
+}
 </style>

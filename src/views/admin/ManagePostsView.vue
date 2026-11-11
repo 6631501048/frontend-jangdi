@@ -20,12 +20,21 @@ const statuses = [
   { key: "completed", label: "เสร็จสิ้น" },
   { key: "cancelled", label: "ยกเลิก" },
   { key: "disputed", label: "ข้อพิพาท" },
+  { key: "active", label: "เปิดรับบริการ" },
+  { key: "closed", label: "ปิดประกาศ" },
+  { key: "expired", label: "หมดอายุ" },
 ];
-const statusGroups = [
+const jobStatusGroups = [
   { key: "all", label: "ทั้งหมด", statuses: ["all"] },
   { key: "review", label: "รอตรวจสอบ", statuses: ["pending_review", "pending_filter", "rejected"] },
   { key: "progress", label: "กำลังดำเนินการ", statuses: ["waiting", "assigned", "in_progress", "awaiting_confirmation"] },
   { key: "finished", label: "สิ้นสุดงาน", statuses: ["completed", "cancelled", "disputed"] },
+];
+const serviceStatusGroups = [
+  { key: "all", label: "ทั้งหมด", statuses: ["all"] },
+  { key: "review", label: "รอตรวจสอบ", statuses: ["pending_review", "rejected"] },
+  { key: "progress", label: "กำลังดำเนินการ", statuses: ["active"] },
+  { key: "finished", label: "สิ้นสุดงาน", statuses: ["closed", "expired"] },
 ];
 const posts = ref([]);
 // The Manage Posts route was only querying Hirer jobs. Worker service listings
@@ -33,9 +42,13 @@ const posts = ref([]);
 const postType = ref(route.query.type === "services" ? "services" : "jobs");
 const counts = ref({});
 const validStatuses = new Set(statuses.map(({ key }) => key));
+const serviceStatusKeys = new Set(["all", "pending_review", "active", "rejected", "closed", "expired"]);
 const requestedStatus = String(route.query.status || "all");
-const currentStatus = ref(validStatuses.has(requestedStatus) ? requestedStatus : "all");
-const currentGroup = ref(statusGroups.find((group) => group.statuses.includes(currentStatus.value))?.key || "all");
+const currentStatus = ref(postType.value === "services"
+  ? (serviceStatusKeys.has(requestedStatus) ? requestedStatus : "pending_review")
+  : (validStatuses.has(requestedStatus) ? requestedStatus : "all"));
+const groupsForType = computed(() => postType.value === "services" ? serviceStatusGroups : jobStatusGroups);
+const currentGroup = ref(groupsForType.value.find((group) => group.statuses.includes(currentStatus.value))?.key || "all");
 const search = ref("");
 const appliedSearch = ref("");
 const page = ref(1);
@@ -50,12 +63,12 @@ const totalCount = computed(() => Object.values(counts.value).reduce((sum, numbe
 const activeStatus = (status) => statuses.find((s) => s.key === status)?.label || status;
 const statusCount = (status) => status === "all" ? totalCount.value : Number(counts.value[status] || 0);
 const currentGroupStatuses = computed(() => {
-  const group = statusGroups.find((item) => item.key === currentGroup.value);
+  const group = groupsForType.value.find((item) => item.key === currentGroup.value);
   return (group?.statuses || ["all"]).map((key) => statuses.find((item) => item.key === key));
 });
 function selectGroup(groupKey) {
   currentGroup.value = groupKey;
-  const group = statusGroups.find((item) => item.key === groupKey);
+  const group = groupsForType.value.find((item) => item.key === groupKey);
   if (group && !group.statuses.includes(currentStatus.value)) currentStatus.value = group.statuses[0];
 }
 function money(value) { return `฿${Number(value || 0).toLocaleString("th-TH", { maximumFractionDigits: 2 })}`; }
@@ -70,36 +83,66 @@ async function loadPosts() {
   errorMessage.value = "";
   try {
     const isService = postType.value === "services";
-    const { data } = await api.get(isService ? "/admin/service-posts" : "/admin/jobs", { params: {
-      status: isService ? (currentStatus.value === "all" ? "pending_review" : currentStatus.value) : currentStatus.value,
-      page: page.value, limit: 20, search: appliedSearch.value,
-    } });
+    const endpoint = isService ? "/admin/service-posts" : "/admin/jobs";
+    const status = currentStatus.value;
+    let data;
+    try {
+      ({ data } = await api.get(endpoint, { params: {
+        status, page: page.value, limit: 20, search: appliedSearch.value,
+      } }));
+    } catch (error) {
+      // Older deployed API versions may reject service statuses that the current
+      // API supports. Fall back to its universally supported "all" filter so
+      // admins can still review Worker listings while backend versions converge.
+      if (!isService || error.response?.status !== 400 || status === "all") throw error;
+      ({ data } = await api.get(endpoint, { params: {
+        status: "all", page: page.value, limit: 100, search: appliedSearch.value,
+      } }));
+      const matchingPosts = (data.posts || []).filter((post) => post.status === status);
+      data = { ...data, posts: matchingPosts, total: matchingPosts.length, totalPages: 1 };
+    }
     if (requestId !== id) return;
     posts.value = isService ? (data.posts || []) : (data.jobs || []);
-    counts.value = data.counts || {};
+    if (!isService) counts.value = data.counts || {};
     total.value = data.total || 0;
     totalPages.value = data.totalPages || 0;
     expandedId.value = null;
+    if (isService) await loadServiceStatusCounts(id);
   } catch (error) {
     if (requestId !== id) return;
     errorMessage.value = error.response?.data?.message || "ไม่สามารถโหลดงานทั้งหมดได้";
     posts.value = [];
+    total.value = 0;
+    totalPages.value = 0;
   } finally { if (requestId === id) loading.value = false; }
 }
 function selectPostType(type) {
   postType.value = type;
   currentStatus.value = type === "services" ? "pending_review" : "all";
+  currentGroup.value = type === "services" ? "review" : "all";
   page.value = 1;
   loadPosts();
 }
 watch(currentStatus, () => {
-  currentGroup.value = statusGroups.find((group) => group.statuses.includes(currentStatus.value))?.key || "all";
+  currentGroup.value = groupsForType.value.find((group) => group.statuses.includes(currentStatus.value))?.key || "all";
   page.value = 1;
   loadPosts();
 });
 onMounted(loadPosts);
 function doSearch() { page.value = 1; appliedSearch.value = search.value.trim(); loadPosts(); }
 function changePage(delta) { page.value += delta; loadPosts(); }
+async function loadServiceStatusCounts(id = requestId) {
+  const serviceStatuses = [...serviceStatusKeys].filter((status) => status !== "all");
+  const results = await Promise.all(serviceStatuses.map(async (status) => {
+    try {
+      const { data } = await api.get("/admin/service-posts", { params: { status, page: 1, limit: 1, search: appliedSearch.value } });
+      return [status, Number(data.total) || 0];
+    } catch {
+      return [status, 0];
+    }
+  }));
+  if (id === requestId) counts.value = Object.fromEntries(results);
+}
 async function approve(post) {
   if (actionLoading.value || post.status !== "pending_review") return;
   if (await askDecision({title:'อนุมัติประกาศ',message:post.title,confirmLabel:'ยืนยันอนุมัติ'}) === null) return;
@@ -139,18 +182,18 @@ async function reject(post) {
     </div>
     <nav class="post-type-tabs" aria-label="ประเภทโพสต์">
       <button type="button" :class="{ chosen: postType === 'jobs' }" @click="selectPostType('jobs')">งานจาก Hirer</button>
-      <button type="button" :class="{ chosen: postType === 'services' }" @click="selectPostType('services')">บริการจาก Worker</button>
+      <button type="button" :class="{ chosen: postType === 'services' }" @click="selectPostType('services')">งานจาก Worker</button>
     </nav>
     <div class="status-filter-heading">
       <span>กรองตามกลุ่มสถานะ</span>
-      <span class="status-filter-summary">{{ activeStatus(currentStatus) }} · {{ postType === 'services' ? total : statusCount(currentStatus) }} รายการ</span>
+      <span class="status-filter-summary">{{ activeStatus(currentStatus) }} · {{ statusCount(currentStatus) }} รายการ</span>
     </div>
-      <nav v-if="postType === 'jobs'" class="status-groups" aria-label="กลุ่มสถานะงาน">
-      <button v-for="group in statusGroups" :key="group.key" type="button" class="group-tab"
+      <nav class="status-groups" aria-label="กลุ่มสถานะงาน">
+      <button v-for="group in groupsForType" :key="group.key" type="button" class="group-tab"
         :class="{ chosen: currentGroup === group.key }" :aria-pressed="currentGroup === group.key"
         @click="selectGroup(group.key)">{{ group.label }}</button>
     </nav>
-    <nav v-if="postType === 'jobs'" class="status-tabs" aria-label="สถานะย่อยของงาน">
+    <nav class="status-tabs" aria-label="สถานะย่อยของงาน">
       <button v-for="item in currentGroupStatuses" :key="item.key" type="button" class="tab"
         :class="{ chosen: currentStatus === item.key }" :aria-pressed="currentStatus === item.key"
         @click="currentStatus = item.key">{{ item.label }} ({{ statusCount(item.key) }})</button>
