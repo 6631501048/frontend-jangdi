@@ -152,7 +152,11 @@ async function loadFeed() {
       new Date(post.availabilityEnd).getTime() >= Date.now() &&
       Number(post.currentOrderCount || 0) < Number(post.maxSimultaneousOrders ?? Infinity),
     );
-    posts.value = [...jobs.map(mapJob), ...availableServicePosts.map((post) => mapServicePost(post, requests))].sort((a, b) => b.postedAt - a.postedAt);
+    // The public feed should only contain Hirer jobs that are still accepting
+    // applications. Keep this guard in the UI as well as the API query so a
+    // stale or broader API response cannot show completed jobs here.
+    const openJobs = jobs.filter((job) => job.status === "waiting");
+    posts.value = [...openJobs.map(mapJob), ...availableServicePosts.map((post) => mapServicePost(post, requests))].sort((a, b) => b.postedAt - a.postedAt);
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
   } finally {
