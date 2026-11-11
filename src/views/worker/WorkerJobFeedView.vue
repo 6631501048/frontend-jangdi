@@ -19,7 +19,6 @@ const drawerOpen = ref(false);
 const drawerItems = [
   { label: "หน้าแรก", icon: "home", to: "/worker" },
   { label: "งานของฉัน", icon: "briefcase", to: "/worker/jobs" },
-  { label: "บริการของฉัน", icon: "sparkle", to: "/worker/service-posts" },
   { label: "การชำระเงิน", icon: "wallet", to: "/worker/payment" },
 ];
 

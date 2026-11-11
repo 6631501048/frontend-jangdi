@@ -14,7 +14,6 @@ const items = computed(() => isWorker.value
   ? [
       { label: "หน้าแรก", to: "/worker" },
       { label: "งานของฉัน", to: "/worker/jobs" },
-      { label: "บริการของฉัน", to: "/worker/service-posts" },
       { label: "การชำระเงิน", to: "/worker/payment" },
     ]
   : [

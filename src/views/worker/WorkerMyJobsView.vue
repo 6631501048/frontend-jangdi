@@ -2,17 +2,20 @@
 // FR-BROWSE-07: ดูสถานะใบสมัครที่ส่งไปแล้วของตนเอง (แท็บ Waiting = คิว JOB_WAITING)
 // FR-TRACK-01/06: ดูงานที่กำลังดำเนินการ/เสร็จสิ้น/ยกเลิก และถืองานพร้อมกันได้อย่างน้อย 2 งาน
 import { computed, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import WorkerMyServicePostView from "./WorkerMyServicePostView.vue";
 
 const router = useRouter();
+const route = useRoute();
+const viewMode = ref(route.query.view === "services" ? "services" : "jobs");
 
 const tabs = [
-  { value: "waiting", label: "Waiting" },
-  { value: "in-progress", label: "In Progress" },
+  { value: "waiting", label: "รอผู้ว่าจ้างเลือก" },
+  { value: "in-progress", label: "กำลังดำเนินงาน" },
   { value: "disputed", label: "รอพิจารณาคืนเงิน" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
+  { value: "completed", label: "เสร็จสิ้น" },
+  { value: "cancelled", label: "ยกเลิก" },
 ];
 const activeTab = ref("waiting");
 const loading = ref(true);
@@ -41,21 +44,26 @@ async function loadJobs() {
   }
 }
 
-onMounted(loadJobs);
-watch(activeTab, loadJobs);
+onMounted(() => { if (viewMode.value === "jobs") loadJobs(); else loading.value = false; });
+watch(activeTab, () => { if (viewMode.value === "jobs") loadJobs(); });
+watch(viewMode, (mode) => { if (mode === "jobs") loadJobs(); });
 
 const filteredJobs = computed(() => jobs.value); // backend กรองตาม tab ให้แล้วผ่าน query param
 
 const statusMeta = {
-  waiting: { label: "Waiting for selection", class: "gold" },
-  "in-progress": { label: "In Process", class: "purple" },
-  assigned: { label: "Assigned", class: "purple" },
-  in_progress: { label: "In Progress", class: "purple" },
-  awaiting_confirmation: { label: "Waiting for Hirer", class: "gold" },
-  completed: { label: "Completed", class: "green" },
-  cancelled: { label: "Cancelled", class: "red" },
-  disputed: { label: "พักงานรอพิจารณาคืนเงิน", class: "gold" },
+  waiting: { label: "รอผู้ว่าจ้างเลือก", class: "gold" },
+  "in-progress": { label: "กำลังดำเนินงาน", class: "purple" },
+  assigned: { label: "ได้รับเลือกแล้ว", class: "purple" },
+  in_progress: { label: "กำลังดำเนินงาน", class: "purple" },
+  awaiting_confirmation: { label: "รอผู้ว่าจ้างยืนยัน", class: "gold" },
+  completed: { label: "เสร็จสิ้น", class: "green" },
+  cancelled: { label: "ยกเลิก", class: "red" },
+  disputed: { label: "รอพิจารณาคืนเงิน", class: "gold" },
 };
+
+function formatMoney(value) {
+  return value == null ? "ไม่ระบุค่าจ้าง" : `฿${Number(value).toLocaleString("th-TH")}`;
+}
 
 function openJob(job) {
   // Waiting is the original application detail (read-only after applying).
@@ -73,11 +81,19 @@ function openJob(job) {
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="router.back()">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">My Job</h1>
+      <h1 class="title">งานของฉัน</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
     <main class="content">
+      <nav class="section-tabs" aria-label="ประเภทงานของฉัน">
+        <button type="button" :class="{ active: viewMode === 'jobs' }" @click="viewMode = 'jobs'">งานที่สมัคร</button>
+        <button type="button" :class="{ active: viewMode === 'services' }" @click="viewMode = 'services'">บริการที่โพสต์</button>
+      </nav>
+
+      <WorkerMyServicePostView v-if="viewMode === 'services'" embedded />
+
+      <template v-else>
       <!-- แท็บสถานะ -->
       <nav class="tabs">
         <button
@@ -104,7 +120,7 @@ function openJob(job) {
           <div class="job-body">
             <p v-if="job.hirerName" class="job-hirer">{{ job.hirerName }}</p>
             <p class="job-title">{{ job.title }}</p>
-            <p class="job-meta">{{ job.price }} Baht &nbsp;•&nbsp; {{ job.duration }}</p>
+            <p class="job-meta">{{ formatMoney(job.price) }} &nbsp;•&nbsp; {{ job.duration }}</p>
           </div>
           <div class="job-right">
             <span class="status-tag" :class="(statusMeta[job.backendStatus] || statusMeta[job.status]).class">{{ (statusMeta[job.backendStatus] || statusMeta[job.status]).label }}</span>
@@ -116,6 +132,7 @@ function openJob(job) {
         <p v-else-if="errorMsg" class="error-msg" role="alert">{{ errorMsg }}</p>
         <p v-else-if="!filteredJobs.length" class="empty">ยังไม่มีงานในหมวดนี้</p>
       </section>
+      </template>
     </main>
   </div>
 </template>
@@ -139,6 +156,10 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .spacer { width: 40px; }
 
 .content { padding: 16px; }
+
+.section-tabs { display:flex; gap:8px; margin-bottom:14px; padding:4px; border:1px solid #eee; border-radius:11px; background:#fff; }
+.section-tabs button { flex:1; min-height:40px; border:0; border-radius:8px; background:transparent; color:#555; font-size:13px; cursor:pointer; }
+.section-tabs button.active { background:#ffc93c; color:#111; font-weight:700; }
 
 /* ---------- Tabs ---------- */
 .tabs {

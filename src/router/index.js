@@ -150,8 +150,7 @@ const routes = [
   },
   {
     path: "/worker/service-posts",
-    name: "worker-my-service-posts",
-    component: () => import("../views/worker/WorkerMyServicePostView.vue"),
+    redirect: { name: "worker-my-jobs", query: { view: "services" } },
     meta: { requiresAuth: true, role: "worker" },
   },
   {
@@ -164,6 +163,12 @@ const routes = [
     path: "/worker/service-posts/:id",
     name: "worker-service-post-detail",
     component: () => import("../views/hirer/HirerServicePostDetailView.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/my-services/:id",
+    name: "worker-my-service-management",
+    component: () => import("../views/worker/WorkerMyServicePostView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
