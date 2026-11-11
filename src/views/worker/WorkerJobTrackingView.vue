@@ -12,6 +12,7 @@ import { fetchCompletionProof, proofRequestError } from "../../services/completi
 import { createProofImageLoader } from "../../services/proofImageLoader";
 import ReportUserForm from "../../components/ReportUserForm.vue";
 import JobPaymentStatus from '../../components/JobPaymentStatus.vue';
+import JobReviewModal from '../../components/JobReviewModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -22,6 +23,9 @@ const errorMsg = ref("");
 const demoPaymentStatus = ref(null);
 const payment = ref(null);
 const hirerProfile = ref(null);
+const showReviewModal = ref(false);
+const reviewDone = ref(false);
+const reviewStatusLoaded = ref(false);
 
 // backend status: assigned | in_progress | awaiting_confirmation | completed | cancelled -> UI status ที่หน้านี้ใช้
 function toUiStatus(backendStatus) {
@@ -75,6 +79,13 @@ async function loadJob() {
   errorMsg.value = "";
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    if (data.status === "completed" && !reviewStatusLoaded.value) {
+      try {
+        const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+        reviewDone.value = !!review.reviewed;
+        reviewStatusLoaded.value = true;
+      } catch { reviewDone.value = false; }
+    }
     let events = [];
     if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
       // The timeline endpoint also verifies that the current user belongs to this job.
@@ -325,8 +336,11 @@ function goBack() {
 function backToMyJobs() {
   router.push("/worker/jobs");
 }
+function goHome() {
+  router.push("/worker/feed");
+}
 function goToReview() {
-  router.push(`/worker/jobs/${job.value.id}/review`);
+  showReviewModal.value = true;
 }
 </script>
 
@@ -524,11 +538,14 @@ function goToReview() {
           </section>
           <p class="completion-note">Completed<span v-if="job.completionConfirmedAt"> — confirmed on {{ formatStatusTime(job.completionConfirmedAt) }}</span></p>
           <ReportUserForm :reported-user="hirerProfile" :job-id="job.id" />
-          <button class="btn-primary" @click="goToReview">Review Hirer</button>
+          <button v-if="!reviewDone" class="btn-primary" @click="goToReview">Review Hirer</button>
+          <p v-else class="review-done" role="status">รีวิวงานนี้แล้ว</p>
+          <button v-if="reviewDone" class="btn-home" @click="goHome">กลับหน้าโฮม</button>
           <button class="btn-outline" @click="backToMyJobs">Back to My Jobs</button>
         </template>
       </div>
     </main>
+    <JobReviewModal v-if="showReviewModal" role="worker" :job-id="String(job.id)" @close="showReviewModal = false" @reviewed="reviewDone = true; reviewStatusLoaded = true" />
   </div>
 </template>
 
@@ -641,7 +658,9 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .error-msg { margin: 8px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
 .page-message { padding: 30px 12px; text-align: center; color: #777; }
 .completion-note { font-size: 12px; color: #16803c; margin: 14px 0; }
+.review-done { text-align: center; color: #555; font-size: 13px; }
 .btn-outline { display: block; margin-top: 10px; border: 1px solid #ddd; background: white; border-radius: 8px; padding: 12px; width: 100%; cursor: pointer; }
+.btn-home { display: block; margin-top: 10px; border: 0; background: #ffc93c; color: #111; border-radius: 8px; padding: 12px; width: 100%; font-weight: 700; cursor: pointer; }
 .pending-confirmation { margin: 12px 0 0; font-size: 12px; color: #92400e; line-height: 1.45; }
 </style>
 

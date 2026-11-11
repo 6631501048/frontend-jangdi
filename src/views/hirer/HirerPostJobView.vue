@@ -6,23 +6,25 @@
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../../services/api";
+import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
 
 const router = useRouter();
 const feePercent = ref(null);
+const feeTerms = ref({ ...defaultPaymentTerms });
 const configError = ref('');
 async function loadPaymentConfig(){
   configError.value='';
-  try{const {data}=await api.get('/payments/config');feePercent.value=data.feePercent;}
+  try{const {data}=await api.get('/payments/config');feeTerms.value={...feeTerms.value,...data};feePercent.value=data.feePercent;}
   catch{configError.value='โหลดอัตราค่าบริการไม่สำเร็จ กรุณาลองใหม่ก่อนโพสต์งาน';}
 }
 onMounted(loadPaymentConfig);
 
 /* ---------- หมวดหมู่ (เหมือนตัวกรองใน HirerDashboard เพื่อความสอดคล้องกันทั้งแอป) ---------- */
 const categories = [
-  { id: "cleaning", label: "Cleaning", icon: "🧹" },
-  { id: "delivery", label: "Delivery", icon: "🛵" },
-  { id: "tutoring", label: "Tutoring & Education", icon: "📘" },
-  { id: "it", label: "IT & Programming", icon: "💻" },
+  { id: "cleaning", label: "ทำความสะอาด", icon: "🧹" },
+  { id: "delivery", label: "จัดส่ง", icon: "🛵" },
+  { id: "tutoring", label: "สอนพิเศษ", icon: "📘" },
+  { id: "it", label: "ไอทีและเขียนโปรแกรม", icon: "💻" },
 ];
 
 /* ---------- สถานะฟอร์ม ---------- */
@@ -40,37 +42,49 @@ const form = ref({
   details: "",
   serviceFee: null,
   scheduledAt: "",
-  durationStart: "",
-  durationEnd: "",
   from: "",
   to: "",
   notes: "",
+  durationHours: "",
 });
 
 const categoryLabel = computed(
   () => categories.find((c) => c.id === form.value.category)?.label || "-"
 );
-const transactionFee = computed(() => Math.round(Number(form.value.serviceFee || 0) * Number(feePercent.value || 0)) / 100);
-const totalPayment = computed(() => Number(form.value.serviceFee || 0) + transactionFee.value);
+const feeBreakdown = computed(() => calculatePaymentFees(form.value.serviceFee, feeTerms.value));
+const transactionFee = computed(() => feeBreakdown.value.platformFeeAmount);
+const totalPayment = computed(() => feeBreakdown.value.totalDue);
+const isDelivery = computed(() => form.value.category === "delivery");
+const isCleaning = computed(() => form.value.category === "cleaning");
+const usesDurationHours = computed(() => isCleaning.value || form.value.category === "tutoring");
+const detailsLabel = computed(() => ({
+  delivery: "รายละเอียดสิ่งที่ให้จัดส่ง",
+  tutoring: "วิชา / หัวข้อและระดับผู้เรียน",
+  it: "รายละเอียดงานและผลลัพธ์ที่ต้องการ",
+}[form.value.category] || "รายละเอียดงาน"));
+const detailsPlaceholder = computed(() => ({
+  delivery: "เช่น ประเภทสิ่งของ ขนาด หรือคำแนะนำในการรับส่ง",
+  tutoring: "เช่น วิชาคณิตศาสตร์ ระดับมัธยมต้น เนื้อหาที่ต้องการเรียน",
+  it: "เช่น ต้องการทำเว็บไซต์หรือแก้ปัญหาอะไร ใช้เทคโนโลยีใด",
+}[form.value.category] || "อธิบายงานที่ต้องการให้ทำ"));
 const conditionLabel = computed(() =>
-  form.value.durationStart && form.value.durationEnd
-    ? `${new Date(form.value.durationStart).toLocaleString("th-TH")} - ${new Date(form.value.durationEnd).toLocaleString("th-TH")}` : "-"
+  usesDurationHours.value && form.value.durationHours
+    ? `${form.value.durationHours} ชั่วโมง`
+    : "-"
 );
 
 const step1Valid = computed(() => !!form.value.category);
 const step2Valid = computed(
   () =>
     form.value.name.trim() &&
-    form.value.details.trim() &&
+    (isCleaning.value || form.value.details.trim()) &&
     form.value.serviceFee !== null &&
     form.value.serviceFee !== "" &&
     Number(form.value.serviceFee) >= 40 &&
     form.value.scheduledAt &&
-    ((!form.value.durationStart && !form.value.durationEnd) ||
-      (form.value.durationStart && form.value.durationEnd &&
-        new Date(form.value.durationEnd) > new Date(form.value.durationStart))) &&
+    (!usesDurationHours.value || (Number(form.value.durationHours) > 0 && Number(form.value.durationHours) <= 24)) &&
     form.value.from.trim() &&
-    form.value.to.trim()
+    (!isDelivery.value || form.value.to.trim())
 );
 
 function selectCategory(id) {
@@ -108,13 +122,21 @@ async function submit() {
   errorMsg.value = "";
   rejectionReason.value = "";
   try {
+    const scheduledAt = new Date(form.value.scheduledAt);
+    const durationStart = usesDurationHours.value ? scheduledAt : null;
+    const durationEnd = usesDurationHours.value
+      ? new Date(scheduledAt.getTime() + Number(form.value.durationHours) * 60 * 60 * 1000)
+      : null;
+    const description = isCleaning.value
+      ? `ทำความสะอาด ใช้เวลาประมาณ ${form.value.durationHours} ชั่วโมง`
+      : form.value.details.trim();
     const { data } = await api.post("/jobs", {
-      category: form.value.category, title: form.value.name.trim(), description: form.value.details.trim(),
-      price: Number(form.value.serviceFee), scheduledAt: new Date(form.value.scheduledAt).toISOString(),
+      category: form.value.category, title: form.value.name.trim(), description,
+      price: Number(form.value.serviceFee), scheduledAt: scheduledAt.toISOString(),
       locationText: form.value.from.trim(), lat: location.value.lat, lng: location.value.lng,
-      fromText: form.value.from.trim(), toText: form.value.to.trim(), deliveryFee: 0, notes: form.value.notes.trim(),
-      durationStart: form.value.durationStart ? new Date(form.value.durationStart).toISOString() : null,
-      durationEnd: form.value.durationEnd ? new Date(form.value.durationEnd).toISOString() : null,
+      fromText: isDelivery.value ? form.value.from.trim() : "", toText: isDelivery.value ? form.value.to.trim() : "", deliveryFee: 0, notes: form.value.notes.trim(),
+      durationStart: durationStart ? durationStart.toISOString() : null,
+      durationEnd: durationEnd ? durationEnd.toISOString() : null,
     });
     rejectionReason.value = data.job?.status === "rejected" ? data.job.rejectionReason || "ประกาศนี้ไม่ผ่านการตรวจสอบ" : "";
     submitted.value = true;
@@ -206,10 +228,12 @@ function close() {
             </div>
 
             <label class="field-label">ชื่องาน / บริการ</label>
-            <input v-model="form.name" type="text" placeholder="เช่น รับส่งพัสดุ / ซื้อของฝาก" />
+            <input v-model="form.name" type="text" :placeholder="isCleaning ? 'เช่น ทำความสะอาดบ้านหรือคอนโด' : isDelivery ? 'เช่น รับส่งพัสดุ / ซื้อของฝาก' : form.category === 'tutoring' ? 'เช่น สอนคณิตศาสตร์ระดับมัธยม' : 'เช่น ทำเว็บไซต์หรือแก้ไขระบบ'" />
 
-            <label class="field-label">Details</label>
-            <textarea v-model="form.details" rows="3" placeholder="อธิบายงานที่ต้องการให้ทำ"></textarea>
+            <template v-if="!isCleaning">
+              <label class="field-label">{{ detailsLabel }}</label>
+              <textarea v-model="form.details" rows="3" :placeholder="detailsPlaceholder"></textarea>
+            </template>
 
             <div class="field-row">
               <div class="field-col">
@@ -219,41 +243,52 @@ function close() {
                   <span class="suffix">บาท</span>
                 </div>
                 <small class="price-hint">ค่าจ้างขั้นต่ำ 40 บาท</small>
-                <div class="price-breakdown" aria-live="polite">
-                  <div><span>ค่าบริการแพลตฟอร์ม ({{feePercent ?? '—'}}%)</span><strong>{{feePercent == null ? 'รอคำนวณ' : transactionFee.toFixed(2)+' บาท'}}</strong></div>
+                <div v-if="Number(form.serviceFee) > 0" class="price-breakdown" aria-live="polite">
+                  <div><span>ค่าบริการแพลตฟอร์มรวมค่าธรรมเนียมธุรกรรม</span><strong>{{feePercent == null ? 'รอคำนวณ' : transactionFee.toFixed(2)+' บาท'}}</strong></div>
                   <div class="price-total"><span>ยอดชำระรวม</span><strong>{{ totalPayment.toFixed(2) }} บาท</strong></div>
                 </div>
               </div>
               <div class="field-col">
-                <label class="field-label">Scheduled time</label>
+                <label class="field-label">วันและเวลาที่ต้องการให้เริ่มงาน</label>
                 <div class="time-range">
                   <input v-model="form.scheduledAt" type="datetime-local" />
                 </div>
               </div>
             </div>
 
-            <p class="location-title">Location</p>
+            <p class="location-title">สถานที่ทำงาน</p>
             <button type="button" class="location-btn" :disabled="locating" @click="useCurrentLocation">
               {{ locating ? "Getting location..." : location.lat !== null ? "Location selected" : "Use current location" }}
             </button>
             <!-- TODO: เพิ่ม Google Maps pin เลือกตำแหน่งที่ตั้งแทน input ข้อความ -->
-            <label class="field-label">From</label>
+            <template v-if="isDelivery">
+            <label class="field-label">จุดรับสิ่งของ</label>
             <div class="input-icon">
               <input v-model="form.from" type="text" placeholder="ตำแหน่งต้นทาง" />
               <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
             </div>
-            <label class="field-label">To</label>
+            <label class="field-label">จุดส่งสิ่งของ</label>
             <div class="input-icon">
               <input v-model="form.to" type="text" placeholder="ตำแหน่งปลายทาง" />
               <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
             </div>
+            </template>
+            <template v-else>
+              <label class="field-label">{{ isCleaning ? 'ที่อยู่ที่ให้ไปทำความสะอาด' : 'สถานที่นัดหมาย / สถานที่ทำงาน' }}</label>
+              <div class="input-icon">
+                <input v-model="form.from" type="text" placeholder="ระบุที่อยู่หรือสถานที่ให้ชัดเจน" />
+                <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+              </div>
+            </template>
 
-            <label class="field-label">ช่วงเวลาทำงาน (ไม่บังคับ)</label>
-            <div class="time-range">
-              <input v-model="form.durationStart" type="datetime-local" aria-label="Duration start" />
-              <span class="dash">-</span>
-              <input v-model="form.durationEnd" type="datetime-local" aria-label="Duration end" />
-            </div>
+            <template v-if="isCleaning">
+              <label class="field-label">ใช้เวลาทำงานกี่ชั่วโมง</label>
+              <div class="input-suffix"><input v-model.number="form.durationHours" type="number" min="1" max="24" step="0.5" placeholder="เช่น 3" /><span class="suffix">ชั่วโมง</span></div>
+            </template>
+            <template v-else-if="usesDurationHours">
+              <label class="field-label">{{ isCleaning ? 'ใช้เวลาทำงานกี่ชั่วโมง' : 'สอนเป็นเวลากี่ชั่วโมง' }}</label>
+              <div class="input-suffix"><input v-model.number="form.durationHours" type="number" :min="isCleaning ? 1 : 0.5" max="24" step="0.5" :placeholder="isCleaning ? 'เช่น 3' : 'เช่น 2'" /><span class="suffix">ชั่วโมง</span></div>
+            </template>
 
             <label class="field-label">หมายเหตุเพิ่มเติม (ไม่บังคับ)</label>
             <textarea v-model="form.notes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
@@ -271,7 +306,7 @@ function close() {
                 <dt>ชื่องาน / บริการ</dt>
                 <dd>{{ form.name || "-" }}</dd>
               </div>
-              <div class="review-row">
+              <div v-if="!isCleaning" class="review-row">
                 <dt>รายละเอียด</dt>
                 <dd>{{ form.details || "-" }}</dd>
               </div>
@@ -280,7 +315,7 @@ function close() {
                 <dd>{{ form.serviceFee !== null && form.serviceFee !== "" ? `${form.serviceFee} บาท` : "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>ค่าบริการแพลตฟอร์ม ({{feePercent ?? '—'}}%)</dt>
+                <dt>ค่าบริการแพลตฟอร์มรวมค่าธรรมเนียมธุรกรรม</dt>
                 <dd>{{ transactionFee.toFixed(2) }} บาท</dd>
               </div>
               <div class="review-row review-total">
@@ -288,14 +323,18 @@ function close() {
                 <dd>{{ totalPayment.toFixed(2) }} บาท</dd>
               </div>
               <div class="review-row">
-                <dt>Duration window</dt>
+                <dt>วันและเวลาเริ่มงาน</dt>
+                <dd>{{ form.scheduledAt ? new Date(form.scheduledAt).toLocaleString('th-TH') : '-' }}</dd>
+              </div>
+              <div class="review-row">
+                <dt>{{ usesDurationHours ? 'ระยะเวลาทำงาน' : 'ช่วงเวลาทำงาน' }}</dt>
                 <dd>{{ conditionLabel }}</dd>
               </div>
               <div class="review-row">
-                <dt>จาก</dt>
+                <dt>{{ isDelivery ? 'จุดรับสิ่งของ' : 'สถานที่ทำงาน' }}</dt>
                 <dd>{{ form.from || "-" }}</dd>
               </div>
-              <div class="review-row">
+              <div v-if="isDelivery" class="review-row">
                 <dt>ถึง</dt>
                 <dd>{{ form.to || "-" }}</dd>
               </div>

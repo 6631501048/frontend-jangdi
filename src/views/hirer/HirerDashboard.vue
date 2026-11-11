@@ -97,12 +97,14 @@ function mapJob(job) {
     postedAt: new Date(job.createdAt),
     description: job.description || job.title || "-",
     price: Number(job.price || 0) + Number(job.deliveryFee || 0),
+    priceLabel: "ค่าจ้าง",
     window: formatWindow(job.durationStart, job.durationEnd) || (job.scheduledAt ? new Date(job.scheduledAt).toLocaleString("th-TH") : "-"),
     eta: job.locationText || job.toText || "-",
   };
 }
 
 function mapServicePost(post) {
+  const deliveryModeLabels = { shopping: "รับหิ้ว", pickup_delivery: "รับของไปส่ง", passenger: "รับส่งผู้โดยสาร" };
   return {
     id: post._id,
     type: "worker", // Service Post ของผู้รับจ้าง — กด "Hiring" เพื่อส่ง Service Request ได้
@@ -110,10 +112,13 @@ function mapServicePost(post) {
     name: post.worker?.fullName || "ผู้รับจ้าง",
     avatarUrl: post.worker?.avatarUrl,
     postedAt: new Date(post.createdAt),
-    description: post.description || post.title || "-",
+    description: [post.description || post.title || "-", post.category === "delivery" ? deliveryModeLabels[post.serviceType] || deliveryModeLabels.shopping : null].filter(Boolean).join(" · "),
     price: Number(post.fee || 0),
+    priceLabel: post.category !== "delivery" ? "ค่าบริการ" : post.serviceType === "shopping" || !post.serviceType ? "ค่าจ้าง/ออร์เดอร์" : "ค่าจ้าง/เที่ยว",
     window: formatWindow(post.availabilityStart, post.availabilityEnd) || "-",
-    eta: post.serviceRadiusMeters ? `รัศมี ${(post.serviceRadiusMeters / 1000).toFixed(1)} กม.` : "-",
+    eta: post.category === "delivery"
+      ? (post.serviceRadiusMeters ? `รัศมี ${(post.serviceRadiusMeters / 1000).toFixed(1)} กม.` : "-")
+      : post.locationLabel || "-",
     hiring: true,
   };
 }
@@ -228,18 +233,16 @@ function timeAgo(date) {
           </div>
           <p class="desc">{{ post.description }}</p>
           <div class="tags">
-            <span class="tag">฿{{ post.price }}</span>
+            <span class="tag">{{ post.priceLabel }} ฿{{ post.price }}</span>
             <span class="tag">{{ post.window }}</span>
             <span class="tag">{{ post.eta }}</span>
           </div>
         </div>
         <div class="card-actions">
-          <button v-if="post.hiring" class="status-pill">เปิดรับบริการ</button>
-          <RouterLink
-            v-if="post.type === 'worker'"
-            :to="`/hirer/hire/${post.id}`"
-            class="btn-details"
-          >รายละเอียด</RouterLink>
+          <template v-if="post.type === 'worker'">
+            <RouterLink :to="`/hirer/hire/${post.id}`" class="btn-apply">รับบริการ</RouterLink>
+            <RouterLink :to="`/hirer/service-posts/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
+          </template>
           <RouterLink v-else :to="post.isMine ? `/hirer/my-jobs/${post.id}` : `/hirer/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
         </div>
       </article>
@@ -357,12 +360,13 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .tag { background: #eee; color: #444; font-size: 11px; padding: 3px 8px; border-radius: 10px; }
 .card-actions { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; justify-content: center; }
-.status-pill { background: #ffc93c; color: #111; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
-.btn-details {
+.btn-apply, .btn-details {
   min-height: 34px; padding: 0 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
   text-align: center; cursor: pointer; text-decoration: none; display: flex; align-items: center;
-  justify-content: center; background: #fff; border: 1px solid #ccc; color: #111;
+  justify-content: center; min-width: 90px;
 }
+.btn-apply { background: #ffc93c; border: 1px solid #ffc93c; color: #111; }
+.btn-details { background: #fff; border: 1px solid #ccc; color: #111; }
 
 .results-count { margin: 12px 16px 4px; color: #777; font-size: 12px; text-align: center; }
 .show-more { display:block; margin: 10px auto 20px; padding: 9px 18px; border: 1px solid #ddd; border-radius: 20px; background:#fff; color:#554000; cursor:pointer; }

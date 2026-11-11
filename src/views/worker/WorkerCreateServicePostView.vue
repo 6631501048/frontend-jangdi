@@ -10,10 +10,15 @@ const router = useRouter();
 
 /* ---------- หมวดหมู่ (เหมือนตัวกรองใน JobFeedView เพื่อความสอดคล้องกันทั้งแอป) ---------- */
 const categories = [
-  { id: "cleaning", label: "Cleaning", icon: "🧹" },
-  { id: "delivery", label: "Delivery", icon: "🛵" },
-  { id: "tutoring", label: "Tutoring & Education", icon: "📘" },
-  { id: "it", label: "IT & Programming", icon: "💻" },
+  { id: "cleaning", label: "ทำความสะอาด", icon: "🧹" },
+  { id: "delivery", label: "จัดส่ง / รับหิ้ว", icon: "🛵" },
+  { id: "tutoring", label: "สอนพิเศษ", icon: "📘" },
+  { id: "it", label: "ไอทีและเขียนโปรแกรม", icon: "💻" },
+];
+const deliveryModes = [
+  { id: "shopping", label: "รับหิ้ว / ซื้อของตามรายการ" },
+  { id: "pickup_delivery", label: "ไปรับของแล้วนำไปส่ง" },
+  { id: "passenger", label: "รับส่งผู้โดยสาร" },
 ];
 
 /* ---------- ตัวเลือกเวลา / รัศมี ---------- */
@@ -58,11 +63,13 @@ const errorMsg = ref("");
 
 const form = ref({
   category: "",
+  serviceType: "shopping",
   name: "",
   details: "",
   feePerOrder: null,
   maxOrders: null,
   time: "",
+  serviceLocation: "",
   radius: "",
   notes: "",
 });
@@ -70,6 +77,7 @@ const form = ref({
 const categoryLabel = computed(
   () => categories.find((c) => c.id === form.value.category)?.label || "-"
 );
+const deliveryFeeLabel = computed(() => form.value.serviceType === "shopping" ? "ค่าจ้างต่อออร์เดอร์รับหิ้ว" : "ค่าจ้างต่อเที่ยว");
 
 const step1Valid = computed(() => !!form.value.category);
 const step2Valid = computed(
@@ -78,14 +86,20 @@ const step2Valid = computed(
     form.value.details.trim() &&
     form.value.feePerOrder !== null &&
     form.value.feePerOrder !== "" &&
+    (form.value.category !== "delivery" || Number(form.value.feePerOrder) > 0) &&
+    (!canTakeMultiple.value || Number(form.value.maxOrders) >= 1 && Number(form.value.maxOrders) <= 3) &&
     form.value.maxOrders !== null &&
-    form.value.maxOrders !== "" &&
+    form.value.maxOrders !== "" && Number(form.value.maxOrders) >= 1 && Number(form.value.maxOrders) <= 3 &&
     form.value.time &&
-    form.value.radius
+    (form.value.category === "delivery" || form.value.serviceLocation.trim()) &&
+    (form.value.category !== "delivery" || form.value.radius)
 );
+const canTakeMultiple = computed(() => ["delivery", "tutoring"].includes(form.value.category));
 
 function selectCategory(id) {
   form.value.category = id;
+  form.value.maxOrders = canTakeMultiple.value ? 3 : 1;
+  if (id !== "delivery") form.value.radius = "";
 }
 function next() {
   if (step.value === 1 && !step1Valid.value) return;
@@ -120,13 +134,15 @@ async function submit() {
 
     await api.post("/service-posts", {
       category: form.value.category,
+      serviceType: form.value.category === "delivery" ? form.value.serviceType : undefined,
       title: form.value.name,
       description: form.value.notes ? `${form.value.details}\n\nหมายเหตุ: ${form.value.notes}` : form.value.details,
       fee: form.value.feePerOrder,
       maxSimultaneousOrders: form.value.maxOrders,
       availabilityStart: new Date().toISOString(),
       availabilityEnd: availabilityEnd?.toISOString(),
-      serviceRadiusMeters: radiusToMeters[form.value.radius] || 2000,
+      locationLabel: form.value.serviceLocation.trim(),
+      serviceRadiusMeters: form.value.category === "delivery" ? radiusToMeters[form.value.radius] || 2000 : 0,
       lat,
       lng,
     });
@@ -207,27 +223,40 @@ function backToHome() {
           <!-- ขั้นตอน 2: รายละเอียดบริการ -->
           <section v-else-if="step === 2" class="step-body">
             <h2 class="section-title">รายละเอียดบริการ</h2>
+            <div class="selected-category">
+              <div><span class="selected-category-label">เลือกประเภทงานแล้ว</span><strong>{{ categoryLabel }}</strong></div>
+              <button type="button" class="change-category-btn" @click="step = 1">เปลี่ยนประเภทงาน</button>
+            </div>
 
             <label class="field-label">ชื่อบริการ</label>
-            <input v-model="form.name" type="text" placeholder="เช่น รับไปซื้อของ / รับส่งพัสดุ" />
+            <input v-model="form.name" type="text" :placeholder="form.category === 'delivery' ? 'เช่น รับฝากหิ้วของจากห้าง' : 'เช่น รับส่งพัสดุ / ให้บริการทำความสะอาด'" />
 
             <label class="field-label">Details</label>
             <textarea v-model="form.details" rows="3" placeholder="อธิบายบริการของคุณ"></textarea>
 
+            <template v-if="form.category === 'delivery'">
+              <label class="field-label">รูปแบบบริการ</label>
+              <select v-model="form.serviceType">
+                <option v-for="mode in deliveryModes" :key="mode.id" :value="mode.id">{{ mode.label }}</option>
+              </select>
+            </template>
+
             <div class="field-row">
               <div class="field-col">
-                <label class="field-label">ค่าบริการต่อรายการ</label>
+                <label class="field-label">{{ form.category === 'delivery' ? deliveryFeeLabel : 'ค่าบริการต่อรายการ' }}</label>
                 <div class="input-suffix">
                   <input v-model.number="form.feePerOrder" type="number" min="0" placeholder="0" />
                   <span class="suffix">บาท</span>
                 </div>
               </div>
               <div class="field-col">
-                <label class="field-label">จำนวนรายการสูงสุด</label>
-                <div class="input-suffix">
-                  <input v-model.number="form.maxOrders" type="number" min="1" placeholder="1" />
-                  <span class="suffix">รายการ</span>
+                <label class="field-label">จำนวนงานที่รับพร้อมกัน</label>
+                <div v-if="canTakeMultiple" class="input-suffix">
+                  <input v-model.number="form.maxOrders" type="number" min="1" max="3" step="1" placeholder="3" />
+                  <span class="suffix">งาน</span>
                 </div>
+                <p v-else class="fixed-capacity">1 งาน</p>
+                <small v-if="canTakeMultiple" class="price-hint">กำหนดได้ตั้งแต่ 1 ถึง 3 งานพร้อมกัน</small>
               </div>
             </div>
 
@@ -240,14 +269,15 @@ function backToHome() {
                 </select>
               </div>
               <div class="field-col">
-                <label class="field-label">รัศมีให้บริการ</label>
-                <select v-model="form.radius">
+                <label v-if="form.category === 'delivery'" class="field-label">รัศมีให้บริการ</label>
+                <label v-else class="field-label">สถานที่ให้บริการ</label>
+                <select v-if="form.category === 'delivery'" v-model="form.radius">
                   <option value="" disabled>เลือกรัศมี</option>
                   <option v-for="r in radiusOptions" :key="r" :value="r">{{ r }}</option>
                 </select>
+                <input v-else v-model="form.serviceLocation" type="text" placeholder="เช่น อาคาร/หอพัก/สถานที่ที่รับงาน" />
               </div>
             </div>
-
             <label class="field-label">หมายเหตุเพิ่มเติม (ไม่บังคับ)</label>
             <textarea v-model="form.notes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
           </section>
@@ -269,18 +299,26 @@ function backToHome() {
                 <dd>{{ form.details || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>ค่าบริการต่อรายการ</dt>
+                <dt>{{ form.category === 'delivery' ? deliveryFeeLabel : 'ค่าบริการต่อรายการ' }}</dt>
                 <dd>{{ form.feePerOrder !== null && form.feePerOrder !== "" ? `${form.feePerOrder} บาท` : "-" }}</dd>
+              </div>
+              <div v-if="form.category === 'delivery'" class="review-row">
+                <dt>รูปแบบบริการ</dt>
+                <dd>{{ deliveryModes.find((mode) => mode.id === form.serviceType)?.label }}</dd>
               </div>
               <div class="review-row">
                 <dt>จำนวนรายการสูงสุด</dt>
-                <dd>{{ form.maxOrders || "-" }}</dd>
+                <dd>{{ form.maxOrders || 1 }}</dd>
               </div>
               <div class="review-row">
                 <dt>Time</dt>
                 <dd>{{ form.time || "-" }}</dd>
               </div>
-              <div class="review-row">
+              <div v-if="form.category !== 'delivery'" class="review-row">
+                <dt>สถานที่ให้บริการ</dt>
+                <dd>{{ form.serviceLocation || "-" }}</dd>
+              </div>
+              <div v-if="form.category === 'delivery'" class="review-row">
                 <dt>รัศมีให้บริการ</dt>
                 <dd>{{ form.radius || "-" }}</dd>
               </div>
@@ -343,6 +381,11 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .step-line { width: 36px; height: 1px; background: #ddd; }
 
 .section-title { margin: 0 0 14px; font-size: 14px; font-weight: 700; color: #111; }
+.selected-category { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; padding:10px 12px; border:1px solid #f0e2b5; border-radius:9px; background:#fffaf0; }
+.selected-category > div { display:flex; flex-direction:column; gap:4px; }
+.selected-category-label { font-size:11px; color:#777; }
+.selected-category strong { font-size:13px; color:#111; }
+.change-category-btn { flex-shrink:0; border:0; padding:8px 10px; border-radius:6px; background:#fff; color:#78350f; font-size:12px; font-weight:700; cursor:pointer; }
 
 /* ---------- ขั้นตอน 1: หมวดหมู่ ---------- */
 .category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -369,6 +412,8 @@ textarea { resize: vertical; }
 select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #999 50%), linear-gradient(135deg, #999 50%, transparent 50%); background-position: calc(100% - 18px) center, calc(100% - 13px) center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
 .field-row { display: flex; gap: 10px; }
 .field-col { flex: 1; min-width: 0; }
+.price-hint { display: block; margin-top: 4px; color: #888; font-size: 11px; }
+.fixed-capacity { margin: 0; min-height: 42px; display: flex; align-items: center; padding: 0 12px; border: 1px solid #e5e5e5; border-radius: 8px; background: #f8f8f8; font-size: 13px; }
 .input-suffix { position: relative; display: flex; align-items: center; }
 .input-suffix input { padding-right: 46px; }
 .input-suffix .suffix { position: absolute; right: 12px; font-size: 12px; color: #999; }

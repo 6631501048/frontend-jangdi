@@ -6,11 +6,13 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
 
 const route = useRoute();
 const router = useRouter();
 const loadingPost = ref(true);
 const errorMsg = ref("");
+const feeTerms = ref({ ...defaultPaymentTerms });
 
 function timeAgo(dateStr) {
   const diffMin = Math.max(0, Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000));
@@ -26,6 +28,8 @@ const servicePost = ref({
   workerName: "",
   postedAgo: "-",
   description: "",
+  category: "",
+  serviceType: "shopping",
   serviceFee: 0,
   window: "-",
   distance: "-",
@@ -35,12 +39,21 @@ const servicePost = ref({
 
 const form = ref({
   serviceFee: 0,
+  itemName: "",
+  pickupLocation: "",
+  passengerCount: 1,
   from: "",
   to: "",
-  estimatedDelivery: "",
   requirements: "",
-  price: null,
 });
+const isDelivery = computed(() => servicePost.value.category === "delivery");
+const deliveryMode = computed(() => servicePost.value.serviceType || "shopping");
+const isPassenger = computed(() => deliveryMode.value === "passenger");
+const needsPickupLocation = computed(() => deliveryMode.value === "pickup_delivery" || isPassenger.value);
+const serviceFeeLabel = computed(() => isPassenger.value ? "ค่าจ้างต่อเที่ยว" : deliveryMode.value === "shopping" ? "ค่าจ้างต่อออร์เดอร์รับหิ้ว" : "ค่าจ้างต่อเที่ยว");
+const feeBreakdown = computed(() => calculatePaymentFees(form.value.serviceFee, feeTerms.value, { deliveryService: isDelivery.value }));
+const platformFee = computed(() => feeBreakdown.value.platformFeeAmount);
+const payableTotal = computed(() => feeBreakdown.value.totalDue);
 
 async function loadServicePost() {
   loadingPost.value = true;
@@ -51,14 +64,20 @@ async function loadServicePost() {
       workerName: data.worker?.fullName || "ผู้รับจ้าง",
       postedAgo: timeAgo(data.createdAt),
       description: data.description,
+      category: data.category,
+      serviceType: data.serviceType || "shopping",
       serviceFee: data.fee,
       window: new Date(data.availabilityEnd).toLocaleString("th-TH"),
       distance: `${(data.serviceRadiusMeters / 1000).toFixed(1)} กม.`,
-      fromLabel: data.title,
+      fromLabel: data.locationLabel || data.title,
       fromDetail: "",
     };
     form.value.serviceFee = Number(data.fee || 0);
-    form.value.from = data.title;
+    form.value.from = data.locationLabel || data.title;
+    try {
+      const { data: terms } = await api.get('/payments/config');
+      feeTerms.value = { ...feeTerms.value, ...terms };
+    } catch { /* Display the configured defaults when the terms endpoint is unavailable. */ }
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดข้อมูลประกาศบริการไม่สำเร็จ";
   } finally {
@@ -75,13 +94,12 @@ const showSuccessModal = ref(false);
 
 const step1Valid = computed(
   () =>
-    form.value.to.trim() &&
-    form.value.estimatedDelivery.trim() &&
-    form.value.price !== null &&
-    form.value.price !== "" && Number.isFinite(Number(form.value.price)) && Number(form.value.price) >= 0
+    (!isDelivery.value || (isPassenger.value
+      ? Number.isInteger(Number(form.value.passengerCount)) && Number(form.value.passengerCount) >= 1
+      : form.value.itemName.trim() && form.value.requirements.trim())) &&
+    (!needsPickupLocation.value || form.value.pickupLocation.trim()) &&
+    form.value.to.trim()
 );
-
-const total = computed(() => Number(form.value.serviceFee || 0) + Number(form.value.price || 0));
 
 function goToSummary() {
   if (!step1Valid.value) return;
@@ -95,10 +113,11 @@ function back() {
 async function confirmHiring() {
   // FR-SERV-04: ServiceRequest.orderDetails เป็น string เดียว จึงรวมรายละเอียดฟอร์มเป็นข้อความอ่านง่าย
   const orderDetails = [
+    isDelivery.value && !isPassenger.value ? `สิ่งของ: ${form.value.itemName.trim()}` : null,
+    needsPickupLocation.value ? `จุดรับ: ${form.value.pickupLocation.trim()}` : null,
+    isPassenger.value ? `จำนวนผู้โดยสาร: ${form.value.passengerCount}` : null,
     `ปลายทาง: ${form.value.to}`,
-    `เวลาโดยประมาณ: ${form.value.estimatedDelivery}`,
-    form.value.requirements ? `รายละเอียด: ${form.value.requirements}` : null,
-    `ราคาที่เสนอ: ${form.value.price} บาท`,
+    form.value.requirements ? `รายละเอียดของ: ${form.value.requirements.trim()}` : null,
   ]
     .filter(Boolean)
     .join(" | ");
@@ -109,11 +128,13 @@ async function confirmHiring() {
     await api.post(`/service-posts/${servicePost.value.id}/requests`, {
       orderDetails,
       orderData: {
+        serviceType: isDelivery.value ? deliveryMode.value : null,
+        itemName: form.value.itemName.trim(),
+        pickupLocation: form.value.pickupLocation.trim(),
+        passengerCount: Number(form.value.passengerCount),
         from: form.value.from.trim(),
         to: form.value.to.trim(),
-        estimatedDelivery: form.value.estimatedDelivery.trim(),
         requirements: form.value.requirements.trim(),
-        itemBudget: Number(form.value.price),
       },
     });
     hired.value = true;
@@ -156,45 +177,60 @@ function closeModal() {
             </div>
           </div>
           <div class="tags">
-            <span class="tag">฿{{ servicePost.serviceFee }}</span>
+            <span class="tag">{{ isDelivery ? 'ค่าจ้าง/ออร์เดอร์' : 'ค่าบริการ' }} ฿{{ servicePost.serviceFee }}</span>
             <span class="tag">{{ servicePost.window }}</span>
             <span class="tag">{{ servicePost.distance }}</span>
           </div>
         </div>
 
         <div class="card">
-          <p class="section-title">Details</p>
+          <p class="section-title">{{ isDelivery ? 'รายละเอียดคำขอ' : 'รายละเอียดการจ้าง' }}</p>
 
-          <label class="field-label">Service Fee</label>
+          <label class="field-label">{{ isDelivery ? serviceFeeLabel : 'ค่าบริการผู้รับงาน' }}</label>
           <div class="input-suffix">
             <input v-model.number="form.serviceFee" type="number" min="0" readonly aria-label="Service Fee จากประกาศ" />
             <span class="suffix">Baht</span>
           </div>
 
-          <label class="field-label">From</label>
+          <label class="field-label">จุดรับ / จุดเริ่มต้น</label>
           <div class="input-icon">
-            <input v-model="form.from" type="text" />
+            <input v-model="form.from" type="text" readonly aria-readonly="true" />
             <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
           </div>
           <p class="field-hint">{{ servicePost.fromDetail }}</p>
 
-          <label class="field-label">To</label>
+          <template v-if="isDelivery && !isPassenger">
+            <label class="field-label">{{ deliveryMode === 'shopping' ? 'รายการของที่ฝากหิ้ว' : 'สิ่งของ/พัสดุที่ให้ไปรับ' }}</label>
+            <input v-model="form.itemName" type="text" :placeholder="deliveryMode === 'shopping' ? 'เช่น อาหารหรือของใช้ที่ต้องการซื้อ' : 'เช่น เอกสารหรือพัสดุ'" />
+            <label class="field-label">รายละเอียดสิ่งของ</label>
+            <textarea v-model="form.requirements" rows="3" placeholder="จำนวน ขนาด สี หรือลักษณะของ"></textarea>
+          </template>
+
+          <template v-if="isPassenger">
+            <label class="field-label">จำนวนผู้โดยสาร</label>
+            <input v-model.number="form.passengerCount" type="number" min="1" step="1" />
+            <label class="field-label">หมายเหตุการเดินทาง</label>
+            <textarea v-model="form.requirements" rows="2" placeholder="เช่น สัมภาระหรือจุดสังเกต"></textarea>
+          </template>
+
+          <template v-if="needsPickupLocation">
+            <label class="field-label">{{ isPassenger ? 'จุดรับผู้โดยสาร' : 'สถานที่เข้ารับของ' }}</label>
+            <input v-model="form.pickupLocation" type="text" :placeholder="isPassenger ? 'ระบุจุดรับผู้โดยสาร' : 'ระบุสถานที่รับพัสดุ/สิ่งของ'" />
+          </template>
+
+          <label class="field-label">{{ isPassenger ? 'จุดหมายปลายทาง' : deliveryMode === 'pickup_delivery' ? 'สถานที่นำของไปส่ง' : isDelivery ? 'สถานที่ไปส่งของ' : 'สถานที่ปลายทาง' }}</label>
           <div class="input-icon">
             <input v-model="form.to" type="text" placeholder="เลือกที่อยู่ปลายทาง" />
             <svg class="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
           </div>
 
-          <label class="field-label">Estimated Delivery</label>
-          <input v-model="form.estimatedDelivery" type="text" placeholder="เช่น 10:30 - 10:40" />
+          <p v-if="isDelivery && !isPassenger" class="payment-note">ค่าสินค้าชำระกับผู้รับจ้างเมื่อมาถึงสถานที่ส่งของ</p>
 
-          <label class="field-label">Requirements</label>
-          <textarea v-model="form.requirements" rows="3" placeholder="ระบุสิ่งที่ต้องการ เช่น รายการที่จะฝากซื้อ"></textarea>
+          <template v-if="!isDelivery">
+            <label class="field-label">Requirements</label>
+            <textarea v-model="form.requirements" rows="3" placeholder="ระบุรายละเอียดหรือสิ่งที่ต้องการ"></textarea>
+          </template>
 
-          <label class="field-label">Price</label>
-          <div class="input-suffix">
-            <input v-model.number="form.price" type="number" min="0" placeholder="0" />
-            <span class="suffix">Baht</span>
-          </div>
         </div>
 
         <div class="actions">
@@ -214,33 +250,36 @@ function closeModal() {
               <dd>{{ servicePost.workerName }}</dd>
             </div>
             <div class="review-row">
-              <dt>From</dt>
+              <dt>จุดรับ / จุดเริ่มต้น</dt>
               <dd>{{ form.from }}</dd>
             </div>
+            <div v-if="isDelivery && !isPassenger" class="review-row">
+              <dt>{{ deliveryMode === 'shopping' ? 'ของที่ฝากหิ้ว' : 'สิ่งของที่ไปรับ' }}</dt>
+              <dd>{{ form.itemName }}</dd>
+            </div>
+            <div v-if="needsPickupLocation" class="review-row"><dt>{{ isPassenger ? 'จุดรับผู้โดยสาร' : 'สถานที่รับของ' }}</dt><dd>{{ form.pickupLocation }}</dd></div>
+            <div v-if="isPassenger" class="review-row"><dt>จำนวนผู้โดยสาร</dt><dd>{{ form.passengerCount }} คน</dd></div>
             <div class="review-row">
               <dt>To</dt>
               <dd>{{ form.to }}</dd>
-            </div>
-            <div class="review-row">
-              <dt>Estimated Delivery</dt>
-              <dd>{{ form.estimatedDelivery || "-" }}</dd>
             </div>
             <div class="review-row">
               <dt>Requirement</dt>
               <dd>{{ form.requirements || "-" }}</dd>
             </div>
             <div class="review-row">
-              <dt>Service Fee</dt>
+              <dt>{{ isDelivery ? serviceFeeLabel : 'ค่าจ้างผู้รับงาน' }}</dt>
               <dd>฿{{ form.serviceFee }}</dd>
             </div>
             <div class="review-row">
-              <dt>Price</dt>
-              <dd>฿{{ form.price }}</dd>
+              <dt>ค่าบริการแพลตฟอร์ม (รวมค่าธรรมเนียมธุรกรรม)</dt>
+              <dd>฿{{ platformFee.toFixed(2) }}</dd>
             </div>
             <div class="review-row total">
-              <dt>Total</dt>
-              <dd>฿{{ total }}</dd>
+              <dt>ยอดชำระผ่านระบบ</dt>
+              <dd>฿{{ payableTotal.toFixed(2) }}</dd>
             </div>
+            <p v-if="isDelivery && !isPassenger" class="payment-note">ค่าสินค้าชำระกับผู้รับจ้างเมื่อมาถึงสถานที่ส่งของ</p>
           </dl>
         </div>
 
@@ -307,6 +346,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .section-title { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #111; }
 .field-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 12px; color: #666; }
 .field-hint { margin: 4px 0 0; font-size: 11px; color: #999; }
+.payment-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: #fff6d8; color: #705500; font-size: 12px; line-height: 1.5; }
 input, textarea {
   width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #ddd;
   font-size: 13px; font-family: inherit; min-height: 42px; color: #111; background: #fff;

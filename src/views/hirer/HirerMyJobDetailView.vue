@@ -9,6 +9,8 @@ import AppHeader from "../../components/AppHeader.vue";
 import StatusBadge from "../../components/StatusBadge.vue";
 import { paymentStatus } from '../../services/finance';
 import JobPaymentStatus from '../../components/JobPaymentStatus.vue';
+import JobReviewModal from '../../components/JobReviewModal.vue';
+import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
 
 
 const route = useRoute();
@@ -20,9 +22,12 @@ const applicants = ref([]);
 const applicantsLoaded = ref(false);
 const workerProfile = ref(null);
 const mockPayment = ref(null);
-const feePercent = ref(null);
+const paymentTerms = ref({ ...defaultPaymentTerms });
 function goMockPayment() { router.push({ name: "hirer-mock-payment", params: { id: route.params.id } }); }
 const cancellingJob = ref(false);
+const showReviewModal = ref(false);
+const reviewDone = ref(false);
+const reviewStatusLoaded = ref(false);
 const canCancelJob = computed(() => job.value?.status === "waiting");
 
 // Private proof images cannot be loaded with <img src="/uploads/...">:
@@ -48,9 +53,14 @@ function retryProof() {
 
 function formatDuration(data) {
   if (data.durationStart && data.durationEnd) {
+    const hours = (new Date(data.durationEnd) - new Date(data.durationStart)) / 3600000;
+    if (Number.isFinite(hours) && hours > 0) {
+      const rounded = Number.isInteger(hours) ? hours : Number(hours.toFixed(1));
+      return `${rounded} ชั่วโมง`;
+    }
     return `${new Date(data.durationStart).toLocaleString("th-TH")} - ${new Date(data.durationEnd).toLocaleString("th-TH")}`;
   }
-  return data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-";
+  return "-";
 }
 
 async function loadJob() {
@@ -59,6 +69,13 @@ async function loadJob() {
   timelineError.value = "";
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    if (data.status === "completed" && !reviewStatusLoaded.value) {
+      try {
+        const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+        reviewDone.value = !!review.reviewed;
+        reviewStatusLoaded.value = true;
+      } catch { reviewDone.value = false; }
+    }
     let events = [];
     if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
       try {
@@ -94,9 +111,10 @@ async function loadJob() {
       ...data,
       id: data._id,
       durationLabel: formatDuration(data),
+      scheduledLabel: data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" }) : "-",
       serviceFee: data.deliveryFee || 0,
-      transactionFee: mockPayment.value?.platformFeeAmount ?? (feePercent.value == null ? null : Math.round(Number(data.price || 0) * feePercent.value) / 100),
-      total: mockPayment.value?.totalDue ?? (feePercent.value == null ? null : Number(data.price || 0) + Number(data.deliveryFee || 0) + Math.round(Number(data.price || 0) * feePercent.value) / 100),
+      transactionFee: mockPayment.value?.platformFeeAmount ?? calculatePaymentFees(Number(data.price || 0) + Number(data.deliveryFee || 0), paymentTerms.value).platformFeeAmount,
+      total: mockPayment.value?.totalDue ?? calculatePaymentFees(Number(data.price || 0) + Number(data.deliveryFee || 0), paymentTerms.value).totalDue,
       from: { label: data.fromText || data.locationText || "-" },
       to: { label: data.toText || "-" },
       applicants: applicants.value,
@@ -112,7 +130,7 @@ async function loadJob() {
 }
 let statusRefreshTimer;
 onMounted(async () => {
-  try { const {data} = await api.get('/payments/config'); feePercent.value=data.feePercent; } catch { /* Stored payment amounts remain authoritative. */ }
+  try { const {data} = await api.get('/payments/config'); paymentTerms.value={...paymentTerms.value,...data}; } catch { /* Stored payment amounts remain authoritative. */ }
   await loadJob();
   statusRefreshTimer = window.setInterval(() => {
     if (["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(job.value?.status) || (job.value?.status === 'completed' && (!mockPayment.value || mockPayment.value.status === 'payout_pending')) || (job.value?.status === 'cancelled' && mockPayment.value?.status === 'refunded' && !mockPayment.value.hasRefundSlip)) loadJob();
@@ -146,7 +164,10 @@ function goApplicants() {
   router.push({ name: "hirer-applicants", params: { id: job.value._id } });
 }
 function goReview() {
-  router.push({ name: "hirer-review", params: { id: job.value.id } });
+  showReviewModal.value = true;
+}
+function goHome() {
+  router.push("/hirer");
 }
 const confirmingCompletion = ref(false);
 const completionError = ref("");
@@ -206,23 +227,28 @@ async function confirmCompletion() {
       </div>
 
       <dl class="rows">
+        <div class="row"><dt>ประเภทงาน</dt><dd>{{ job.category }}</dd></div>
         <div class="row"><dt>รายละเอียด</dt><dd>{{ job.description || "ไม่ได้ระบุรายละเอียด" }}</dd></div>
-        <div class="row"><dt>Time</dt><dd>{{ job.durationLabel }}</dd></div>
+        <div class="row"><dt>วันและเวลาเริ่มงาน</dt><dd>{{ job.scheduledLabel }}</dd></div>
+        <div v-if="job.durationStart && job.durationEnd" class="row"><dt>ระยะเวลาทำงาน</dt><dd>{{ job.durationLabel }}</dd></div>
         <div class="row"><dt>ค่าจ้างผู้รับจ้าง</dt><dd>{{ Number(job.price || 0).toFixed(2) }} บาท</dd></div>
         <div v-if="job.serviceFee" class="row"><dt>ค่าบริการเพิ่มเติม</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} บาท</dd></div>
-        <div class="row"><dt>ค่าบริการแพลตฟอร์ม {{mockPayment?.platformFeePercent ?? feePercent ?? '—'}}%</dt><dd>{{job.transactionFee == null ? 'รอคำนวณ' : job.transactionFee.toFixed(2)+' บาท'}}</dd></div>
+        <div class="row"><dt>ค่าบริการแพลตฟอร์มรวมค่าธรรมเนียมธุรกรรม</dt><dd>{{job.transactionFee == null ? 'รอคำนวณ' : job.transactionFee.toFixed(2)+' บาท'}}</dd></div>
         <div class="row total"><dt>ยอดรวม</dt><dd>{{job.total == null ? 'รอคำนวณ' : job.total+' บาท'}}</dd></div>
       </dl>
 
-      <div class="locations">
+      <div v-if="job.category === 'delivery'" class="locations">
         <div class="loc">
           <span class="pin">📍</span>
-          <div><span class="loc-label">จาก</span><br />{{ job.from.label }}</div>
+          <div><span class="loc-label">จุดรับสิ่งของ</span><br />{{ job.from.label }}</div>
         </div>
         <div class="loc">
           <span class="pin">🏁</span>
-          <div><span class="loc-label">ถึง</span><br />{{ job.to.label }}</div>
+          <div><span class="loc-label">จุดส่งสิ่งของ</span><br />{{ job.to.label }}</div>
         </div>
+      </div>
+      <div v-else class="locations">
+        <div class="loc"><span class="pin">📍</span><div><span class="loc-label">สถานที่ทำงาน</span><br />{{ job.from.label }}</div></div>
       </div>
 
       <div class="notes">
@@ -311,7 +337,9 @@ async function confirmCompletion() {
           การจ่ายค่าจ้างติดตามแยกจากการตรวจรับงาน ดูสถานะและหลักฐานด้านล่าง
         </p>
         <div class="actions">
-          <button class="btn primary" @click="goReview">ให้ดาวและรีวิว</button>
+          <button v-if="!reviewDone" class="btn primary" @click="goReview">ให้ดาวและรีวิว</button>
+          <p v-else class="review-done" role="status">รีวิวงานนี้แล้ว</p>
+          <button v-if="reviewDone" class="btn primary home-button" @click="goHome">กลับหน้าโฮม</button>
 
         </div>
       </div>
@@ -326,6 +354,7 @@ async function confirmCompletion() {
         <button class="btn primary" @click="router.push({ name: 'hirer-my-jobs' })">กลับไปงานของฉัน</button>
       </template>
     </section>
+    <JobReviewModal v-if="showReviewModal" role="hirer" :job-id="String(job._id)" @close="showReviewModal = false" @reviewed="reviewDone = true; reviewStatusLoaded = true" />
   </main>
   <main v-else class="job-detail">
     <AppHeader title="รายละเอียดงาน" />
@@ -388,6 +417,8 @@ async function confirmCompletion() {
 .proof-note { color: #555; }
 .proof-missing, .completion-error { color: #dc2626; }
 .completion-success { color: #15803d; }
+.review-done { margin: 16px 0 0; color: #555; font-size: 13px; text-align: center; }
+.home-button { min-height: 44px; padding: 0 18px; border-radius: 9px; font-weight: 700; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .actions .btn { margin-top: 16px; }
 .placeholder { padding: 16px; color: #888; }

@@ -3,15 +3,20 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
 const errorMsg = ref("");
 const request = ref(null);
 const accepting = ref(false);
+const feeTerms = ref({ ...defaultPaymentTerms });
 const isPending = computed(() => request.value?.status === "pending");
 const canAccept = computed(() => isPending.value && request.value?.postStatus === "active" && !request.value?.postFull);
-const total = computed(() => request.value?.itemBudget == null ? null : request.value.itemBudget + request.value.serviceFee);
+const isDelivery = computed(() => request.value?.category === "delivery");
+const feeBreakdown = computed(() => calculatePaymentFees(request.value?.serviceFee, feeTerms.value, { deliveryService: isDelivery.value }));
+const platformFee = computed(() => feeBreakdown.value.platformFeeAmount);
+const payableTotal = computed(() => feeBreakdown.value.totalDue);
 
 async function loadRequest() {
   loading.value = true;
@@ -20,16 +25,25 @@ async function loadRequest() {
     const { data } = await api.get(`/service-posts/requests/${route.params.id}`);
     const structured = data.orderData || {};
     const post = data.servicePost || {};
+    try {
+      const { data: terms } = await api.get('/payments/config');
+      feeTerms.value = { ...feeTerms.value, ...terms };
+    } catch { /* Keep the estimate at the configured defaults. */ }
     request.value = {
       id: data._id,
       requester: data.hirer?.fullName || "ผู้ว่าจ้าง",
       serviceTitle: post.title || "-",
+      category: post.category || "",
+      serviceType: structured.serviceType || post.serviceType || "shopping",
+      serviceTypeLabel: ({ shopping: "รับหิ้วของ", pickup_delivery: "รับของแล้วนำไปส่ง", passenger: "รับส่งผู้โดยสาร" })[structured.serviceType || post.serviceType || "shopping"],
+      feeLabel: post.category !== "delivery" ? "ค่าจ้างผู้รับบริการ" : (structured.serviceType || post.serviceType || "shopping") === "shopping" ? "ค่าจ้างต่อออร์เดอร์" : "ค่าจ้างต่อเที่ยว",
       details: data.orderDetails || "-",
+      itemName: structured.itemName || "",
+      pickupLocation: structured.pickupLocation || "",
+      passengerCount: structured.passengerCount == null ? null : Number(structured.passengerCount),
       requirements: structured.requirements || "",
       from: structured.from || "",
       to: structured.to || "",
-      deliveryTime: structured.estimatedDelivery || "",
-      itemBudget: structured.itemBudget == null ? null : Number(structured.itemBudget),
       serviceFee: Number(post.fee || 0),
       status: data.status,
       postStatus: post.status,
@@ -81,17 +95,19 @@ async function respond(action) {
         </div>
         <div class="card">
           <p class="section-title">รายละเอียดการจัดส่ง</p>
+          <p v-if="isDelivery" class="notes-text">รูปแบบบริการ: {{ request.serviceTypeLabel }}</p>
+          <p v-if="request.pickupLocation" class="notes-text">จุดรับ: {{ request.pickupLocation }}</p>
+          <p v-if="request.passengerCount" class="notes-text">จำนวนผู้โดยสาร: {{ request.passengerCount }} คน</p>
+          <p v-if="request.itemName" class="notes-text">ของที่ฝากหิ้ว: {{ request.itemName }}</p>
           <p class="notes-text">จุดรับ: {{ request.from || 'ไม่ระบุ (ข้อมูลเก่า)' }}</p>
           <p class="notes-text">ปลายทาง: {{ request.to || 'ไม่ระบุ (ข้อมูลเก่า)' }}</p>
-          <p class="notes-text">เวลาประมาณ: {{ request.deliveryTime || 'ไม่ระบุ (ข้อมูลเก่า)' }}</p>
           <p class="notes-text">หมายเหตุ: {{ request.requirements || 'ไม่มี' }}</p>
         </div>
         <div class="card">
           <p class="section-title">สรุปประมาณการ</p>
-          <div class="fee-row"><span>ค่าบริการ Worker (ใช้คำนวณ Mock Payment)</span><strong>{{ request.serviceFee }} บาท</strong></div>
-          <div class="fee-row"><span>งบสินค้าประมาณการ</span><strong>{{ request.itemBudget == null ? 'ไม่มีข้อมูล' : `${request.itemBudget} บาท` }}</strong></div>
-          <div class="total-row"><span>รวมประมาณการ</span><span>{{ total == null ? 'ไม่สามารถคำนวณ (ข้อมูลเก่า)' : `${total} บาท` }}</span></div>
-          <p class="fine-print">หมายเหตุ: งบสินค้าเป็นข้อมูลประกอบคำขอ ไม่ได้ถูกหักเงินจริงหรือบวกเข้ายอด Mock Payment โดยอัตโนมัติ</p>
+          <div class="fee-row"><span>{{ request.feeLabel }}</span><strong>{{ request.serviceFee }} บาท</strong></div>
+          <div class="fee-row"><span>Platform service + transaction fees</span><strong>{{ platformFee.toFixed(2) }} Baht</strong></div>
+          <div class="total-row"><span>ยอดชำระผ่านระบบ</span><span>{{ payableTotal.toFixed(2) }} บาท</span></div>
         </div>
         <p v-if="isPending && !canAccept" class="empty">ประกาศนี้ปิดรับหรือเต็มจำนวนแล้ว ไม่สามารถตอบรับเพิ่มได้</p>
         <div v-if="isPending" class="accept-wrap">

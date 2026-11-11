@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
+import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
 
 const route = useRoute();
 const router = useRouter();
@@ -12,10 +13,12 @@ const applicants = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
 const cancellingExpiredJob = ref(false);
+const paymentTerms = ref({ ...defaultPaymentTerms });
 const canCancelExpiredJob = computed(() => job.value.status === "waiting" && applicants.value.length === 0 && new Date(job.value.scheduledAt).getTime() < Date.now());
 const canSelect = computed(() => job.value.status === "waiting");
-const transactionFee = computed(() => Math.round(Number(job.value.price || 0) * 0.05 * 100) / 100);
-const totalPayment = computed(() => Number(job.value.price || 0) + Number(job.value.deliveryFee || 0) + transactionFee.value);
+const feeBreakdown = computed(() => calculatePaymentFees(Number(job.value.price || 0) + Number(job.value.deliveryFee || 0), paymentTerms.value));
+const transactionFee = computed(() => feeBreakdown.value.platformFeeAmount);
+const totalPayment = computed(() => feeBreakdown.value.totalDue);
 
 async function loadApplicants() {
   loading.value = true;
@@ -24,6 +27,7 @@ async function loadApplicants() {
       api.get(`/jobs/${route.params.id}`), api.get(`/jobs/${route.params.id}/applicants`),
     ]);
     job.value = jobData;
+    try { const { data: terms } = await api.get('/payments/config'); paymentTerms.value = { ...paymentTerms.value, ...terms }; } catch { /* Use the shared defaults. */ }
     applicants.value = applicantData.map((item) => ({
       id: item._id,
       workerId: item.worker?._id || item.worker,
@@ -78,7 +82,7 @@ function select(workerId) {
       <h2>Payment Summary</h2>
       <div><span>Worker Fee</span><strong>{{ Number(job.price).toFixed(2) }} Baht</strong></div>
       <div v-if="job.deliveryFee"><span>Additional Service Fee</span><strong>{{ Number(job.deliveryFee).toFixed(2) }} Baht</strong></div>
-      <div><span>Transaction Fee (5%)</span><strong>{{ transactionFee.toFixed(2) }} Baht</strong></div>
+      <div><span>Platform service + transaction fees</span><strong>{{ transactionFee.toFixed(2) }} Baht</strong></div>
       <div class="payment-total"><span>Total Payment</span><strong>{{ totalPayment.toFixed(2) }} Baht</strong></div>
     </section>
 

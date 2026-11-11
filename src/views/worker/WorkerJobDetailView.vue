@@ -3,7 +3,7 @@
 // FR-BROWSE-04: สมัครงาน โดยเพิ่มใบสมัครเข้าสู่คิวรอของงานนั้น (JOB_WAITING)
 // FR-BROWSE-05: อนุญาตให้สมัครหลายงานพร้อมกันได้
 // FR-BROWSE-06: ห้ามสมัคร Service Post ของตนเอง หรืองานที่เลือกผู้รับจ้างแล้ว (backend ตรวจสอบจริง)
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 
@@ -21,9 +21,12 @@ const job = ref({
   backendStatus: "waiting",
   description: "",
   category: "",
+  locationText: "-",
   deliveryFee: 0,
   price: 0,
-  duration: "-",
+  scheduledAt: null,
+  durationStart: null,
+  durationEnd: null,
   from: "-",
   to: "-",
   notes: "-",
@@ -48,9 +51,12 @@ async function loadJob() {
       backendStatus: data.status,
       description: data.description || "ไม่ได้ระบุรายละเอียด",
       category: data.category,
+      locationText: data.locationText || data.fromText || "-",
       deliveryFee: Number(data.deliveryFee || 0),
       price: data.price == null ? null : Number(data.price),
-      duration: data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-",
+      scheduledAt: data.scheduledAt,
+      durationStart: data.durationStart,
+      durationEnd: data.durationEnd,
       from: data.fromText || data.locationText || "-",
       to: data.toText || "-",
       notes: data.notes || "ไม่มีหมายเหตุเพิ่มเติม",
@@ -66,6 +72,12 @@ onMounted(loadJob);
 const applying = ref(false);
 const applied = ref(false);
 const alreadyApplied = ref(false);
+const durationHours = computed(() => {
+  if (!job.value.durationStart || !job.value.durationEnd) return null;
+  const hours = (new Date(job.value.durationEnd) - new Date(job.value.durationStart)) / 3600000;
+  return Number.isFinite(hours) && hours > 0 ? Number.isInteger(hours) ? hours : Number(hours.toFixed(1)) : null;
+});
+const scheduledLabel = computed(() => job.value.scheduledAt ? new Date(job.value.scheduledAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" }) : "-");
 
 async function applyForJob() {
   applying.value = true;
@@ -135,11 +147,12 @@ function goBack() {
         <!-- ===== รายละเอียดงาน + ปุ่มสมัคร ===== -->
         <template v-else>
           <dl class="detail-list">
-            <div class="detail-row">
-              <dt>สถานที่</dt>
-              <dd>{{ job.from }}</dd>
+            <div class="detail-row"><dt>ประเภทงาน</dt><dd>{{ job.category }}</dd></div>
+            <div v-if="job.category !== 'delivery'" class="detail-row">
+              <dt>สถานที่ทำงาน</dt>
+              <dd>{{ job.locationText }}</dd>
             </div>
-            <div class="detail-row">
+            <div v-if="job.category === 'delivery' && job.deliveryFee" class="detail-row">
               <dt>ค่าจัดส่ง</dt>
               <dd>{{ job.deliveryFee.toLocaleString("th-TH") }} บาท</dd>
             </div>
@@ -149,11 +162,12 @@ function goBack() {
             </div>
             <div class="detail-row">
               <dt>เวลานัดหมาย</dt>
-              <dd>{{ job.duration }}</dd>
+              <dd>{{ scheduledLabel }}</dd>
             </div>
+            <div v-if="durationHours" class="detail-row"><dt>ระยะเวลาทำงาน</dt><dd>{{ durationHours }} ชั่วโมง</dd></div>
           </dl>
 
-          <div class="route-row">
+          <div v-if="job.category === 'delivery'" class="route-row">
             <div class="route-col">
               <p class="route-label">จาก</p>
               <p class="route-value">{{ job.from }}</p>

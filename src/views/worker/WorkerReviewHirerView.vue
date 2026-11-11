@@ -87,6 +87,9 @@ async function submitReview() {
 function goBack() {
   router.back();
 }
+function goHome() {
+  router.push("/worker");
+}
 </script>
 
 <template>
@@ -101,7 +104,10 @@ function goBack() {
 
     <main class="content">
       <p v-if="loading">กำลังโหลดข้อมูล...</p>
-      <p v-else-if="reviewed" role="status">คุณได้รีวิว Hirer ของงานนี้แล้ว</p>
+      <template v-else-if="reviewed">
+        <p class="review-complete" role="status">คุณได้รีวิว Hirer ของงานนี้แล้ว</p>
+        <button type="button" class="btn-primary home-btn" @click="goHome">กลับหน้าโฮม</button>
+      </template>
       <p v-else-if="!canReview">{{ errorMsg || 'ยังไม่สามารถรีวิวงานนี้ได้' }}</p>
       <div v-if="!loading && canReview" class="card">
         <div class="profile-block">
@@ -180,6 +186,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .spacer { width: 40px; }
 
 .content { padding: 16px; }
+.review-complete { text-align: center; }
 .card { background: #fff; border-radius: 12px; padding: 24px 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); display: flex; flex-direction: column; align-items: center; }
 
 /* ---------- โปรไฟล์ผู้ว่าจ้าง ---------- */
@@ -222,5 +229,6 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   background: #ffc93c; color: #111; font-size: 14px; font-weight: 700; cursor: pointer;
 }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.home-btn { display: block; width: auto; min-width: 180px; margin: 12px auto 0; padding: 0 24px; background: #ffc93c; color: #111; }
 .error-msg { margin: 10px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
 </style>

@@ -168,6 +168,7 @@ function mapJob(job) {
     postedAt: new Date(job.createdAt),
     description: job.description || job.title || "-",
     price: Number(job.price || 0) + Number(job.deliveryFee || 0),
+    priceLabel: "ค่าจ้าง",
     window: formatWindow(job.durationStart, job.durationEnd) || (job.scheduledAt ? new Date(job.scheduledAt).toLocaleString("th-TH") : "-"),
     eta: job.locationText || job.toText || "-",
   };
@@ -183,6 +184,7 @@ function mapServicePost(post) {
     postedAt: new Date(post.createdAt),
     description: post.description || post.title || "-",
     price: Number(post.fee || 0),
+    priceLabel: post.category === "delivery" ? "ค่าจ้าง/ออร์เดอร์" : "ค่าบริการ",
     window: formatWindow(post.availabilityStart, post.availabilityEnd) || "-",
     eta: post.serviceRadiusMeters ? `รัศมี ${(post.serviceRadiusMeters / 1000).toFixed(1)} กม.` : "-",
   };
@@ -318,7 +320,7 @@ async function applyToJob(post) {
           </div>
           <p class="desc">{{ post.description }}</p>
           <div class="tags">
-            <span class="tag">฿{{ post.price }}</span>
+            <span class="tag">{{ post.priceLabel }} ฿{{ post.price }}</span>
             <span class="tag">ภายใน {{ post.window }}</span>
             <span class="tag">{{ post.eta }}</span>
           </div>

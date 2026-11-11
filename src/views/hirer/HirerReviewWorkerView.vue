@@ -25,6 +25,7 @@ function toggleTag(tag) {
   if (i === -1) selectedTags.value.push(tag);
   else selectedTags.value.splice(i, 1);
 }
+function goHome() { router.push("/hirer"); }
 
 async function loadJob() {
   loading.value = true;
@@ -77,7 +78,10 @@ async function submit() {
     <AppHeader title="Review" />
 
     <section class="content">
-      <p v-if="reviewed" class="form-message" role="status">คุณรีวิว Worker สำหรับงานนี้แล้ว ไม่สามารถส่งซ้ำได้</p>
+      <template v-if="reviewed">
+        <p class="form-message" role="status">คุณรีวิว Worker สำหรับงานนี้แล้ว ไม่สามารถส่งซ้ำได้</p>
+        <button type="button" class="btn home" @click="goHome">กลับหน้าโฮม</button>
+      </template>
       <template v-else>
       <div class="avatar">👤</div>
       <div class="name">{{ workerName }}</div>
@@ -140,6 +144,7 @@ textarea {
 }
 .btn { width: 100%; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 14px; border: none; cursor: pointer; }
 .btn.primary { background: #fbbf24; color: #78350f; }
+.btn.home { display: block; width: auto; min-width: 180px; margin: 12px auto 0; padding: 0 24px; background: #ffc93c; color: #111; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .form-message { padding: 16px; text-align: center; color: #555; }
 .form-message.error { color: #dc2626; }

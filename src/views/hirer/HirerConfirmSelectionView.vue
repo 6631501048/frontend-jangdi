@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
+import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
 
 const route = useRoute();
 const router = useRouter();
@@ -11,14 +12,17 @@ const job = ref(null);
 const worker = ref(null);
 const submitting = ref(false);
 const errorMsg = ref("");
+const paymentTerms = ref({ ...defaultPaymentTerms });
 const canConfirm = computed(() => job.value?.status === "waiting" && worker.value);
-const transactionFee = computed(() => Math.round(Number(job.value?.price || 0) * 0.05 * 100) / 100);
+const feeBreakdown = computed(() => calculatePaymentFees(job.value?.total || 0, paymentTerms.value));
+const transactionFee = computed(() => feeBreakdown.value.platformFeeAmount);
 
 async function loadSelection() {
   try {
     const [{ data: jobData }, { data: applicants }] = await Promise.all([
       api.get(`/jobs/${route.params.id}`), api.get(`/jobs/${route.params.id}/applicants`),
     ]);
+    try { const { data: terms } = await api.get('/payments/config'); paymentTerms.value = { ...paymentTerms.value, ...terms }; } catch { /* Use the shared defaults. */ }
     job.value = { ...jobData, id: jobData._id, serviceFee: jobData.deliveryFee || 0, total: Number(jobData.price || 0) + Number(jobData.deliveryFee || 0) };
     const match = applicants.find((item) => String(item.worker?._id || item.worker) === String(route.params.workerId));
     worker.value = match ? { id: match.worker?._id || match.worker, name: match.worker?.fullName || "Worker", rating: match.worker?.credibilityScore ?? 0 } : null;
@@ -65,8 +69,8 @@ async function confirmAndPay() {
       <dl class="rows">
         <div class="row"><dt>Worker Fee</dt><dd>{{ Number(job.price || 0).toFixed(2) }} Baht</dd></div>
         <div v-if="job.serviceFee" class="row"><dt>Additional Service Fee</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} Baht</dd></div>
-        <div class="row"><dt>Transaction Fee (5%)</dt><dd>{{ transactionFee.toFixed(2) }} Baht</dd></div>
-        <div class="row total"><dt>Total Payment</dt><dd>{{ (Number(job.total || 0) + transactionFee).toFixed(2) }} Baht</dd></div>
+        <div class="row"><dt>Platform service + transaction fees</dt><dd>{{ transactionFee.toFixed(2) }} Baht</dd></div>
+        <div class="row total"><dt>Total Payment</dt><dd>{{ feeBreakdown.totalDue.toFixed(2) }} Baht</dd></div>
       </dl>
 
       <div class="actions">

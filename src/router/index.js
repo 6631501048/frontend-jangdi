@@ -87,6 +87,12 @@ const routes = [
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
+    path: "/hirer/service-posts/:id",
+    name: "hirer-service-post-detail",
+    component: () => import("../views/hirer/HirerServicePostDetailView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
     path: "/hirer/hire/:id",
     name: "hirer-hire-service",
     component: () => import("../views/hirer/HirerHireServiceView.vue"),
@@ -109,7 +115,7 @@ const routes = [
   {
     path: "/worker",
     name: "worker-dashboard",
-    component: () => import("../views/worker/WorkerDashboard.vue"),
+    redirect: { name: "job-feed" },
     meta: { requiresAuth: true, role: "worker" },
   },
   {
@@ -271,7 +277,7 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.role && auth.currentRole !== to.meta.role) {
-    return { name: auth.currentRole === "worker" ? "worker-dashboard" : "hirer-dashboard" };
+    return { name: auth.currentRole === "worker" ? "job-feed" : "hirer-dashboard" };
   }
 });
 
