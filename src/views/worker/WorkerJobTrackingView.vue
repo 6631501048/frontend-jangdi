@@ -407,21 +407,21 @@ function goToReview() {
             <p class="block-title">Contact</p>
             <p class="block-hint">You can contact this hirer only during the job is in progress.</p>
             <div class="contact-buttons">
-              <button class="contact-btn" :disabled="job.hirerPhone === '-'" @click="callHirer">
+              <button class="contact-btn phone-contact" :disabled="job.hirerPhone === '-'" @click="callHirer">
                 <svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3.1-8.7A2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.7a2 2 0 01-.5 2.1L8 9.7a16 16 0 006 6l1.2-1.2a2 2 0 012.1-.5c.9.3 1.8.5 2.7.6a2 2 0 011.7 2z" /></svg>
                 <span>
                   <strong>{{ job.hirerPhone }}</strong>
                   <small>Phone call</small>
                 </span>
               </button>
-              <a v-if="job.hirerLine !== '-'" class="contact-btn" :href="`https://line.me/R/ti/p/~${encodeURIComponent(job.hirerLine)}`" target="_blank" rel="noopener noreferrer">
+              <a v-if="job.hirerLine !== '-'" class="contact-btn line-contact" :href="`https://line.me/R/ti/p/~${encodeURIComponent(job.hirerLine)}`" target="_blank" rel="noopener noreferrer">
                 <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M8 10h8M8 14h5" /></svg>
                 <span>
                   <strong>{{ job.hirerLine }}</strong>
                   <small>LINE ID</small>
                 </span>
               </a>
-              <div v-else class="contact-btn unavailable">
+              <div v-else class="contact-btn line-contact unavailable">
                 <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M8 10h8M8 14h5" /></svg>
                 <span><strong>LINE ID unavailable</strong><small>Not provided in profile</small></span>
               </div>
@@ -595,10 +595,15 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   flex: 1; display: flex; align-items: center; gap: 8px; min-height: 52px;
   border: 1px solid #ddd; border-radius: 10px; background: #fff; padding: 8px 10px; cursor: pointer;
 }
-.contact-btn svg { flex-shrink: 0; color: #333; }
+.contact-btn.phone-contact { border-color: #bfdbfe; background: #eff6ff; }
+.contact-btn.line-contact { border-color: #06c755; background: #30d274; text-decoration: none; }
+.contact-btn svg { flex-shrink: 0; color: #334155; }
 .contact-btn span { display: flex; flex-direction: column; text-align: left; min-width: 0; }
 .contact-btn strong { font-size: 11.5px; color: #111; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.contact-btn small { font-size: 10.5px; color: #999; }
+.contact-btn small { font-size: 10.5px; color: #475569; }
+.contact-btn.line-contact strong, .contact-btn.line-contact small, .contact-btn.line-contact svg { color: #fff; }
+.contact-btn.unavailable { background: #f8fafc; border-color: #e2e8f0; cursor: default; }
+.contact-btn.line-contact.unavailable { border-color: #06c755; background: #06c755; }
 
 /* ---------- Timeline + SOS ---------- */
 .status-sos-row { display: flex; gap: 12px; margin-top: 16px; }

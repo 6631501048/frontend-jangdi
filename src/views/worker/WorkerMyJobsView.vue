@@ -155,7 +155,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .job-list { display: flex; flex-direction: column; gap: 10px; }
 .job-row {
   display: flex; align-items: center; gap: 10px; text-align: left;
-  background: #fff; border: none; border-radius: 12px; padding: 12px;
+  background: #fff; border: none; border-radius: 12px; padding: 14px 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); cursor: default; width: 100%;
 }
 .job-row.clickable { cursor: pointer; }
@@ -163,10 +163,10 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #ddd;
   display: flex; align-items: center; justify-content: center; color: #555;
 }
-.job-body { flex: 1; min-width: 0; }
-.job-hirer { margin: 0; font-size: 11px; color: #999; }
-.job-title { margin: 1px 0; font-size: 13px; font-weight: 700; color: #111; }
-.job-meta { margin: 0; font-size: 11px; color: #888; }
+.job-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.job-hirer { margin: 0; font-size: 11px; line-height: 1.35; color: #999; }
+.job-title { margin: 0; font-size: 13px; line-height: 1.35; font-weight: 700; color: #111; }
+.job-meta { margin: 0; font-size: 11px; line-height: 1.35; color: #888; }
 .job-right { flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
 .status-tag { font-size: 11px; font-weight: 700; white-space: nowrap; }
 .status-tag.gold { color: #b8860b; }

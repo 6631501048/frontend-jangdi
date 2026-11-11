@@ -8,13 +8,11 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
 import api from "../../services/api";
-import { useNotificationsStore } from "../../stores/notifications";
 import UserAvatar from "../../components/UserAvatar.vue";
 import AppTopBar from "../../components/AppTopBar.vue";
 import AppRoleDrawer from "../../components/AppRoleDrawer.vue";
 
 const auth = useAuthStore();
-const notifications = useNotificationsStore();
 const router = useRouter();
 
 /* ---------- ส่วนบน: เมนู/โปรไฟล์ (ตาม Frame 891 — เมนูฝั่งผู้ว่าจ้าง) ---------- */
@@ -169,7 +167,6 @@ function timeAgo(date) {
   return `${Math.floor(diffHr / 24)} วันที่แล้ว`;
 }
 
-const unreadCount = computed(() => notifications.unreadCount);
 </script>
 
 <template>
@@ -257,26 +254,11 @@ const unreadCount = computed(() => notifications.unreadCount);
       <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
     </RouterLink>
 
-    <!-- แถบล่าง -->
-    <footer class="bottom-nav">
-      <button class="nav-item">
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
-        <span>ถาม</span>
-      </button>
-      <RouterLink to="/hirer" class="nav-item">
-        <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></svg>
-        <span>หน้าแรก</span>
-      </RouterLink>
-      <RouterLink to="/notifications" class="nav-item" aria-label="การแจ้งเตือน">
-        <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6" /><path d="M10 21a2 2 0 004 0" /></svg>
-        <span v-if="unreadCount" class="badge">{{ unreadCount }}</span>
-      </RouterLink>
-    </footer>
   </div>
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; padding-bottom: 76px; background: #f0f0f0; font-family: inherit; }
+.page { position: relative; min-height: 100vh; padding-bottom: 24px; background: #f0f0f0; font-family: inherit; }
 
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
@@ -388,26 +370,16 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 
 /* ---------- FAB ---------- */
 .fab {
-  position: fixed; right: 20px; bottom: 84px; width: 52px; height: 52px; border-radius: 50%;
+  position: fixed; right: 20px; bottom: 48px; width: 52px; height: 52px; border-radius: 50%;
   background: #ffc93c; border: 2px solid #111; color: #111; display: flex;
   align-items: center; justify-content: center; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25); z-index: 5;
 }
 
-/* ---------- Bottom nav ---------- */
-.bottom-nav {
-  position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto;
-  display: flex; justify-content: space-around; align-items: center;
-  background: #fff; border-top: 1px solid #eee; padding: 6px 0; z-index: 6;
-}
-.nav-item {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  min-height: 44px; min-width: 44px; border: none; background: transparent;
-  color: #333; font-size: 11px; text-decoration: none; cursor: pointer;
-}
-.badge {
-  position: absolute; top: -2px; right: 8px; background: #e11d48; color: #fff;
-  font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center; padding: 0 3px;
+@media (min-width: 768px) {
+  .search-row { padding-left: 24px; padding-right: 24px; }
+  .tabs { margin: 12px 24px 0; }
+  .categories { padding-left: 24px; padding-right: 24px; }
+  .feed-list { padding: 4px 24px 16px; }
 }
 </style>
 

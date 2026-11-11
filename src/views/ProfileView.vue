@@ -7,7 +7,6 @@
 // หน้านี้ใช้ร่วมกันระหว่าง Hirer และ Worker (บัญชีเดียวสลับ role ได้ตาม FR-AUTH-06)
 // เนื้อหาในหน้าไม่มีอะไรเฉพาะ role ใดเลย จึงไม่ผูก route guard ด้วย meta.role (ดู router/index.js)
 import { computed, onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
 import api from "../services/api";
 import { resolveBackendAssetUrl } from "../services/backendAssets";
 import { useAuthStore } from "../stores/auth";
@@ -16,18 +15,9 @@ import AppTopBar from "../components/AppTopBar.vue";
 import AppRoleDrawer from "../components/AppRoleDrawer.vue";
 
 const auth = useAuthStore();
-const router = useRouter();
 const loading = ref(true);
 const drawerOpen = ref(false);
 const errorMsg = ref("");
-
-// ปุ่ม "หน้าแรก" ใน bottom nav ต้องพากลับ dashboard ของ role ปัจจุบัน ไม่ผูกตายตัวกับ role ใดรole หนึ่ง
-const homePath = computed(() => (auth.currentRole === "worker" ? "/worker" : "/hirer"));
-
-function logout() {
-  auth.logout();
-  router.push({ name: "login" });
-}
 
 /* ---------- รูปโปรไฟล์ ---------- */
 const avatarInput = ref(null);
@@ -239,7 +229,7 @@ onMounted(async () => {
 <template>
   <div class="page">
     <!-- แถบด้านบน -->
-    <AppTopBar role-label="" @menu="drawerOpen = true" />
+    <AppTopBar role-label="" :show-notifications="false" @menu="drawerOpen = true" />
     <AppRoleDrawer v-model="drawerOpen" />
 
     <main class="content">
@@ -448,30 +438,11 @@ onMounted(async () => {
       </div>
     </Transition>
 
-    <!-- แถบล่าง -->
-    <footer class="bottom-nav">
-      <button class="nav-item">
-        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
-        <span>ถาม</span>
-      </button>
-      <RouterLink :to="homePath" class="nav-item">
-        <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /></svg>
-        <span>หน้าแรก</span>
-      </RouterLink>
-      <button class="nav-item">
-        <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0c0 5 2 6 2 6H4s2-1 2-6" /><path d="M10 21a2 2 0 004 0" /></svg>
-        <span class="badge">4</span>
-      </button>
-      <button class="nav-item" @click="logout">
-        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg>
-        <span>ออกจากระบบ</span>
-      </button>
-    </footer>
   </div>
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; padding-bottom: 76px; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; padding-bottom: 24px; background: #f0f0f0; }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 .topbar {
@@ -562,21 +533,6 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
 .fade-enter-active, .fade-leave-active { transition: opacity 0.15s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
-.bottom-nav {
-  position: fixed; left: 0; right: 0; bottom: 0; max-width: 480px; margin: 0 auto;
-  display: flex; justify-content: space-around; align-items: center;
-  background: #fff; border-top: 1px solid #eee; padding: 6px 0; z-index: 6;
-}
-.nav-item {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  min-height: 44px; min-width: 44px; border: none; background: transparent;
-  color: #333; font-size: 11px; text-decoration: none; cursor: pointer;
-}
-.badge {
-  position: absolute; top: -2px; right: 8px; background: #e11d48; color: #fff;
-  font-size: 10px; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center; padding: 0 3px;
-}
 </style>
 
 

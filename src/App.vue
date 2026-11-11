@@ -24,7 +24,8 @@ watch(() => auth.token, (token) => {
 
 <style>
 * { box-sizing: border-box; }
+html, body, #app { min-height: 100%; }
 body { margin: 0; font-family: system-ui, "Noto Sans Thai", sans-serif; }
-.app-shell { max-width: 480px; margin: 0 auto; min-height: 100vh; }
+.app-shell { width: 100%; min-height: 100vh; }
 </style>
 

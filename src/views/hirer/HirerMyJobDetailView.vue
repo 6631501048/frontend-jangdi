@@ -250,14 +250,14 @@ async function confirmCompletion() {
       <template v-if="['assigned', 'in_progress', 'awaiting_confirmation', 'completed'].includes(job.status)">
         <h2 class="section-title">ช่องทางติดต่อ</h2>
         <div class="contact-row">
-          <a v-if="workerProfile?.phone" class="contact-btn" :href="`tel:${workerProfile.phone}`">
+          <a v-if="workerProfile?.phone" class="contact-btn phone-contact" :href="`tel:${workerProfile.phone}`">
             &#128222; <span>{{ workerProfile.phone }}<br /><small>โทรศัพท์</small></span>
           </a>
-          <div v-else class="contact-btn unavailable">&#128222; <span>ไม่มีเบอร์โทรศัพท์<br /><small>ไม่ได้ระบุในโปรไฟล์</small></span></div>
-          <a v-if="workerProfile?.lineId" class="contact-btn" :href="`https://line.me/R/ti/p/~${encodeURIComponent(workerProfile.lineId)}`" target="_blank" rel="noopener noreferrer">
+          <div v-else class="contact-btn phone-contact unavailable">&#128222; <span>ไม่มีเบอร์โทรศัพท์<br /><small>ไม่ได้ระบุในโปรไฟล์</small></span></div>
+          <a v-if="workerProfile?.lineId" class="contact-btn line-contact" :href="`https://line.me/R/ti/p/~${encodeURIComponent(workerProfile.lineId)}`" target="_blank" rel="noopener noreferrer">
             &#128172; <span>@{{ workerProfile.lineId }}<br /><small>LINE ID</small></span>
           </a>
-          <div v-else class="contact-btn unavailable">&#128172; <span>ไม่มี LINE ID<br /><small>ไม่ได้ระบุในโปรไฟล์</small></span></div>
+          <div v-else class="contact-btn line-contact unavailable">&#128172; <span>ไม่มี LINE ID<br /><small>ไม่ได้ระบุในโปรไฟล์</small></span></div>
         </div>
 
         <ol class="timeline">
@@ -275,7 +275,7 @@ async function confirmCompletion() {
         </ol>
 
         <p v-if="['assigned', 'in_progress'].includes(job.status)" class="proof-note">หากงานมีปัญหาระหว่างดำเนินการ กรุณาติดต่อผู้ดูแลก่อนยกเลิก เพื่อไม่ให้ข้อมูลการจ่ายเงินจำลองผิดพลาด</p>
-        <RouterLink v-if="mockPayment?.status === 'held'" class="btn danger refund-link" :to="{name:'hirer-refund',params:{id:job._id}}">ไม่ยอมรับงาน / ขอคืนเงิน</RouterLink>
+        <RouterLink v-if="mockPayment?.status === 'held' && ['assigned', 'in_progress'].includes(job.status)" class="btn danger refund-link" :to="{name:'hirer-refund',params:{id:job._id}}">ไม่ยอมรับงาน / ขอคืนเงิน</RouterLink>
       </template>
 
       <!-- Authorized proof preview is available while pending and after confirmation. -->
@@ -297,9 +297,12 @@ async function confirmCompletion() {
       <template v-if="job.status === 'awaiting_confirmation'">
         <p class="proof-note">กรุณาตรวจรูปและยืนยันเมื่องานส่งมอบเรียบร้อยแล้ว</p>
         <p v-if="completionError" class="completion-error" role="alert">{{ completionError }}</p>
-        <button class="btn primary" :disabled="confirmingCompletion || !proofObjectUrl || mockPayment?.status !== 'held'" @click="confirmCompletion">
-          {{ confirmingCompletion ? "กำลังยืนยัน…" : "ยืนยันรับงานและปิดงาน" }}
-        </button>
+        <div class="job-action-row">
+          <RouterLink v-if="mockPayment?.status === 'held'" class="btn danger refund-link" :to="{name:'hirer-refund',params:{id:job._id}}">ไม่ยอมรับงาน / ขอคืนเงิน</RouterLink>
+          <button class="btn primary" :disabled="confirmingCompletion || !proofObjectUrl || mockPayment?.status !== 'held'" @click="confirmCompletion">
+            {{ confirmingCompletion ? "กำลังยืนยัน…" : "ยืนยันรับงานและปิดงาน" }}
+          </button>
+        </div>
       </template>
       <JobPaymentStatus v-if="['completed','disputed','cancelled'].includes(job.status)" :payment="mockPayment" role="hirer" />
       <div v-if="job.status === 'completed'">
@@ -359,6 +362,10 @@ async function confirmCompletion() {
 .contact-btn span { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
 .contact-btn small { color: #888; font-size: 10px; }
 .contact-btn.unavailable { color: #999; cursor: default; }
+.contact-btn.phone-contact { border-color: #bfdbfe; background: #eff6ff; }
+.contact-btn.phone-contact.unavailable { color: #475569; }
+.contact-btn.line-contact { border-color: #06c755; background: #06c755; color: #fff; }
+.contact-btn.line-contact span, .contact-btn.line-contact small { color: #fff; }
 .timeline { list-style: none; margin: 18px 0 8px; padding: 0; }
 .timeline li { display: flex; gap: 10px; align-items: flex-start; padding: 0 0 18px 2px; position: relative; }
 .timeline li:not(:last-child)::before { content: ""; position: absolute; left: 7px; top: 14px; bottom: -2px; width: 2px; background: #e5e7eb; }
@@ -371,6 +378,9 @@ async function confirmCompletion() {
 .btn.primary { background: #fbbf24; color: #78350f; border: none; }
 .btn.danger { background: #ef4444; color: white; border: none; }
 .btn.outline { background: white; color: #555; }
+.job-action-row { display: flex; gap: 10px; margin-top: 10px; }
+.job-action-row > .btn { flex: 1; width: 0; min-width: 0; margin-top: 0; padding: 8px 6px; font-size: 12px; }
+.refund-link { display: flex; align-items: center; justify-content: center; margin-top: 12px; text-decoration: none; text-align: center; }
 .actions { display: flex; gap: 10px; }
 .proof-link { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px; color: #1d4ed8; font-size: 13px; margin: 4px 0; }
 .completion-proof { display: block; max-width: 100%; max-height: 320px; border-radius: 8px; object-fit: contain; }
@@ -384,7 +394,4 @@ async function confirmCompletion() {
 .mock-banner { margin: 14px 0; padding: 14px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px; }
 .mock-banner p { font-size: 12px; }
 </style>
-
-<style scoped>.refund-link{display:flex;align-items:center;justify-content:center;text-decoration:none;margin-top:12px}</style>
-
 

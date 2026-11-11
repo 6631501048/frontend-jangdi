@@ -37,7 +37,7 @@ onMounted(async () => {
 
 <template>
   <div class="page">
-    <AppTopBar role-label="" @menu="drawerOpen = true" />
+    <AppTopBar role-label="" :show-notifications="false" @menu="drawerOpen = true" />
     <AppRoleDrawer v-model="drawerOpen" />
     <main class="content">
       <RouterLink to="/profile" class="back-link">‹ กลับหน้าโปรไฟล์</RouterLink>
