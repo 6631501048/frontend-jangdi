@@ -1,9 +1,10 @@
 <script setup>
 // MVP-02: Service Request details are the Hirer's persisted orderData (legacy text is still supported).
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
+import { requestWorkflowLabel } from "../../services/workflowStatus";
 const route = useRoute();
 const router = useRouter();
 const loading = ref(true);
@@ -18,8 +19,8 @@ const feeBreakdown = computed(() => calculatePaymentFees(request.value?.serviceF
 const platformFee = computed(() => feeBreakdown.value.platformFeeAmount);
 const payableTotal = computed(() => feeBreakdown.value.totalDue);
 
-async function loadRequest() {
-  loading.value = true;
+async function loadRequest({ background = false } = {}) {
+  if (!background) loading.value = true;
   errorMsg.value = "";
   try {
     const { data } = await api.get(`/service-posts/requests/${route.params.id}`);
@@ -46,6 +47,8 @@ async function loadRequest() {
       to: structured.to || "",
       serviceFee: Number(post.fee || 0),
       status: data.status,
+      resultingJob: data.resultingJob,
+      paymentStatus: data.paymentStatus,
       postStatus: post.status,
       postFull: Number(post.currentOrderCount || 0) >= Number(post.maxSimultaneousOrders || 1),
       jobId: data.resultingJob?._id || data.resultingJob || null,
@@ -54,7 +57,12 @@ async function loadRequest() {
     errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดคำขอไม่สำเร็จ";
   } finally { loading.value = false; }
 }
-onMounted(loadRequest);
+let refreshTimer;
+onMounted(() => {
+  loadRequest();
+  refreshTimer = window.setInterval(() => { if (!accepting.value) loadRequest({ background: true }); }, 5000);
+});
+onUnmounted(() => window.clearInterval(refreshTimer));
 
 async function respond(action) {
   if (!isPending.value || accepting.value) return;
@@ -91,7 +99,7 @@ async function respond(action) {
           </div>
           <p class="section-title">รายละเอียดคำขอจาก Hirer</p>
           <p class="notes-text">{{ request.details }}</p>
-          <p class="request-state">สถานะ: {{ request.status === 'pending' ? 'รอการตอบรับ' : request.status === 'accepted' ? 'รับคำขอแล้ว' : 'ปฏิเสธแล้ว' }}</p>
+          <p class="request-state">สถานะ: {{ requestWorkflowLabel(request) }}</p>
         </div>
         <div class="card">
           <p class="section-title">รายละเอียดการจัดส่ง</p>

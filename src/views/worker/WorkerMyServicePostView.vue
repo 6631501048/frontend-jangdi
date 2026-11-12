@@ -6,6 +6,7 @@
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import { servicePostWorkflowStatus, requestWorkflowLabel } from "../../services/workflowStatus";
 
 const props = defineProps({ embedded: { type: Boolean, default: false } });
 const router = useRouter();
@@ -54,6 +55,8 @@ const serviceRequestStatesByPost = ref({});
 const sortOrder = ref("latest");
 const allRequests = ref([]);
 let clockTimer;
+let statusRefreshTimer;
+let loadInFlight = false;
 const canRequestCancel = computed(() => Boolean(
   post.value?.status === "active" &&
   post.value.createdAt &&
@@ -64,21 +67,15 @@ const servicePostFilters = [
   { value: "pending_review", label: "รออนุมัติ" },
   { value: "waiting", label: "รอผู้ขอรับบริการ" },
   { value: "in_progress", label: "กำลังดำเนินงาน" },
+  { value: "disputed", label: "รอพิจารณาคืนเงิน" },
+  { value: "refund_pending", label: "รอแอดมินคืนเงิน" },
+  { value: "refunded", label: "คืนเงินแล้ว" },
   { value: "completed", label: "เสร็จสิ้น" },
   { value: "cancelled", label: "ยกเลิก" },
+  { value: "unknown", label: "ตรวจสอบสถานะ" },
 ];
 function servicePostStatus(item) {
-  const requests = serviceRequestStatesByPost.value[String(item._id)] || [];
-  const hasProgress = requests.some((request) => ["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(request.jobStatus));
-  const hasPending = requests.some((request) => request.status === "pending");
-  const hasCompleted = requests.some((request) => request.jobStatus === "completed");
-  const hasCancelled = requests.some((request) => request.status === "declined" || request.jobStatus === "cancelled");
-  if (item.status === "pending_review") return "pending_review";
-  if (hasProgress) return "in_progress";
-  if (hasPending) return "waiting";
-  if (hasCompleted) return "completed";
-  if (hasCancelled || item.status === "rejected" || item.status === "expired" || (item.status === "closed" && item.closeReason === "manual")) return "cancelled";
-  return item.status === "active" ? "waiting" : "cancelled";
+  return servicePostWorkflowStatus(item, serviceRequestStatesByPost.value[String(item._id)] || []);
 }
 
 function matchesServicePostFilter(item, filter) {
@@ -95,8 +92,12 @@ function servicePostListStatus(item) {
     pending_review: "รออนุมัติ",
     waiting: "รอผู้ขอรับบริการ",
     in_progress: "กำลังดำเนินงาน",
+    disputed: "รอพิจารณาคืนเงิน",
+    refund_pending: "อนุมัติแล้ว รอแอดมินคืนเงิน",
+    refunded: "คืนเงินแล้ว",
     completed: "เสร็จสิ้น",
     cancelled: "ยกเลิก",
+    unknown: "ยังตรวจสอบสถานะงานไม่ได้",
   })[servicePostStatus(item)];
 }
 
@@ -108,8 +109,10 @@ function servicePostListStatusClass(item) {
   return "gold";
 }
 
-async function load() {
-  loading.value = true;
+async function load({ background = false } = {}) {
+  if (loadInFlight) return;
+  loadInFlight = true;
+  if (!background) loading.value = true;
   errorMsg.value = "";
   try {
     const { data: posts } = await api.get("/service-posts/my");
@@ -123,9 +126,10 @@ async function load() {
         } else {
           try {
             const { data } = await api.get(`/service-posts/requests/${request._id}`);
-            jobStatus = data.resultingJob?.status || "assigned";
+            jobStatus = data.resultingJob?.status || null;
+            request.paymentStatus = data.paymentStatus || data.resultingJob?.paymentStatus || null;
           } catch {
-            jobStatus = "assigned";
+            jobStatus = null;
           }
         }
       }
@@ -155,6 +159,7 @@ async function load() {
       rejectionReason: chosen.rejectionReason || "",
       isOpen: chosen.status === "active" && new Date(chosen.availabilityEnd) >= new Date() && chosen.currentOrderCount < chosen.maxSimultaneousOrders,
       maxOrders: chosen.maxSimultaneousOrders,
+      currentOrderCount: chosen.currentOrderCount,
       location: chosen.category === "delivery"
         ? `รัศมี ${((chosen.serviceRadiusMeters || 0) / 1000).toFixed(1)} กม.`
         : chosen.locationLabel || categoryLabels[chosen.category] || chosen.category,
@@ -179,21 +184,27 @@ async function load() {
         items: r.orderData?.requirements || r.orderDetails || "-",
         total: Number(r.servicePost?.fee || 0) + Number(r.orderData?.itemBudget || 0),
         status: r.status,
+        jobStatus: r.jobStatus,
+        paymentStatus: r.paymentStatus || r.resultingJob?.paymentStatus,
       }));
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดข้อมูลประกาศบริการไม่สำเร็จ";
   } finally {
     loading.value = false;
+    loadInFlight = false;
   }
 }
+const refreshStatus = () => load({ background: true });
 onMounted(load);
 onMounted(() => {
   clockTimer = window.setInterval(() => { now.value = Date.now(); }, 1000);
-  window.addEventListener("focus", load);
+  statusRefreshTimer = window.setInterval(refreshStatus, 5000);
+  window.addEventListener("focus", refreshStatus);
 });
 onUnmounted(() => {
   window.clearInterval(clockTimer);
-  window.removeEventListener("focus", load);
+  window.clearInterval(statusRefreshTimer);
+  window.removeEventListener("focus", refreshStatus);
 });
 
 const pendingCount = computed(() => allRequests.value.filter((r) => r.status === "pending").length);
@@ -208,6 +219,7 @@ const acceptedRequester = ref("");
 const accepting = ref(null);
 
 async function acceptRequest(req) {
+  if (accepting.value) return;
   if (!post.value?.isOpen) {
     errorMsg.value = "ประกาศปิดรับแล้ว ไม่สามารถยอมรับคำขอเพิ่มได้";
     return;
@@ -330,6 +342,7 @@ function createNewPost() {
         <h2>ข้อมูลบริการ</h2>
         <dl class="service-detail-list">
           <div class="service-detail-row"><dt>ค่าบริการ</dt><dd>฿{{ Number(post.serviceFee).toLocaleString("th-TH") }} <small>{{ post.feeUnit }}</small></dd></div>
+          <div class="service-detail-row"><dt>งานที่รับพร้อมกัน</dt><dd>{{ post.currentOrderCount }} / {{ post.maxOrders }} งาน</dd></div>
           <div class="service-detail-row"><dt>สถานที่ให้บริการ</dt><dd>{{ post.location }}</dd></div>
           <div class="service-detail-row"><dt>ช่วงเวลา</dt><dd>{{ post.time }}</dd></div>
           <div v-if="post.status === 'closed' && post.closeReason === 'manual' && post.closeNote" class="service-detail-row"><dt>เหตุผลที่ยกเลิก</dt><dd>{{ post.closeNote }}</dd></div>
@@ -369,9 +382,7 @@ function createNewPost() {
               <p class="requester">{{ req.requester }}</p>
               <p class="requester-loc">{{ req.location }}</p>
             </div>
-            <span v-if="req.status === 'accepted'" class="status-accepted">รับคำขอแล้ว</span>
-            <span v-else-if="req.status === 'declined'" class="posted-ago">ปฏิเสธแล้ว</span>
-            <span v-else class="posted-ago">{{ req.postedAgo }}</span>
+            <span class="request-workflow-status">{{ requestWorkflowLabel(req) }}</span>
           </div>
 
           <div class="request-items">
@@ -387,7 +398,7 @@ function createNewPost() {
 
           <div class="request-actions" :class="{ single: req.status === 'accepted' }">
             <button class="btn-details" @click="viewDetails(req)">รายละเอียด</button>
-            <button v-if="req.status === 'pending' && post.isOpen" class="btn-apply" :disabled="accepting === req.id" @click="acceptRequest(req)">
+            <button v-if="req.status === 'pending' && post.isOpen" class="btn-apply" :disabled="!!accepting" @click="acceptRequest(req)">
               {{ accepting === req.id ? "กำลังบันทึก…" : "ยอมรับคำขอ" }}
             </button>
           </div>
@@ -487,6 +498,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .requester { margin: 0; font-size: 13px; font-weight: 700; color: #111; }
 .requester-loc { margin: 1px 0 0; font-size: 10.5px; color: #999; }
 .posted-ago { font-size: 10.5px; color: #999; flex-shrink: 0; }
+.request-workflow-status { max-width:50%; text-align:right; font-size:11px; font-weight:700; }
 .status-accepted { font-size: 11px; font-weight: 700; color: #1a9c4a; flex-shrink: 0; }
 
 .request-items { display: flex; justify-content: space-between; gap: 10px; margin: 10px 0; }

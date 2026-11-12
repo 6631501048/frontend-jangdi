@@ -257,7 +257,7 @@ onMounted(loadPayments);
         :class="{ active: activeTab === tab.label }"
         @click="changeTab(tab.label)"
       >
-        {{ tab.status === 'refund_workflow' ? 'คืนเงินแล้ว' : tab.status === 'refund_review' ? 'รอพิจารณาคืนเงิน' : tab.status === 'payment_queue' ? 'ชำระเงิน' : paymentStatus(tab.status) }}
+        {{ tab.status === 'refund_workflow' ? 'รายการคืนเงิน / ผลพิจารณา' : tab.status === 'refund_review' ? 'รอพิจารณาคืนเงิน' : tab.status === 'payment_queue' ? 'ชำระเงิน' : paymentStatus(tab.status) }}
       </button>
     </nav>
 
@@ -384,10 +384,11 @@ onMounted(loadPayments);
           </button>
         </div>
         </div>
-        <section v-if="payment.status === 'refund_pending'" class="refund-evidence-section">
-          <h3 class="subtitle">แนบรูปหลักฐานการคืนเงิน</h3>
+        <section v-if="payment.status === 'refund_pending' || (payment.status === 'refunded' && payment.refundMethod === 'stripe' && !payment.hasRefundSlip)" class="refund-evidence-section">
+          <h3 class="subtitle">{{ payment.status === 'refunded' ? 'แนบหลักฐานคืนเงินรายการเดิม' : 'แอดมินโอนคืนและแนบหลักฐาน' }}</h3>
+          <p v-if="payment.status === 'refunded'" class="refund-status">รายการเดิมคืนผ่าน Stripe สำเร็จแล้ว ไม่ต้องโอนคืนผ่านธนาคารซ้ำ แอดมินแนบหลักฐานได้ที่นี่</p>
           <p class="refund-status">อนุมัติคำขอคืนเงินแล้ว · ผู้รับเงิน {{payment.hirer?.fullName || 'ผู้ว่าจ้าง'}} · {{money(payment.refundAmount)}}</p>
-          <PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/refund`" label="แนบหลักฐานการโอนคืนเงิน" manual-transfer :require-amount="true" :expected-amount="payment.refundAmount" require-notes @saved="savedSlip" />
+          <PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/refund`" label="แนบหลักฐานการคืนเงิน" :manual-transfer="payment.refundMethod !== 'stripe'" :require-amount="true" :expected-amount="payment.refundAmount" require-notes @saved="savedSlip" />
         </section>
       </li>
 

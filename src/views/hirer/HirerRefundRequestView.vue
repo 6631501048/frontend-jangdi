@@ -16,11 +16,14 @@ function chooseFiles(event){
   if(selected.length>3 || selected.some(file=>file.size>2*1024*1024 || !['image/jpeg','image/png','image/webp'].includes(file.type))){errorMsg.value='แนบรูป JPEG, PNG หรือ WebP ไม่เกิน 3 ภาพ ภาพละไม่เกิน 2 MB';event.target.value='';return;}
   files.value=selected;previews.value=selected.map(file=>URL.createObjectURL(file));
 }
-onMounted(async()=>{
-  try{const [j,p]=await Promise.all([api.get(`/jobs/${route.params.id}`),api.get(`/payments/${route.params.id}/mock`)]);job.value=j.data;payment.value=p.data;}
+let refreshTimer;
+async function loadStatus(){
+  try{const [j,p]=await Promise.all([api.get(`/jobs/${route.params.id}`),api.get(`/payments/${route.params.id}/mock`)]);job.value=j.data;payment.value=p.data;if(payment.value.status!=='disputed')successMsg.value='';}
   catch(err){errorMsg.value=err.response?.data?.message || 'โหลดข้อมูลงานไม่สำเร็จ';}
   finally{loading.value=false;}
-});
+}
+onMounted(()=>{loadStatus();refreshTimer=window.setInterval(()=>{if(!submitting.value)loadStatus();},5000);});
+onUnmounted(()=>window.clearInterval(refreshTimer));
 async function submit(){
   if(!canSubmit.value || !window.confirm('ยืนยันส่งคำขอคืนเงิน? งานจะพักไว้ให้ผู้ดูแลตรวจสอบ และยังไม่ถือว่าได้รับเงินคืน'))return;
   submitting.value=true;errorMsg.value='';
@@ -36,7 +39,7 @@ async function submit(){
     <div v-if="job && payment" class="job-card"><h2 class="title">{{job.title}}</h2><p class="sub">{{job.description}}</p><div class="row"><span>ยอดชำระรวมค่าบริการ</span><strong>฿ {{money(payment.totalDue)}}</strong></div><div class="row"><span>สถานะ</span><strong>{{paymentStatus(payment.status)}}</strong></div></div>
     <p v-if="errorMsg" role="alert" class="notice error">{{errorMsg}}</p><p v-if="successMsg" role="status" class="notice">{{successMsg}}</p>
     <p v-if="payment?.refundNotes" class="notice">เหตุผลผู้ดูแล: {{payment.refundNotes}}</p>
-    <p v-if="payment?.refundStatus === 'pending'" class="notice" role="status">{{payment.paymentMode === 'slip_demo' ? 'ผู้ดูแลอนุมัติแล้ว รอแนบสลิปคืนเงินจำลอง' : 'ผู้ดูแลอนุมัติแล้ว กำลังรอ Stripe ยืนยันการคืนเงินทดสอบ'}}</p>
+    <p v-if="payment?.refundStatus === 'pending'" class="notice" role="status">{{payment.refundMethod === 'stripe' ? 'รายการเดิมกำลังรอยืนยันการคืนเงินผ่าน Stripe' : 'ผู้ดูแลอนุมัติแล้ว รอแอดมินโอนคืนและแนบหลักฐาน'}}</p>
     <form v-if="payment?.status === 'held' && !successMsg" @submit.prevent="submit">
       <label class="field-label" for="refund-reason">เหตุผลที่ขอคืนเงิน (10–1,000 ตัวอักษร)</label><textarea id="refund-reason" v-model="reason" minlength="10" maxlength="1000" required rows="5" placeholder="อธิบายปัญหาหรือส่วนที่ไม่ได้รับตามข้อตกลง" :disabled="submitting"></textarea>
       <label class="field-label" for="refund-evidence">รูปหลักฐานประกอบ (ไม่บังคับ)</label><input id="refund-evidence" type="file" accept="image/jpeg,image/png,image/webp" multiple :disabled="submitting" @change="chooseFiles" /><p class="sub">สูงสุด 3 ภาพ ภาพละไม่เกิน 2 MB</p><div class="previews"><img v-for="(url,index) in previews" :key="url" :src="url" :alt="`หลักฐานภาพที่ ${index+1}`" /></div>

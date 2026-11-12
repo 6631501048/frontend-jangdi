@@ -1,9 +1,10 @@
 <script setup>
 // FR-JOB-08: ดูงานที่ตนเองประกาศ จัดกลุ่มตามสถานะ
 // เป็นจุดเข้าสู่หน้า "เลือกผู้รับจ้าง" (FR-MATCH-03/04) สำหรับงานที่เปิดรับสมัครอยู่
-import { onMounted, ref, watch } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import api from "../../services/api";
+import { workflowLabels } from "../../services/workflowStatus";
 
 const router = useRouter();
 
@@ -22,11 +23,11 @@ const loading = ref(true);
 const errorMsg = ref("");
 
 let requestId = 0;
-async function loadJobs() {
+async function loadJobs({ background = false } = {}) {
   const currentRequest = ++requestId;
-  loading.value = true;
+  if (!background) loading.value = true;
   errorMsg.value = "";
-  jobs.value = [];
+  if (!background) jobs.value = [];
   try {
     const { data } = await api.get("/jobs/my", { params: { status: activeTab.value } });
     if (currentRequest === requestId) jobs.value = data;
@@ -37,7 +38,10 @@ async function loadJobs() {
   }
 }
 onMounted(loadJobs);
-watch(activeTab, loadJobs);
+watch(activeTab, () => loadJobs());
+let refreshTimer;
+onMounted(() => { refreshTimer = window.setInterval(() => loadJobs({ background: true }), 5000); });
+onUnmounted(() => window.clearInterval(refreshTimer));
 
 function openJob(job) {
   if (job.status === "waiting") {
@@ -80,6 +84,7 @@ function goBack() {
           <p v-if="job.status === 'pending_review'" class="status-note pending">⏳ รอ Admin ตรวจสอบก่อนเปิดรับสมัคร</p>
           <p v-if="job.status === 'rejected'" class="status-note rejected">✕ {{ job.rejectionReason || "ไม่ผ่านการตรวจสอบเนื้อหา" }}</p>
           <p v-if="job.status === 'awaiting_confirmation'" class="status-note pending">มีหลักฐานรอให้คุณตรวจสอบและยืนยันงานเสร็จ</p>
+          <p v-if="['disputed', 'refund_pending', 'refunded'].includes(job.paymentStatus)" class="status-note pending">{{ workflowLabels[job.paymentStatus] }}</p>
           <div class="tags">
             <span class="tag">฿{{ job.price }}</span>
             <span class="tag">{{ job.category }}</span>

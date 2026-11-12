@@ -75,7 +75,7 @@ test('admin sees Stripe wages awaiting payout and the recipient bank account wit
 
 test('Stripe refund proof uses the evidence endpoint without triggering another refund decision',async()=>{
   route.query={status:'refund_pending'};
-  resetApi({get:async()=>({data:[{...payment,status:'refunded',paymentMode:'stripe_test',hasInboundSlip:false,refundStatus:'succeeded',stripeRefundId:'re_test_refund',refundAmount:105,hasRefundSlip:false}]}),post:async()=>({data:{message:'แนบหลักฐานแล้ว'}})});
+  resetApi({get:async()=>({data:[{...payment,status:'refunded',paymentMode:'stripe_test',refundMethod:'stripe',hasInboundSlip:false,refundStatus:'succeeded',stripeRefundId:'re_test_refund',refundAmount:105,hasRefundSlip:false}]}),post:async()=>({data:{message:'แนบหลักฐานแล้ว'}})});
   const view=await mount(Payments);
   try {
     fire(find(view.root,'button','งานทดสอบ'),'click');await flush();
@@ -92,6 +92,34 @@ test('Stripe refund proof uses the evidence endpoint without triggering another 
     assert.equal(posts[0].url,'/admin/payments/payment1/slips/refund');
     assert.equal(posts[0].args[0].get('amount'),'105');assert.equal(posts[0].args[0].get('reference'),'re_test_refund');
   } finally {view.unmount();}
+});
+
+test('admin returns a Stripe payment by approving and uploading transfer proof, retaining pending status on upload failure',async()=>{
+  for (const uploadFails of [false,true]) {
+    route.query={status:'disputed'};
+    const row={...payment,status:'disputed',paymentMode:'stripe_test',hasInboundSlip:false,refundDecision:null};
+    resetApi({get:async(url,config)=>({data:config?.params?.status===row.status?[row]:[]}),post:async(url)=>{
+      if(url.endsWith('/refund-decision')){row.status='refund_pending';row.refundDecision='approved';row.refundAmount=105;row.refundMethod='admin_transfer';}
+      else if(uploadFails)throw {response:{data:{message:'อัปโหลดไม่สำเร็จ'}}};
+      else{row.status='refunded';row.hasRefundSlip=true;}
+      return {data:{message:'บันทึกแล้ว'}};
+    }});
+    const view=await mount(Payments);
+    try{
+      fire(find(view.root,'button','อนุมัติคืนเงินเต็มจำนวน'),'click');await flush();
+      const dialog=walk(view.root).find(node=>node.props.role==='dialog');
+      await input(find(dialog,'textarea'),'แอดมินตรวจสอบและโอนคืนเต็มจำนวน');
+      fire(find(dialog,'input'),'change',{target:{files:[new File(['proof'],'return.png',{type:'image/png'})]}});
+      const reference=walk(dialog).find(node=>node.tag==='input' && node.props.type==='text');
+      await input(reference,'BANKREF001');
+      fire(find(dialog,'button','อนุมัติและบันทึกหลักฐาน'),'click');await flush();await flush();
+      const posted=calls.filter(call=>call.method==='post');
+      assert.deepEqual(posted.map(call=>call.url),['/admin/payments/payment1/refund-decision','/admin/payments/payment1/slips/refund']);
+      assert.equal(posted[1].args[0].get('amount'),'105');assert.equal(posted[1].args[0].get('reference'),'BANKREF001');
+      assert.equal(row.status,uploadFails?'refund_pending':'refunded');
+      assert.ok(text(view.root).includes(uploadFails?'บันทึกผลอนุมัติแล้ว แต่แนบหลักฐานไม่สำเร็จ':'อนุมัติคืนเงินและบันทึกหลักฐานการโอนแล้ว'));
+    }finally{view.unmount();}
+  }
 });
 test('post approval and rejection use page dialogs and send the intended action',async()=>{
   for(const action of ['approve','reject']){

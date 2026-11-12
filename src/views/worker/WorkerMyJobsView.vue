@@ -1,9 +1,10 @@
 <script setup>
 // FR-BROWSE-07: ดูสถานะใบสมัครที่ส่งไปแล้วของตนเอง (แท็บ Waiting = คิว JOB_WAITING)
 // FR-TRACK-01/06: ดูงานที่กำลังดำเนินการ/เสร็จสิ้น/ยกเลิก และถืองานพร้อมกันได้อย่างน้อย 2 งาน
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import { workflowLabels } from "../../services/workflowStatus";
 import WorkerMyServicePostView from "./WorkerMyServicePostView.vue";
 
 const router = useRouter();
@@ -13,7 +14,7 @@ const viewMode = ref(route.query.view === "services" ? "services" : "jobs");
 const tabs = [
   { value: "waiting", label: "รอผู้ว่าจ้างเลือก" },
   { value: "in-progress", label: "กำลังดำเนินงาน" },
-  { value: "disputed", label: "รอพิจารณาคืนเงิน" },
+  { value: "disputed", label: "คำขอคืนเงิน" },
   { value: "completed", label: "เสร็จสิ้น" },
   { value: "cancelled", label: "ยกเลิก" },
 ];
@@ -25,11 +26,11 @@ const errorMsg = ref("");
 const jobs = ref([]);
 
 let requestId = 0;
-async function loadJobs() {
+async function loadJobs({ background = false } = {}) {
   const currentRequest = ++requestId;
-  loading.value = true;
+  if (!background) loading.value = true;
   errorMsg.value = "";
-  jobs.value = [];
+  if (!background) jobs.value = [];
   try {
     const { data } = await api.get("/jobs/my-as-worker", { params: { status: activeTab.value } });
     if (currentRequest !== requestId) return;
@@ -45,6 +46,9 @@ async function loadJobs() {
 }
 
 onMounted(() => { if (viewMode.value === "jobs") loadJobs(); else loading.value = false; });
+let refreshTimer;
+onMounted(() => { refreshTimer = window.setInterval(() => { if (viewMode.value === 'jobs') loadJobs({ background: true }); }, 5000); });
+onUnmounted(() => window.clearInterval(refreshTimer));
 watch(activeTab, () => { if (viewMode.value === "jobs") loadJobs(); });
 watch(viewMode, (mode) => { if (mode === "jobs") loadJobs(); });
 
@@ -123,7 +127,7 @@ function openJob(job) {
             <p class="job-meta">{{ formatMoney(job.price) }} &nbsp;•&nbsp; {{ job.duration }}</p>
           </div>
           <div class="job-right">
-            <span class="status-tag" :class="(statusMeta[job.backendStatus] || statusMeta[job.status]).class">{{ (statusMeta[job.backendStatus] || statusMeta[job.status]).label }}</span>
+            <span class="status-tag" :class="(statusMeta[job.backendStatus] || statusMeta[job.status]).class">{{ ['disputed', 'refund_pending', 'refunded'].includes(job.paymentStatus) ? workflowLabels[job.paymentStatus] : (statusMeta[job.backendStatus] || statusMeta[job.status]).label }}</span>
             <svg class="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
           </div>
         </button>

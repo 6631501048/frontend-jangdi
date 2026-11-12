@@ -19,7 +19,7 @@ const paid = computed(() => props.payment?.status === 'released' && props.paymen
       <p v-else-if="payment.status === 'released'">รายการเดิมยังไม่มีหลักฐานจ่ายค่าจ้าง กรุณาให้ผู้ดูแลตรวจสอบ</p>
       <p v-else-if="payment.status === 'disputed'">งานและค่าจ้างพักไว้ระหว่างพิจารณาคืนเงิน</p>
       <p v-else-if="payment.status === 'refund_pending'">อนุมัติคืนเงินแล้ว รอ admin บันทึกคืนเงินพร้อมสลิป</p>
-      <p v-else-if="payment.status === 'refunded'">{{ payment.paymentMode === 'stripe_test' ? 'Stripe ยืนยันคืนเงินให้ผู้ว่าจ้างแล้ว' : 'บันทึกคืนเงินให้ผู้ว่าจ้างแล้ว' }}{{ payment.hasRefundSlip ? ' มีหลักฐานคืนเงินแล้ว' : ' รอ admin แนบหลักฐานคืนเงิน' }}</p>
+      <p v-else-if="payment.status === 'refunded'">{{ payment.refundMethod === 'stripe' ? 'Stripe ยืนยันคืนเงินให้ผู้ว่าจ้างแล้ว' : 'แอดมินบันทึกคืนเงินให้ผู้ว่าจ้างแล้ว' }}{{ payment.hasRefundSlip ? ' มีหลักฐานคืนเงินแล้ว' : ' รอ admin แนบหลักฐานคืนเงิน' }}</p>
       <template v-if="paid"><h3>หลักฐานจ่ายค่าจ้าง</h3><PaymentSlipImage :payment-id="payment.id" direction="payout" /></template>
       <template v-if="role === 'hirer' && payment.hasRefundSlip"><h3>หลักฐานคืนเงิน</h3><PaymentSlipImage :payment-id="payment.id" direction="refund" /></template>
       <p class="hint">ระบบทดสอบ การบันทึกสลิปเป็นข้อมูลที่ admin ยืนยัน ไม่ได้ตรวจยอดเข้าบัญชีธนาคารอัตโนมัติ</p>

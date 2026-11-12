@@ -93,7 +93,7 @@ const step2Valid = computed(
     form.value.feePerOrder !== null &&
     form.value.feePerOrder !== "" && Number(form.value.feePerOrder) >= 40 &&
     form.value.maxOrders !== null &&
-    form.value.maxOrders !== "" && Number(form.value.maxOrders) >= 1 && Number(form.value.maxOrders) <= 3 &&
+    form.value.maxOrders !== "" && Number.isInteger(Number(form.value.maxOrders)) && Number(form.value.maxOrders) >= 1 && Number(form.value.maxOrders) <= 3 &&
     form.value.serviceDate && form.value.serviceDate >= today &&
     form.value.time && selectedServiceDateTime.value?.getTime() > Date.now() &&
     (form.value.category === "delivery" || form.value.serviceLocation.trim()) &&
@@ -101,7 +101,7 @@ const step2Valid = computed(
 );
 function selectCategory(id) {
   form.value.category = id;
-  form.value.maxOrders = 3;
+  if (form.value.maxOrders === null || form.value.maxOrders === "") form.value.maxOrders = 1;
   if (id !== "delivery") form.value.radius = "";
 }
 function next() {
@@ -259,7 +259,7 @@ function backToHome() {
               <div class="field-col">
                 <label class="field-label">จำนวนงานที่รับพร้อมกัน</label>
                 <div class="input-suffix">
-                  <input v-model.number="form.maxOrders" type="number" min="1" max="3" step="1" placeholder="3" />
+                  <input v-model.number="form.maxOrders" type="number" min="1" max="3" step="1" placeholder="1" />
                   <span class="suffix">งาน</span>
                 </div>
                 <small class="price-hint">กำหนดได้ตั้งแต่ 1 ถึง 3 งานพร้อมกัน</small>
@@ -317,8 +317,8 @@ function backToHome() {
                 <dd>{{ deliveryModes.find((mode) => mode.id === form.serviceType)?.label }}</dd>
               </div>
               <div class="review-row">
-                <dt>จำนวนรายการสูงสุด</dt>
-                <dd>{{ form.maxOrders || 1 }}</dd>
+                <dt>จำนวนงานที่รับพร้อมกันสูงสุด</dt>
+                <dd>{{ form.maxOrders }} งาน</dd>
               </div>
               <div class="review-row">
                 <dt>วันที่และเวลาให้บริการ</dt>

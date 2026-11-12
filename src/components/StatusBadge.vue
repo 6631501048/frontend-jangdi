@@ -13,6 +13,7 @@ const styles = {
   awaiting_confirmation: { color: "#b45309", bg: "#fef3c7" },
   completed: { color: "#15803d", bg: "#dcfce7" },
   cancelled: { color: "#b91c1c", bg: "#fee2e2" },
+  disputed: { color: "#b45309", bg: "#fef3c7" },
   rejected: { color: "#b91c1c", bg: "#fee2e2" },
 };
 </script>

@@ -7,6 +7,7 @@ import { fetchCompletionProof, proofRequestError } from "../../services/completi
 import { createProofImageLoader } from "../../services/proofImageLoader";
 import AppHeader from "../../components/AppHeader.vue";
 import StatusBadge from "../../components/StatusBadge.vue";
+import { effectiveJobStatus } from "../../services/workflowStatus";
 import { paymentStatus } from '../../services/finance';
 import JobPaymentStatus from '../../components/JobPaymentStatus.vue';
 import JobReviewModal from '../../components/JobReviewModal.vue';
@@ -89,6 +90,7 @@ async function loadJob() {
       try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); mockPayment.value = pay; }
       catch { mockPayment.value = null; }
     } else mockPayment.value = null;
+    data.status = effectiveJobStatus(data.status, mockPayment.value || data.paymentStatus);
     // Image fetching must not block the job page or the next status poll.
     void loadProofImage(data);
     const selectedWorkerId = data.selectedWorker?._id || data.selectedWorker;
@@ -119,8 +121,8 @@ async function loadJob() {
       to: { label: data.toText || "-" },
       applicants: applicants.value,
       timelineEvents: events,
-      cancellation: data.status === "cancelled" ? { cancelledBy: "ผู้ว่าจ้าง", reason: data.cancelReason || "ไม่ได้ระบุเหตุผล", at: data.cancelledAt } : null,
-      statusLabel: ({ pending_review: "รอตรวจสอบ", rejected: "ถูกปฏิเสธ", waiting: "เปิดรับสมัคร", assigned: "เลือกผู้รับจ้างแล้ว", in_progress: "กำลังดำเนินงาน", awaiting_confirmation: "รอคุณยืนยันงาน", completed: "เสร็จสิ้น", cancelled: "ยกเลิก" })[data.status] || data.status,
+      cancellation: data.status === "cancelled" ? { cancelledBy: mockPayment.value?.status === 'refunded' ? 'แอดมิน (คืนเงิน)' : 'ผู้ว่าจ้าง', reason: data.cancelReason || mockPayment.value?.refundNotes || "ไม่ได้ระบุเหตุผล", at: data.cancelledAt } : null,
+      statusLabel: ({ pending_review: "รอตรวจสอบ", rejected: "ถูกปฏิเสธ", waiting: "เปิดรับสมัคร", assigned: "เลือกผู้รับจ้างแล้ว", in_progress: "กำลังดำเนินงาน", awaiting_confirmation: "รอคุณยืนยันงาน", completed: "เสร็จสิ้น", cancelled: "ยกเลิก", disputed: mockPayment.value?.status === "refund_pending" ? "รอแอดมินคืนเงิน" : "รอพิจารณาคืนเงิน" })[data.status] || data.status,
     };
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
@@ -215,8 +217,8 @@ async function confirmCompletion() {
     <AppHeader title="รายละเอียดงาน" />
 
     <section class="card">
-      <div v-if="job.status === 'disputed'" class="mock-banner" role="status"><strong>งานพักไว้ระหว่างพิจารณาคืนเงิน</strong><p>ยังไม่ยืนยันรับงานและยังไม่ปล่อยค่าจ้าง รอผู้ดูแลตรวจสอบ</p><RouterLink :to="{name:'hirer-refund',params:{id:job._id}}">ดูสถานะคำขอคืนเงิน</RouterLink></div>
-      <div v-if="mockPayment?.status === 'refunded'" class="mock-banner" role="status"><strong>คืนเงินแล้ว (โหมดทดสอบ)</strong><p>จำนวน {{Number(mockPayment.refundAmount || 0).toLocaleString('th-TH')}} บาท</p><p>เหตุผลผู้ดูแล: {{mockPayment.refundNotes || '—'}}</p></div>
+      <div v-if="job.status === 'disputed'" class="mock-banner" role="status"><strong>{{ mockPayment?.status === 'refund_pending' ? 'อนุมัติแล้ว รอแอดมินคืนเงินและแนบหลักฐาน' : 'งานพักไว้ระหว่างพิจารณาคืนเงิน' }}</strong><p>งานพักไว้และยังไม่ปล่อยค่าจ้าง แอดมินเป็นผู้ดำเนินการคืนเงิน</p><RouterLink :to="{name:'hirer-refund',params:{id:job._id}}">ดูสถานะคำขอคืนเงิน</RouterLink></div>
+      <div v-else-if="mockPayment?.status === 'refunded'" class="mock-banner" role="status"><strong>คืนเงินแล้ว (โหมดทดสอบ)</strong><p>จำนวน {{Number(mockPayment.refundAmount || 0).toLocaleString('th-TH')}} บาท</p><p>เหตุผลผู้ดูแล: {{mockPayment.refundNotes || '—'}}</p></div>
       <div class="head">
         <div class="who">
           <div class="avatar">👤</div>

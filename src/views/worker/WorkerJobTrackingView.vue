@@ -13,6 +13,7 @@ import { createProofImageLoader } from "../../services/proofImageLoader";
 import ReportUserForm from "../../components/ReportUserForm.vue";
 import JobPaymentStatus from '../../components/JobPaymentStatus.vue';
 import JobReviewModal from '../../components/JobReviewModal.vue';
+import { effectiveJobStatus } from '../../services/workflowStatus';
 
 const route = useRoute();
 const router = useRouter();
@@ -98,6 +99,7 @@ async function loadJob() {
     }
     try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); payment.value = pay; demoPaymentStatus.value = pay.status; }
     catch { payment.value = null; demoPaymentStatus.value = null; }
+    data.status = effectiveJobStatus(data.status, payment.value || data.paymentStatus);
     const hirerId = data.hirer?._id || data.hirer;
     let profile = data.hirer || {};
     if (hirerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
@@ -129,7 +131,7 @@ async function loadJob() {
       completionConfirmedAt: data.completionConfirmedAt,
       completionProofUrl: data.completionProofUrl,
       proofSubmittedAt: data.proofSubmittedAt,
-      cancellation: data.status === "cancelled" ? { by: "Hirer", reason: data.cancelReason || "Not specified", at: data.cancelledAt } : null,
+      cancellation: data.status === "cancelled" ? { by: payment.value?.status === 'refunded' ? 'แอดมิน (คืนเงิน)' : 'Hirer', reason: data.cancelReason || payment.value?.refundNotes || "Not specified", at: data.cancelledAt } : null,
     };
     hasLoaded.value = true;
     if (["awaiting_confirmation", "completed"].includes(data.status) && data.completionProofUrl) {
@@ -165,7 +167,7 @@ const statusMeta = {
   awaiting_confirmation: { label: "Waiting for Hirer", class: "purple" },
   completed: { label: "Completed", class: "green" },
   cancelled: { label: "Cancelled", class: "red" },
-  disputed: { label: "พักงานรอพิจารณาคืนเงิน", class: "red" },
+  disputed: { label: "พักงานระหว่างดำเนินการคืนเงิน", class: "red" },
   waiting: { label: "Waiting", class: "purple" },
 };
 
@@ -356,7 +358,7 @@ function goToReview() {
     </header>
 
     <main class="content">
-      <p v-if="job.backendStatus === 'disputed'" class="proof-note" role="status">ผู้ว่าจ้างขอคืนเงิน งานและค่าจ้างพักไว้ระหว่างที่ผู้ดูแลตรวจสอบ</p>
+      <p v-if="job.backendStatus === 'disputed'" class="proof-note" role="status">{{ payment?.status === 'refund_pending' ? 'อนุมัติแล้ว รอแอดมินโอนคืนและแนบหลักฐาน งานและค่าจ้างยังพักไว้' : 'ผู้ว่าจ้างขอคืนเงิน งานและค่าจ้างพักไว้ระหว่างที่ผู้ดูแลตรวจสอบ' }}</p>
       <p v-if="loading && !hasLoaded" class="page-message">กำลังโหลดรายละเอียดงาน...</p>
       <p v-else-if="!hasLoaded" class="page-message error-msg" role="alert">{{ errorMsg || "ไม่พบรายละเอียดงาน" }}</p>
       <div v-else class="card">

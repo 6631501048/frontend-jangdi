@@ -32,7 +32,7 @@ test('a legacy automatic release is not presented as confirmed worker payment',a
 test('refund status is visible to worker but refund proof is requested only for hirer',async()=>{
   for(const role of ['worker','hirer']){
     resetApi({get:async()=>({data:new Blob(['image'],{type:'image/png'})})});
-    const view=await mount(JobPaymentStatus,{role,payment:{id:'p1',paymentMode:'stripe_test',status:'refunded',hasRefundSlip:true}});
+    const view=await mount(JobPaymentStatus,{role,payment:{id:'p1',paymentMode:'stripe_test',refundMethod:'stripe',status:'refunded',hasRefundSlip:true}});
     try {
       assert.ok(text(view.root).includes('Stripe ยืนยันคืนเงินให้ผู้ว่าจ้างแล้ว'));
       assert.equal(calls.some(c=>c.url==='/payments/p1/slips/refund'),role==='hirer');
