@@ -67,17 +67,22 @@ const servicePostFilters = [
   { value: "completed", label: "เสร็จสิ้น" },
   { value: "cancelled", label: "ยกเลิก" },
 ];
-function matchesServicePostFilter(item, filter) {
+function servicePostStatus(item) {
   const requests = serviceRequestStatesByPost.value[String(item._id)] || [];
   const hasProgress = requests.some((request) => ["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(request.jobStatus));
+  const hasPending = requests.some((request) => request.status === "pending");
   const hasCompleted = requests.some((request) => request.jobStatus === "completed");
   const hasCancelled = requests.some((request) => request.status === "declined" || request.jobStatus === "cancelled");
-  if (filter === "pending_review") return item.status === "pending_review";
-  if (filter === "waiting") return item.status === "active";
-  if (filter === "in_progress") return hasProgress;
-  if (filter === "completed") return hasCompleted;
-  if (filter === "cancelled") return hasCancelled || item.status === "rejected" || item.status === "expired" || (item.status === "closed" && item.closeReason === "manual");
-  return false;
+  if (item.status === "pending_review") return "pending_review";
+  if (hasProgress) return "in_progress";
+  if (hasPending) return "waiting";
+  if (hasCompleted) return "completed";
+  if (hasCancelled || item.status === "rejected" || item.status === "expired" || (item.status === "closed" && item.closeReason === "manual")) return "cancelled";
+  return item.status === "active" ? "waiting" : "cancelled";
+}
+
+function matchesServicePostFilter(item, filter) {
+  return servicePostStatus(item) === filter;
 }
 const visibleServicePosts = computed(() => servicePosts.value.filter((item) => matchesServicePostFilter(item, servicePostFilter.value)));
 
@@ -86,12 +91,13 @@ function servicePostFilterCount(filter) {
 }
 
 function servicePostListStatus(item) {
-  const requests = serviceRequestStatesByPost.value[String(item._id)] || [];
-  if (item.status === "pending_review") return "รออนุมัติ";
-  if (requests.some((request) => ["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(request.jobStatus))) return "กำลังดำเนินงาน";
-  if (requests.some((request) => request.jobStatus === "completed")) return "เสร็จสิ้น";
-  if (item.status === "rejected" || item.status === "expired" || (item.status === "closed" && item.closeReason === "manual") || requests.some((request) => request.status === "declined" || request.jobStatus === "cancelled")) return "ยกเลิก";
-  return "รอผู้ขอรับบริการ";
+  return ({
+    pending_review: "รออนุมัติ",
+    waiting: "รอผู้ขอรับบริการ",
+    in_progress: "กำลังดำเนินงาน",
+    completed: "เสร็จสิ้น",
+    cancelled: "ยกเลิก",
+  })[servicePostStatus(item)];
 }
 
 function servicePostListStatusClass(item) {
@@ -112,11 +118,15 @@ async function load() {
     const requestStates = await Promise.all(requests.map(async (request) => {
       let jobStatus = null;
       if (request.status === "accepted") {
-        try {
-          const { data } = await api.get(`/service-posts/requests/${request._id}`);
-          jobStatus = data.resultingJob?.status || "assigned";
-        } catch {
-          jobStatus = "assigned";
+        if (request.resultingJob?.status) {
+          jobStatus = request.resultingJob.status;
+        } else {
+          try {
+            const { data } = await api.get(`/service-posts/requests/${request._id}`);
+            jobStatus = data.resultingJob?.status || "assigned";
+          } catch {
+            jobStatus = "assigned";
+          }
         }
       }
       const servicePostId = String(request.servicePost?._id || request.servicePost || "");
@@ -177,8 +187,14 @@ async function load() {
   }
 }
 onMounted(load);
-onMounted(() => { clockTimer = window.setInterval(() => { now.value = Date.now(); }, 1000); });
-onUnmounted(() => window.clearInterval(clockTimer));
+onMounted(() => {
+  clockTimer = window.setInterval(() => { now.value = Date.now(); }, 1000);
+  window.addEventListener("focus", load);
+});
+onUnmounted(() => {
+  window.clearInterval(clockTimer);
+  window.removeEventListener("focus", load);
+});
 
 const pendingCount = computed(() => allRequests.value.filter((r) => r.status === "pending").length);
 const visibleRequests = computed(() => {

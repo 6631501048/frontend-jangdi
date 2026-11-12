@@ -4,7 +4,7 @@
 // FR-SERV-04: ผู้ว่าจ้างเรียกดู Service Post ที่ใช้งานอยู่ และกด "Hiring" เพื่อส่ง Service Request
 // หมายเหตุ: ประกาศประเภท "ผู้ว่าจ้าง" (Job ของผู้ว่าจ้างรายอื่น) เปิดดูได้เฉพาะ "รายละเอียด" เท่านั้น
 //           เพราะการสมัครงาน (FR-BROWSE-04) เป็นสิทธิ์ของผู้รับจ้าง ไม่ใช่ผู้ว่าจ้าง
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
 import api from "../../services/api";
@@ -133,10 +133,13 @@ const posts = ref([]);
 const myServiceRequests = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
+let feedRefreshTimer;
 
-async function loadFeed() {
-  loading.value = true;
-  errorMsg.value = "";
+async function loadFeed({ background = false } = {}) {
+  if (!background) {
+    loading.value = true;
+    errorMsg.value = "";
+  }
   try {
     const [jobsResponse, servicePostsResponse, requestsResponse] = await Promise.all([
       api.get("/jobs", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value, search: searchQuery.value.trim() || undefined } }),
@@ -147,7 +150,11 @@ async function loadFeed() {
     const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
     const requests = Array.isArray(requestsResponse.data) ? requestsResponse.data : [];
     myServiceRequests.value = requests;
+    const alreadyAcceptedServicePostIds = new Set(requests
+      .filter((request) => request.status === "accepted" || ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(request.resultingJob?.status))
+      .map((request) => String(request.servicePost?._id || request.servicePost || "")));
     const availableServicePosts = servicePosts.filter((post) =>
+      !alreadyAcceptedServicePostIds.has(String(post._id)) &&
       post.status === "active" &&
       new Date(post.availabilityEnd).getTime() >= Date.now() &&
       Number(post.currentOrderCount || 0) < Number(post.maxSimultaneousOrders ?? Infinity),
@@ -158,12 +165,16 @@ async function loadFeed() {
     const openJobs = jobs.filter((job) => job.status === "waiting");
     posts.value = [...openJobs.map(mapJob), ...availableServicePosts.map((post) => mapServicePost(post, requests))].sort((a, b) => b.postedAt - a.postedAt);
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
+    if (!background) errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
   } finally {
-    loading.value = false;
+    if (!background) loading.value = false;
   }
 }
-onMounted(loadFeed);
+onMounted(() => {
+  loadFeed();
+  feedRefreshTimer = window.setInterval(() => loadFeed({ background: true }), 10000);
+});
+onUnmounted(() => window.clearInterval(feedRefreshTimer));
 watch([activeCategory, searchQuery], loadFeed);
 watch([activeCategory, activeTab, searchQuery], () => { visiblePostCount.value = 10; });
 

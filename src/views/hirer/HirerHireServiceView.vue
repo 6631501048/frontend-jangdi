@@ -94,9 +94,10 @@ const showSuccessModal = ref(false);
 
 const step1Valid = computed(
   () =>
+    form.value.requirements.trim() &&
     (!isDelivery.value || (isPassenger.value
       ? Number.isInteger(Number(form.value.passengerCount)) && Number(form.value.passengerCount) >= 1
-      : form.value.itemName.trim() && form.value.requirements.trim())) &&
+      : form.value.itemName.trim())) &&
     (!needsPickupLocation.value || form.value.pickupLocation.trim()) &&
     form.value.to.trim()
 );
@@ -203,24 +204,24 @@ function closeModal() {
             <label class="field-label">{{ deliveryMode === 'shopping' ? 'รายการของที่ฝากหิ้ว' : 'สิ่งของ/พัสดุที่ให้ไปรับ' }}</label>
             <input v-model="form.itemName" type="text" :placeholder="deliveryMode === 'shopping' ? 'เช่น อาหารหรือของใช้ที่ต้องการซื้อ' : 'เช่น เอกสารหรือพัสดุ'" />
             <label class="field-label">รายละเอียดสิ่งของ</label>
-            <textarea v-model="form.requirements" rows="3" placeholder="จำนวน ขนาด สี หรือลักษณะของ"></textarea>
+            <textarea v-model="form.requirements" rows="3" placeholder="จำนวน ขนาด สี หรือลักษณะของ" required></textarea>
           </template>
 
           <template v-if="isPassenger">
             <label class="field-label">จำนวนผู้โดยสาร</label>
             <input v-model.number="form.passengerCount" type="number" min="1" step="1" />
             <label class="field-label">หมายเหตุการเดินทาง</label>
-            <textarea v-model="form.requirements" rows="2" placeholder="เช่น สัมภาระหรือจุดสังเกต"></textarea>
+            <textarea v-model="form.requirements" rows="2" placeholder="เช่น สัมภาระหรือจุดสังเกต" required></textarea>
           </template>
 
           <template v-if="needsPickupLocation">
             <label class="field-label">{{ isPassenger ? 'จุดรับผู้โดยสาร' : 'สถานที่เข้ารับของ' }}</label>
-            <input v-model="form.pickupLocation" type="text" :placeholder="isPassenger ? 'ระบุจุดรับผู้โดยสาร' : 'ระบุสถานที่รับพัสดุ/สิ่งของ'" />
+            <input v-model="form.pickupLocation" type="text" required :placeholder="isPassenger ? 'ระบุจุดรับผู้โดยสาร' : 'ระบุสถานที่รับพัสดุ/สิ่งของ'" />
           </template>
 
           <label class="field-label">{{ isPassenger ? 'จุดหมายปลายทาง' : deliveryMode === 'pickup_delivery' ? 'สถานที่นำของไปส่ง' : isDelivery ? 'สถานที่ไปส่งของ' : 'สถานที่ปลายทาง' }}</label>
           <div class="input-icon">
-            <input v-model="form.to" type="text" placeholder="เลือกที่อยู่ปลายทาง" />
+            <input v-model="form.to" type="text" required placeholder="เลือกที่อยู่ปลายทาง" />
             <svg class="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
           </div>
 
@@ -228,7 +229,7 @@ function closeModal() {
 
           <template v-if="!isDelivery">
             <label class="field-label">Requirements</label>
-            <textarea v-model="form.requirements" rows="3" placeholder="ระบุรายละเอียดหรือสิ่งที่ต้องการ"></textarea>
+            <textarea v-model="form.requirements" rows="3" placeholder="ระบุรายละเอียดหรือสิ่งที่ต้องการ" required></textarea>
           </template>
 
         </div>

@@ -4,7 +4,7 @@ import api from '../services/api';
 import AdminDecisionDialog from './AdminDecisionDialog.vue';
 import { useAdminDecision } from '../composables/useAdminDecision';
 const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
-const props = defineProps({ endpoint: { type:String, required:true }, label: { type:String, default:'ส่งสลิปจำลอง' }, evidenceOnly:Boolean, requireNotes:Boolean, requireAmount:Boolean, expectedAmount:{type:Number,default:null} });
+const props = defineProps({ endpoint: { type:String, required:true }, label: { type:String, default:'ส่งสลิปจำลอง' }, evidenceOnly:Boolean, manualTransfer:Boolean, requireNotes:Boolean, requireAmount:Boolean, expectedAmount:{type:Number,default:null} });
 const emit = defineEmits(['saved']);
 const file=ref(null), preview=ref(''), notes=ref(''), amount=ref(''), reference=ref(''), busy=ref(false), error=ref('');
 const payoutReady=computed(()=>!props.requireAmount || (Number(amount.value)>0 && reference.value.trim().length>=6 && (props.expectedAmount==null || Math.round(Number(amount.value)*100)===Math.round(props.expectedAmount*100))));
@@ -20,7 +20,7 @@ function choose(event){
 async function submit(){
   if(!ready.value)return;
   const selectedFile=file.value,selectedNotes=notes.value.trim(),endpoint=props.endpoint;
-  if(await askDecision({title:props.evidenceOnly?'ยืนยันแนบหลักฐานคืนเงิน Stripe':'ยืนยันบันทึกสลิปจำลอง',message:props.evidenceOnly?'Stripe ยืนยันคืนเงินแล้ว บันทึกหลักฐานเท่านั้น ไม่มีการสั่งคืนเงินหรือโอนเงินซ้ำ':'ตรวจสอบรูปและรายละเอียดแล้ว ไม่มีการโอนเงินจริง',confirmLabel:props.label})===null)return;
+  if(await askDecision({title:props.manualTransfer?'ยืนยันบันทึกหลักฐานการโอนคืนเงิน':'ยืนยันแนบหลักฐานคืนเงิน Stripe',message:props.manualTransfer?'ยืนยันว่าตรวจสอบหลักฐานการโอนคืนเงินจากแอดมินแล้ว':'Stripe ยืนยันคืนเงินแล้ว บันทึกหลักฐานเท่านั้น ไม่มีการสั่งคืนเงินหรือโอนเงินซ้ำ',confirmLabel:props.label})===null)return;
   busy.value=true;error.value='';
   try{const body=new FormData();body.append('slip',selectedFile);if(props.requireNotes)body.append('notes',selectedNotes);if(props.requireAmount){body.append('amount',String(Number(amount.value)));body.append('reference',reference.value.trim());}const {data}=await api.post(endpoint,body);clear();notes.value='';emit('saved',data.message);}
   catch(err){error.value=err.response?.data?.message || 'ส่งสลิปไม่สำเร็จ กรุณาลองใหม่';}

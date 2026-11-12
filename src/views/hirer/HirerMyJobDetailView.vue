@@ -356,6 +356,11 @@ async function confirmCompletion() {
         <button class="btn primary" @click="router.push({ name: 'hirer-my-jobs' })">กลับไปงานของฉัน</button>
       </template>
     </section>
+    <button
+      v-if="job.status === 'disputed' || mockPayment?.status === 'refunded'"
+      class="btn primary home-button refund-home-button"
+      @click="goHome"
+    >กลับไปหน้าแรก</button>
     <JobReviewModal v-if="showReviewModal" role="hirer" :job-id="String(job._id)" @close="showReviewModal = false" @reviewed="reviewDone = true; reviewStatusLoaded = true" />
     <div v-if="showCompletionPopup" class="completion-popup-backdrop" role="presentation" @click.self="showCompletionPopup = false">
       <section class="completion-popup" role="alertdialog" aria-modal="true" aria-labelledby="completion-popup-title">
@@ -435,6 +440,7 @@ async function confirmCompletion() {
 .completion-popup p { margin:0 0 16px; color:#475569; font-size:13px; line-height:1.6; }
 .completion-popup .btn { margin:0; }
 .home-button { min-height: 44px; padding: 0 18px; border-radius: 9px; font-weight: 700; }
+.refund-home-button { display:block; margin:12px auto 24px; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .actions .btn { margin-top: 16px; }
 .placeholder { padding: 16px; color: #888; }

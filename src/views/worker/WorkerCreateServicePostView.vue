@@ -42,16 +42,19 @@ const radiusToMeters = {
   "Within 5 km.": 5000,
 };
 
-// แปลง label เวลา (เช่น "05:00 PM") + วันนี้ ให้เป็น Date จริง (ถ้าเวลานั้นผ่านไปแล้ววันนี้ ให้เลื่อนเป็นพรุ่งนี้)
-function timeLabelToDate(label) {
+function localDateValue(date = new Date()) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+
+// แปลงวันที่และเวลาเลือกไว้เป็นเวลาท้องถิ่นจริง โดยไม่เลื่อนเวลาที่ผ่านไปเป็นวันถัดไป
+function timeLabelToDate(dateValue, label) {
   const match = label.match(/^(\d{2}):(\d{2}) (AM|PM)$/);
-  if (!match) return null;
+  if (!match || !dateValue) return null;
   let [, hh, mm, period] = match;
   hh = Number(hh) % 12;
   if (period === "PM") hh += 12;
-  const d = new Date();
+  const d = new Date(dateValue + "T00:00:00");
   d.setHours(hh, Number(mm), 0, 0);
-  if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1);
   return d;
 }
 
@@ -68,6 +71,7 @@ const form = ref({
   details: "",
   feePerOrder: null,
   maxOrders: null,
+  serviceDate: "",
   time: "",
   serviceLocation: "",
   radius: "",
@@ -78,6 +82,8 @@ const categoryLabel = computed(
   () => categories.find((c) => c.id === form.value.category)?.label || "-"
 );
 const deliveryFeeLabel = computed(() => form.value.serviceType === "shopping" ? "ค่าจ้างต่อออร์เดอร์รับหิ้ว" : "ค่าจ้างต่อเที่ยว");
+const today = localDateValue();
+const selectedServiceDateTime = computed(() => timeLabelToDate(form.value.serviceDate, form.value.time));
 
 const step1Valid = computed(() => !!form.value.category);
 const step2Valid = computed(
@@ -85,11 +91,11 @@ const step2Valid = computed(
     form.value.name.trim() &&
     form.value.details.trim() &&
     form.value.feePerOrder !== null &&
-    form.value.feePerOrder !== "" &&
-    (form.value.category !== "delivery" || Number(form.value.feePerOrder) > 0) &&
+    form.value.feePerOrder !== "" && Number(form.value.feePerOrder) >= 40 &&
     form.value.maxOrders !== null &&
     form.value.maxOrders !== "" && Number(form.value.maxOrders) >= 1 && Number(form.value.maxOrders) <= 3 &&
-    form.value.time &&
+    form.value.serviceDate && form.value.serviceDate >= today &&
+    form.value.time && selectedServiceDateTime.value?.getTime() > Date.now() &&
     (form.value.category === "delivery" || form.value.serviceLocation.trim()) &&
     (form.value.category !== "delivery" || form.value.radius)
 );
@@ -100,7 +106,7 @@ function selectCategory(id) {
 }
 function next() {
   if (step.value === 1 && !step1Valid.value) return;
-  if (step.value === 2 && !step2Valid.value) return;
+  if (step.value === 2 && (!step2Valid.value || !selectedServiceDateTime.value || selectedServiceDateTime.value.getTime() <= Date.now())) return;
   if (step.value < 3) step.value++;
 }
 function back() {
@@ -127,7 +133,10 @@ async function submit() {
   errorMsg.value = "";
   try {
     const { lat, lng } = await getCurrentPosition();
-    const availabilityEnd = timeLabelToDate(form.value.time);
+    const availabilityEnd = selectedServiceDateTime.value;
+    if (!step2Valid.value || !availabilityEnd || availabilityEnd.getTime() <= Date.now() || Number(form.value.feePerOrder) < 40) {
+      throw new Error("กรุณาตรวจสอบค่าจ้างขั้นต่ำ 40 บาทและวันที่/เวลาให้เป็นข้อมูลในอนาคต");
+    }
 
     await api.post("/service-posts", {
       category: form.value.category,
@@ -242,9 +251,10 @@ function backToHome() {
               <div class="field-col">
                 <label class="field-label">{{ form.category === 'delivery' ? deliveryFeeLabel : 'ค่าบริการต่อรายการ' }}</label>
                 <div class="input-suffix">
-                  <input v-model.number="form.feePerOrder" type="number" min="0" placeholder="0" />
+                  <input v-model.number="form.feePerOrder" type="number" min="40" placeholder="40" />
                   <span class="suffix">บาท</span>
                 </div>
+                <small class="price-hint">ค่าจ้างขั้นต่ำ 40 บาท</small>
               </div>
               <div class="field-col">
                 <label class="field-label">จำนวนงานที่รับพร้อมกัน</label>
@@ -258,7 +268,11 @@ function backToHome() {
 
             <div class="field-row">
               <div class="field-col">
-                <label class="field-label">Time</label>
+                <label class="field-label">วันที่ให้บริการ</label>
+                <input v-model="form.serviceDate" type="date" :min="today" required />
+              </div>
+              <div class="field-col">
+                <label class="field-label">เวลา</label>
                 <select v-model="form.time">
                   <option value="" disabled>เลือกเวลา</option>
                   <option v-for="t in timeOptions" :key="t" :value="t">{{ t }}</option>
@@ -307,8 +321,8 @@ function backToHome() {
                 <dd>{{ form.maxOrders || 1 }}</dd>
               </div>
               <div class="review-row">
-                <dt>Time</dt>
-                <dd>{{ form.time || "-" }}</dd>
+                <dt>วันที่และเวลาให้บริการ</dt>
+                <dd>{{ form.serviceDate && form.time ? new Date(form.serviceDate + "T00:00:00").toLocaleDateString("th-TH") + " · " + form.time : "-" }}</dd>
               </div>
               <div v-if="form.category !== 'delivery'" class="review-row">
                 <dt>สถานที่ให้บริการ</dt>

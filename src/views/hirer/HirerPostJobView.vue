@@ -72,6 +72,11 @@ const conditionLabel = computed(() =>
     ? `${form.value.durationHours} ชั่วโมง`
     : "-"
 );
+const minScheduledAt = computed(() => {
+  const nextMinute = new Date();
+  nextMinute.setMinutes(nextMinute.getMinutes() + 1, 0, 0);
+  return `${nextMinute.getFullYear()}-${String(nextMinute.getMonth() + 1).padStart(2, "0")}-${String(nextMinute.getDate()).padStart(2, "0")}T${String(nextMinute.getHours()).padStart(2, "0")}:${String(nextMinute.getMinutes()).padStart(2, "0")}`;
+});
 
 const step1Valid = computed(() => !!form.value.category);
 const step2Valid = computed(
@@ -81,7 +86,8 @@ const step2Valid = computed(
     form.value.serviceFee !== null &&
     form.value.serviceFee !== "" &&
     Number(form.value.serviceFee) >= 40 &&
-    form.value.scheduledAt &&
+    form.value.scheduledAt && new Date(form.value.scheduledAt).getTime() > Date.now() &&
+    form.value.notes.trim() &&
     (!usesDurationHours.value || (Number(form.value.durationHours) > 0 && Number(form.value.durationHours) <= 24)) &&
     form.value.from.trim() &&
     (!isDelivery.value || form.value.to.trim())
@@ -92,7 +98,7 @@ function selectCategory(id) {
 }
 function next() {
   if (step.value === 1 && !step1Valid.value) return;
-  if (step.value === 2 && !step2Valid.value) return;
+  if (step.value === 2 && (!step2Valid.value || !form.value.scheduledAt || new Date(form.value.scheduledAt).getTime() <= Date.now())) return;
   if (step.value < 3) step.value++;
 }
 function back() {
@@ -111,6 +117,11 @@ function useCurrentLocation() {
 }
 
 async function submit() {
+  if (!step2Valid.value || !form.value.scheduledAt || new Date(form.value.scheduledAt).getTime() <= Date.now()) {
+    step.value = 2;
+    errorMsg.value = "กรุณากรอกรายละเอียดงาน วันเวลาในอนาคต และข้อมูลที่จำเป็นให้ครบ";
+    return;
+  }
   if (feePercent.value == null) { await loadPaymentConfig(); if (feePercent.value == null) return; }
   // TODO FR-JOB-01: POST /api/jobs { category, name(title), details(description), serviceFee(price), from, to, startTime, endTime, notes }
   // TODO FR-JOB-03/04/05: backend กรองเนื้อหาอัตโนมัติก่อน แล้วส่งต่อเข้าคิวรอ Admin อนุมัติ
@@ -251,7 +262,8 @@ function close() {
               <div class="field-col">
                 <label class="field-label">วันและเวลาที่ต้องการให้เริ่มงาน</label>
                 <div class="time-range">
-                  <input v-model="form.scheduledAt" type="datetime-local" />
+                  <input v-model="form.scheduledAt" type="datetime-local" :min="minScheduledAt" required />
+                  <small v-if="form.scheduledAt && new Date(form.scheduledAt).getTime() <= Date.now()" class="price-hint">กรุณาเลือกวันและเวลาในอนาคต</small>
                 </div>
               </div>
             </div>
@@ -290,8 +302,8 @@ function close() {
               <div class="input-suffix"><input v-model.number="form.durationHours" type="number" :min="isCleaning ? 1 : 0.5" max="24" step="0.5" :placeholder="isCleaning ? 'เช่น 3' : 'เช่น 2'" /><span class="suffix">ชั่วโมง</span></div>
             </template>
 
-            <label class="field-label">หมายเหตุเพิ่มเติม (ไม่บังคับ)</label>
-            <textarea v-model="form.notes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+            <label class="field-label">รายละเอียดงานเพิ่มเติม (บังคับ)</label>
+            <textarea v-model="form.notes" rows="3" required placeholder="ระบุรายละเอียดเพิ่มเติมที่ผู้รับจ้างจำเป็นต้องทราบ"></textarea>
           </section>
 
           <!-- ขั้นตอน 3: ตรวจสอบก่อนส่ง -->
@@ -339,7 +351,7 @@ function close() {
                 <dd>{{ form.to || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>หมายเหตุเพิ่มเติม (ไม่บังคับ)</dt>
+                <dt>รายละเอียดงานเพิ่มเติม</dt>
                 <dd>{{ form.notes || "-" }}</dd>
               </div>
             </dl>

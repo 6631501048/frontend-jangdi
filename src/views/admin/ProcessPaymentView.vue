@@ -29,6 +29,13 @@ const actionLoading = ref(null);
 const expandedPaymentId = ref(null);
 const reviewReady = ref({});
 const successMessage = ref('');
+const refundDialogPayment = ref(null);
+const refundDialogAction = ref('');
+const refundDecisionNotes = ref('');
+const refundEvidenceFile = ref(null);
+const refundTransferReference = ref('');
+const refundDecisionError = ref('');
+const refundDecisionBusy = ref(false);
 async function reviewSlip(payment, decision) {
   if (actionLoading.value) return;
   if (decision==='approved' && !reviewReady.value[payment._id + payment.inboundSlipVersion]) {
@@ -107,24 +114,79 @@ async function loadPayments() {
 
 async function decideRefund(payment, decision) {
   if (actionLoading.value) return;
+  refundDialogPayment.value = payment;
+  refundDialogAction.value = decision;
+  refundDecisionNotes.value = '';
+  refundEvidenceFile.value = null;
+  refundTransferReference.value = '';
+  refundDecisionError.value = '';
+}
 
-  const notes = await askDecision({title:decision==='approved'?'อนุมัติคืนเงินเต็มจำนวน':'ปฏิเสธคำขอคืนเงิน',message:decision==='approved'?'คืนยอดรวมค่าบริการในโหมดทดสอบ รายการสลิปจำลองจะรอแนบสลิปคืนเงินต่อไป':'งานจะกลับสู่ขั้นตอนก่อนยื่นคำขอ',requireReason:true,minLength:10});
-  if (notes === null) return;
+function closeRefundDecision() {
+  if (refundDecisionBusy.value) return;
+  refundDialogPayment.value = null;
+  refundEvidenceFile.value = null;
+  refundDecisionNotes.value = '';
+  refundTransferReference.value = '';
+  refundDecisionError.value = '';
+}
 
+function chooseRefundEvidence(event) {
+  refundDecisionError.value = '';
+  const file = event.target.files?.[0] || null;
+  if (!file) { refundEvidenceFile.value = null; return; }
+  if (file.size > 2 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    refundEvidenceFile.value = null;
+    event.target.value = '';
+    refundDecisionError.value = 'เลือกรูป JPEG, PNG หรือ WebP ขนาดไม่เกิน 2 MB';
+    return;
+  }
+  refundEvidenceFile.value = file;
+}
+
+async function submitRefundDecision() {
+  const payment = refundDialogPayment.value;
+  const decision = refundDialogAction.value;
+  const notes = refundDecisionNotes.value.trim();
+  const needsTransferSlip = decision === 'approved';
+  if (!payment || refundDecisionBusy.value || notes.length < 10 || notes.length > 1000) return;
+  if (needsTransferSlip && (!refundEvidenceFile.value || refundTransferReference.value.trim().length < 6)) return;
+
+  refundDecisionBusy.value = true;
   actionLoading.value = payment._id;
-
+  refundDecisionError.value = '';
+  errorMessage.value = '';
+  let decisionSaved = false;
   try {
-    const {data} = await api.post(
-      `/admin/payments/${payment._id}/refund-decision`,
-      { decision, notes: notes.trim() }
-    );
-    successMessage.value=data.message;
-    activeTab.value = "Refunds";
+    const { data } = await api.post(`/admin/payments/${payment._id}/refund-decision`, { decision, notes });
+    decisionSaved = true;
+
+    if (needsTransferSlip) {
+      const body = new FormData();
+      body.append('slip', refundEvidenceFile.value);
+      body.append('notes', notes);
+      body.append('amount', String(Number(payment.refundAmount ?? (Number(payment.amount) + Number(payment.platformFeeAmount)))));
+      body.append('reference', refundTransferReference.value.trim());
+      await api.post(`/admin/payments/${payment._id}/slips/refund`, body);
+    }
+
+    successMessage.value = needsTransferSlip ? 'อนุมัติคืนเงินและบันทึกหลักฐานการโอนแล้ว' : data.message;
+    refundDialogPayment.value = null;
+    activeTab.value = 'Refunds';
     expandedPaymentId.value = payment._id;
     await loadPayments();
   } catch (error) {
-    errorMessage.value=error.response?.data?.message || "ไม่สามารถบันทึกผลการคืนเงินได้";
+    if (decisionSaved) {
+      refundDialogPayment.value = null;
+      activeTab.value = 'Refunds';
+      expandedPaymentId.value = payment._id;
+      await loadPayments();
+      errorMessage.value = `บันทึกผลอนุมัติแล้ว แต่แนบหลักฐานไม่สำเร็จ: ${error.response?.data?.message || 'กรุณาลองแนบหลักฐานอีกครั้งจากรายการคืนเงิน'}`;
+    } else {
+      refundDecisionError.value = error.response?.data?.message || 'ไม่สามารถบันทึกผลการคืนเงินได้';
+    }
   } finally {
+    refundDecisionBusy.value = false;
     actionLoading.value = null;
   }
 }
@@ -144,6 +206,32 @@ onMounted(loadPayments);
 
 <template>
   <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
+  <div v-if="refundDialogPayment" class="refund-decision-backdrop" @click.self="closeRefundDecision">
+    <section class="refund-decision-dialog" role="dialog" aria-modal="true" aria-labelledby="refund-decision-title">
+      <h2 id="refund-decision-title">{{refundDialogAction === 'approved' ? 'อนุมัติคืนเงิน' : 'ปฏิเสธคำขอคืนเงิน'}}</h2>
+      <p>{{refundDialogAction === 'approved' ? 'ระบุเหตุผลและแนบหลักฐานการโอนคืนเงินในขั้นตอนเดียวกัน' : 'ระบุเหตุผลที่ปฏิเสธคำขอคืนเงิน'}}</p>
+      <label class="refund-decision-field">เหตุผล (10–1,000 ตัวอักษร)
+        <textarea v-model="refundDecisionNotes" rows="4" minlength="10" maxlength="1000" :disabled="refundDecisionBusy" />
+      </label>
+      <template v-if="refundDialogAction === 'approved'">
+        <label class="refund-decision-field">รูปหลักฐานการโอน (JPEG, PNG หรือ WebP ไม่เกิน 2 MB)
+          <input type="file" accept="image/jpeg,image/png,image/webp" :disabled="refundDecisionBusy" @change="chooseRefundEvidence" />
+        </label>
+        <p v-if="refundEvidenceFile" class="refund-decision-hint">เลือกไฟล์แล้ว: {{refundEvidenceFile.name}}</p>
+        <label class="refund-decision-field">เลขอ้างอิงการโอน (อย่างน้อย 6 ตัวอักษร)
+          <input v-model="refundTransferReference" type="text" minlength="6" maxlength="100" :disabled="refundDecisionBusy" />
+        </label>
+        <p class="refund-decision-hint">ยอดคืนเงิน {{money(refundDialogPayment.refundAmount ?? (Number(refundDialogPayment.amount) + Number(refundDialogPayment.platformFeeAmount)))}}</p>
+      </template>
+      <p v-if="refundDecisionError" class="error-box" role="alert">{{refundDecisionError}}</p>
+      <div class="refund-decision-actions">
+        <button type="button" :disabled="refundDecisionBusy" @click="closeRefundDecision">ยกเลิก</button>
+        <button type="button" class="confirm" :disabled="refundDecisionBusy || refundDecisionNotes.trim().length < 10 || (refundDialogAction === 'approved' && (!refundEvidenceFile || refundTransferReference.trim().length < 6))" @click="submitRefundDecision">
+          {{refundDecisionBusy ? 'กำลังบันทึก…' : refundDialogAction === 'approved' ? 'อนุมัติและบันทึกหลักฐาน' : 'ยืนยันปฏิเสธ'}}
+        </button>
+      </div>
+    </section>
+  </div>
   <section class="payment">
     <div class="header-row">
       <div>
@@ -169,7 +257,7 @@ onMounted(loadPayments);
         :class="{ active: activeTab === tab.label }"
         @click="changeTab(tab.label)"
       >
-        {{ tab.status === 'refund_workflow' ? 'คืนเงิน' : tab.status === 'refund_review' ? 'รอพิจารณาคืนเงิน' : tab.status === 'payment_queue' ? 'ชำระเงิน' : paymentStatus(tab.status) }}
+        {{ tab.status === 'refund_workflow' ? 'คืนเงินแล้ว' : tab.status === 'refund_review' ? 'รอพิจารณาคืนเงิน' : tab.status === 'payment_queue' ? 'ชำระเงิน' : paymentStatus(tab.status) }}
       </button>
     </nav>
 
@@ -206,7 +294,7 @@ onMounted(loadPayments);
         </button>
 
         <div v-show="expandedPaymentId === payment._id" :id="`payment-details-${payment._id}`" class="payment-details">
-        <p class="refund-status">{{payment.paymentMode === 'slip_demo' ? 'สลิปจำลอง · ไม่มีการโอนเงินจริง' : payment.paymentMode === 'stripe_test' ? 'Stripe โหมดทดสอบ' : 'รายการเดิมในระบบจำลอง'}} · {{paymentStatus(payment.status)}}</p>
+        <p class="refund-status">{{payment.paymentMode === 'slip_demo' ? 'สลิปจำลอง · ไม่มีการโอนเงินจริง' : payment.paymentMode === 'stripe_test' ? 'Stripe โหมดทดสอบ' : 'รายการเดิมในระบบจำลอง'}} · {{payment.refundDecision === 'rejected' ? 'ปฏิเสธคำขอคืนเงิน' : paymentStatus(payment.status)}}</p>
         <div class="detail-row">
           <span>ผู้ว่าจ้าง</span>
           <strong>
@@ -253,13 +341,12 @@ onMounted(loadPayments);
 
         <div v-if="payment.disputeReason" class="refund-status"><strong>เหตุผลที่ขอคืนเงิน</strong><p>{{payment.disputeReason}}</p></div>
         <template v-if="expandedPaymentId === payment._id">
-          <p v-if="payment.paymentMode === 'stripe_test'" class="refund-status">Stripe ยืนยันเงินจาก hirer โดยตรง ไม่ต้องแนบสลิปขาเข้า หลังตรวจรับงาน admin ต้องจ่ายให้ worker และแนบหลักฐาน ส่วนคืนเงินให้ใช้ Stripe Refund แล้วแนบหลักฐานเมื่อ Stripe ยืนยันสำเร็จ ห้ามโอนคืนซ้ำ</p>
+          <p v-if="payment.paymentMode === 'stripe_test' && payment.refundMethod !== 'stripe'" class="refund-status">รายการนี้ชำระผ่าน Stripe แต่การคืนเงินจะโอนโดยแอดมินและแนบหลักฐานการโอนในระบบ ไม่ได้คืนผ่าน Stripe</p>
           <template v-if="payment.hasInboundSlip || payment.status === 'awaiting_verification'"><h3 class="subtitle">สลิปขาเข้า</h3><PaymentSlipImage :payment-id="payment._id" direction="inbound" :version="payment.inboundSlipVersion" @loaded="reviewReady[payment._id + payment.inboundSlipVersion]=$event" /></template>
           <p v-if="payment.slipReviewNotes" class="refund-status">ผลตรวจสลิป: {{payment.slipReviewNotes}}</p>
           <p v-if="payment.status === 'awaiting_verification' && !reviewReady[payment._id + payment.inboundSlipVersion]" class="refund-status" role="status">ต้องเปิดรูปสำเร็จก่อนอนุมัติ หากโหลดรูปไม่ได้ สามารถลองโหลดใหม่หรือปฏิเสธสลิปพร้อมเหตุผลได้</p>
           <div v-if="payment.status === 'awaiting_verification'" class="action-row"><button type="button" class="action-btn primary" :disabled="!!actionLoading" @click="reviewSlip(payment,'approved')">อนุมัติรับเงินจำลอง</button><button type="button" class="action-btn danger" :disabled="!!actionLoading" @click="reviewSlip(payment,'rejected')">ปฏิเสธสลิป</button></div>
           <template v-if="payment.status === 'payout_pending'"><p class="refund-status">ผู้ว่าจ้างตรวจรับงานแล้ว จ่ายค่าจ้างให้ {{payment.worker?.fullName || 'ผู้รับจ้าง'}} จำนวน {{money(payment.netAmountToWorker)}} แล้วแนบหลักฐาน ระบบยังไม่นับเป็นเงินรับของ worker จนกว่าจะบันทึกขั้นตอนนี้</p><p class="refund-status">บัญชีรับเงินของ worker: {{payment.worker?.bankAccount?.bankName || 'ยังไม่ระบุธนาคาร'}} · {{payment.worker?.bankAccount?.accountNumber || 'ยังไม่ระบุเลขบัญชี'}} · {{payment.worker?.bankAccount?.accountHolderName || 'ยังไม่ระบุชื่อบัญชี'}} หากข้อมูลไม่ครบให้ผู้รับจ้างอัปเดตโปรไฟล์ก่อนจ่าย</p><PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/payout`" label="ยืนยันจ่ายค่าจ้างและแนบสลิป" :require-amount="true" :expected-amount="payment.netAmountToWorker" require-notes @saved="savedSlip" /></template>
-          <template v-if="payment.status === 'refund_pending' || (payment.status === 'refunded' && payment.paymentMode === 'stripe_test' && payment.refundStatus === 'succeeded' && !payment.hasRefundSlip)"><p class="refund-status">{{payment.paymentMode === 'stripe_test' ? 'Stripe ยืนยันคืนเงินแล้ว แนบหลักฐานจาก Stripe เท่านั้น ไม่ต้องโอนคืนผ่านธนาคารซ้ำ' : 'อนุมัติคืนเงินจำลองแล้ว รอบันทึกพร้อมสลิป'}} · ผู้รับเงิน {{payment.hirer?.fullName || 'ผู้ว่าจ้าง'}} · {{money(payment.refundAmount)}}</p><p v-if="payment.stripeRefundId" class="refund-status">เลขรายการคืนเงิน Stripe: {{payment.stripeRefundId}}</p><PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/refund`" :label="payment.paymentMode === 'stripe_test' ? 'แนบหลักฐานคืนเงิน Stripe' : 'ยืนยันคืนเงินจำลอง'" :evidence-only="payment.paymentMode === 'stripe_test'" :require-amount="true" :expected-amount="payment.refundAmount" require-notes @saved="savedSlip" /></template>
           <template v-if="payment.hasPayoutSlip"><h3 class="subtitle">สลิปจ่ายค่าจ้างจำลอง</h3><PaymentSlipImage :payment-id="payment._id" direction="payout" /></template>
           <template v-if="payment.hasRefundSlip"><h3 class="subtitle">สลิปคืนเงินจำลอง</h3><PaymentSlipImage :payment-id="payment._id" direction="refund" /></template>
         </template>
@@ -297,6 +384,11 @@ onMounted(loadPayments);
           </button>
         </div>
         </div>
+        <section v-if="payment.status === 'refund_pending'" class="refund-evidence-section">
+          <h3 class="subtitle">แนบรูปหลักฐานการคืนเงิน</h3>
+          <p class="refund-status">อนุมัติคำขอคืนเงินแล้ว · ผู้รับเงิน {{payment.hirer?.fullName || 'ผู้ว่าจ้าง'}} · {{money(payment.refundAmount)}}</p>
+          <PaymentSlipForm :endpoint="`/admin/payments/${payment._id}/slips/refund`" label="แนบหลักฐานการโอนคืนเงิน" manual-transfer :require-amount="true" :expected-amount="payment.refundAmount" require-notes @saved="savedSlip" />
+        </section>
       </li>
 
       <li v-if="!payments.length" class="empty">
@@ -408,6 +500,20 @@ onMounted(loadPayments);
 }
 
 .payment-details { padding-top: 4px; }
+.refund-evidence-section { margin-top:12px; padding:14px; border:1px solid var(--color-border); border-radius:var(--radius-md); background:#fafbfc; }
+.refund-evidence-section .subtitle { margin:0 0 8px; font-size:14px; }
+.refund-decision-backdrop { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; overflow:auto; padding:18px; background:#10182880; }
+.refund-decision-dialog { display:grid; gap:12px; width:min(100%,520px); max-height:90dvh; overflow:auto; padding:20px; border-radius:14px; background:#fff; color:#17212f; box-shadow:0 16px 48px #0003; }
+.refund-decision-dialog h2 { margin:0; font-size:18px; }
+.refund-decision-dialog p { margin:0; font-size:13px; line-height:1.6; }
+.refund-decision-field { display:grid; gap:7px; font-size:13px; font-weight:600; }
+.refund-decision-field textarea, .refund-decision-field input { width:100%; padding:10px; border:1px solid #98a2b3; border-radius:8px; font:inherit; }
+.refund-decision-field textarea { resize:vertical; }
+.refund-decision-hint { color:#667085; }
+.refund-decision-actions { display:flex; justify-content:flex-end; gap:10px; }
+.refund-decision-actions button { min-height:42px; padding:8px 14px; border:1px solid #d0d5dd; border-radius:8px; background:#fff; font:inherit; cursor:pointer; }
+.refund-decision-actions .confirm { border-color:#ffc629; background:#ffc629; color:#342600; font-weight:700; }
+.refund-decision-actions button:disabled { opacity:.55; cursor:not-allowed; }
 
 .name {
   margin: 0;
