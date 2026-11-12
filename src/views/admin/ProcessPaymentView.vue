@@ -11,18 +11,15 @@ import {useAdminDecision} from '../../composables/useAdminDecision';
 const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
 
 const route = useRoute();
-const activeTab = ref(({disputed:'Disputed',awaiting_verification:'Verify',payout_pending:'Payout',refund_pending:'RefundPending'})[route.query.status] || 'Pending');
+const activeTab = ref(({disputed:'RefundReview',refund_pending:'Refunds',refunded:'Refunds',pending:'Payments',awaiting_verification:'Payments',slip_rejected:'Payments',payout_pending:'Payout'})[route.query.status] || 'Payments');
 
 const tabs = [
-  { label: "Pending", status: "pending" },
-  { label: "Verify", status: "awaiting_verification" },
-  { label: "Rejected", status: "slip_rejected" },
+  { label: "Payments", status: "payment_queue" },
   { label: "Held", status: "held" },
   { label: "Payout", status: "payout_pending" },
-  { label: "RefundPending", status: "refund_pending" },
   { label: "Released", status: "released" },
-  { label: "Disputed", status: "disputed" },
-  { label: "Refunded", status: "refunded" },
+  { label: "RefundReview", status: "refund_review" },
+  { label: "Refunds", status: "refund_workflow" },
 ];
 
 const payments = ref([]);
@@ -73,16 +70,30 @@ async function loadPayments() {
   );
 
   try {
-    const { data } = await api.get(
-      "/admin/payments/escrow",
-      {
-        params: {
-          status: currentTab.status,
-        },
+    if (["refund_workflow", "refund_review", "payment_queue"].includes(currentTab.status)) {
+      const statuses = currentTab.status === "refund_workflow"
+        ? ["disputed", "refund_pending", "refunded", "held"]
+        : currentTab.status === "refund_review" ? ["disputed"] : ["pending", "awaiting_verification"];
+      const results = await Promise.all(statuses.map((status) =>
+        api.get("/admin/payments/escrow", { params: { status } })
+      ));
+      const unique = new Map();
+      for (const { data } of results) {
+        for (const payment of Array.isArray(data) ? data : []) {
+          if (currentTab.status === "refund_review" && payment.refundDecision === "approved") continue;
+          if (currentTab.status === "refund_workflow" && !(
+            ["refund_pending", "refunded"].includes(payment.status) ||
+            (payment.status === "disputed" && payment.refundDecision === "approved") ||
+            (payment.status === "held" && payment.refundDecision === "rejected")
+          )) continue;
+          unique.set(String(payment._id), payment);
+        }
       }
-    );
-
-    if (currentRequest === requestId) payments.value = Array.isArray(data) ? data : [];
+      if (currentRequest === requestId) payments.value = [...unique.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } else {
+      const { data } = await api.get("/admin/payments/escrow", { params: { status: currentTab.status } });
+      if (currentRequest === requestId) payments.value = Array.isArray(data) ? data : [];
+    }
   } catch (error) {
     console.error(error);
 
@@ -108,7 +119,8 @@ async function decideRefund(payment, decision) {
       { decision, notes: notes.trim() }
     );
     successMessage.value=data.message;
-
+    activeTab.value = "Refunds";
+    expandedPaymentId.value = payment._id;
     await loadPayments();
   } catch (error) {
     errorMessage.value=error.response?.data?.message || "ไม่สามารถบันทึกผลการคืนเงินได้";
@@ -157,7 +169,7 @@ onMounted(loadPayments);
         :class="{ active: activeTab === tab.label }"
         @click="changeTab(tab.label)"
       >
-        {{ paymentStatus(tab.status) }}
+        {{ tab.status === 'refund_workflow' ? 'คืนเงิน' : tab.status === 'refund_review' ? 'รอพิจารณาคืนเงิน' : tab.status === 'payment_queue' ? 'ชำระเงิน' : paymentStatus(tab.status) }}
       </button>
     </nav>
 
@@ -265,7 +277,7 @@ onMounted(loadPayments);
         </div>
 
         <div
-          v-if="activeTab === 'Disputed' && payment.status === 'disputed'"
+          v-if="payment.status === 'disputed' && !payment.refundDecision"
           class="action-row"
         >
           <button
