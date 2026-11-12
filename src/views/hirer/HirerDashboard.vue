@@ -227,6 +227,7 @@ function timeAgo(date) {
       </div>
     </div>
 
+    <RouterLink class="request-history-link" :to="{path:'/hirer/my-jobs',query:{view:'services'}}">คำขอใช้บริการของฉัน ({{ myServiceRequests.length }}) ›</RouterLink>
     <!-- แท็บประเภทประกาศ (FR-BROWSE-02) -->
     <nav class="tabs">
       <button
@@ -294,6 +295,7 @@ function timeAgo(date) {
 </template>
 
 <style scoped>
+.request-history-link{display:block;margin:0 16px 12px;padding:12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;color:#715300;font-size:13px;font-weight:700;text-decoration:none}
 .page { position: relative; min-height: 100vh; padding-bottom: 24px; background: #f0f0f0; font-family: inherit; }
 
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

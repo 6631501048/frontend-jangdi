@@ -18,7 +18,13 @@ export const workflowLabels = {
   awaiting_confirmation: 'รอผู้ว่าจ้างตรวจรับงาน', completed: 'เสร็จสิ้น', cancelled: 'ยกเลิก',
   disputed: 'รอพิจารณาคืนเงิน', refund_pending: 'อนุมัติแล้ว รอแอดมินคืนเงิน', refunded: 'คืนเงินแล้ว',
 };
-export const requestWorkflowLabel = request => workflowLabels[requestWorkflowStatus(request)] || 'กำลังตรวจสอบสถานะ';
+export function requestWorkflowLabel(request) {
+  if (request.status === 'declined') {
+    return ({ capacity: 'ไม่ได้รับเลือก (ผู้รับจ้างรับงานครบแล้ว)', refund: 'คำขอปิดแล้ว (บริการปิดหลังคืนเงิน)',
+      post_closed: 'คำขอปิดแล้ว', expired: 'คำขอหมดเวลา', worker_declined: 'ผู้รับจ้างไม่รับคำขอ' })[request.declineReason] || 'ผู้รับจ้างไม่รับคำขอ';
+  }
+  return workflowLabels[requestWorkflowStatus(request)] || 'กำลังตรวจสอบสถานะ';
+}
 
 export function servicePostWorkflowStatus(post, requests) {
   if (post.status === 'pending_review') return 'pending_review';
@@ -27,6 +33,7 @@ export function servicePostWorkflowStatus(post, requests) {
   if (states.some(status => ['assigned', 'in_progress', 'awaiting_confirmation'].includes(status))) return 'in_progress';
   if (states.includes('refund_pending')) return 'refund_pending';
   if (states.includes('disputed')) return 'disputed';
+  if (post.status === 'closed' && post.closeReason === 'refund') return 'refunded';
   if (states.includes('accepted')) return 'unknown';
   if (states.includes('pending')) return 'waiting';
   if (states.includes('completed')) return 'completed';

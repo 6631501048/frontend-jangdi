@@ -9,6 +9,9 @@ const auth = useAuthStore();
 const router = useRouter();
 onMounted(() => { if (!store.loaded) store.refresh(); });
 function destination(item) {
+  if (item.relatedEntityType === 'ServiceRequestResult') return {path:'/hirer/my-jobs',query:{view:'services'}};
+  if (item.relatedEntityType === 'ServiceRequest' && item.relatedEntityId) return auth.currentRole === 'worker'
+    ? {name:'worker-service-request-detail',params:{id:String(item.relatedEntityId)}} : {path:'/hirer/my-jobs',query:{view:'services'}};
   if (item.relatedEntityType === 'Job' && item.relatedEntityId) {
     if (auth.currentRole === 'hirer' && item.type === 'payment_update') return {name:'hirer-mock-payment',params:{id:String(item.relatedEntityId)}};
     return {name:auth.currentRole==='worker'?'worker-job-tracking':'hirer-job-detail',params:{id:String(item.relatedEntityId)}};

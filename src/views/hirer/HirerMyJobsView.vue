@@ -2,11 +2,15 @@
 // FR-JOB-08: ดูงานที่ตนเองประกาศ จัดกลุ่มตามสถานะ
 // เป็นจุดเข้าสู่หน้า "เลือกผู้รับจ้าง" (FR-MATCH-03/04) สำหรับงานที่เปิดรับสมัครอยู่
 import { onMounted, onUnmounted, ref, watch } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import api from "../../services/api";
 import { workflowLabels } from "../../services/workflowStatus";
+import HirerServiceRequests from '../../components/HirerServiceRequests.vue';
 
 const router = useRouter();
+const route = useRoute();
+const viewMode = ref(route.query.view === 'services' ? 'services' : 'jobs');
+watch(() => route.query.view, value => { viewMode.value = value === 'services' ? 'services' : 'jobs'; });
 
 const tabs = [
   { value: "pending_review", label: "รอตรวจสอบ" },
@@ -37,10 +41,11 @@ async function loadJobs({ background = false } = {}) {
     if (currentRequest === requestId) loading.value = false;
   }
 }
-onMounted(loadJobs);
-watch(activeTab, () => loadJobs());
+onMounted(() => { if (viewMode.value === 'jobs') loadJobs(); });
+watch(activeTab, () => { if (viewMode.value === 'jobs') loadJobs(); });
+watch(viewMode, value => { if (value === 'jobs') loadJobs(); });
 let refreshTimer;
-onMounted(() => { refreshTimer = window.setInterval(() => loadJobs({ background: true }), 5000); });
+onMounted(() => { refreshTimer = window.setInterval(() => { if (viewMode.value === 'jobs') loadJobs({ background: true }); }, 5000); });
 onUnmounted(() => window.clearInterval(refreshTimer));
 
 function openJob(job) {
@@ -66,6 +71,12 @@ function goBack() {
       <span class="spacer"></span>
     </header>
 
+    <nav class="section-tabs" aria-label="ประเภทงานของฉัน">
+      <button type="button" :class="{ active: viewMode === 'jobs' }" @click="viewMode = 'jobs'">งานที่ประกาศ</button>
+      <button type="button" :class="{ active: viewMode === 'services' }" @click="viewMode = 'services'">คำขอใช้บริการ</button>
+    </nav>
+    <HirerServiceRequests v-if="viewMode === 'services'" class="service-history" />
+    <template v-else>
     <nav class="tabs">
       <button v-for="t in tabs" :key="t.value" :class="{ active: activeTab === t.value }" @click="activeTab = t.value">
         {{ t.label }}
@@ -94,11 +105,13 @@ function goBack() {
         <span v-else class="cta muted">รายละเอียด ›</span>
       </article>
     </main>
+    </template>
   </div>
 </template>
 
 <style scoped>
 .page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.section-tabs{display:flex;gap:8px;padding:12px;background:#fff}.section-tabs button{flex:1;min-height:42px;border:1px solid #ddd;border-radius:10px;background:#fff;cursor:pointer}.section-tabs button.active{background:#ffc93c;border-color:#ffc93c;font-weight:700}.service-history{padding:16px}
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #eee; }
 .icon-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: none; background: transparent; border-radius: 50%; color: #111; cursor: pointer; }

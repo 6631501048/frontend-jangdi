@@ -47,6 +47,7 @@ async function loadRequest({ background = false } = {}) {
       to: structured.to || "",
       serviceFee: Number(post.fee || 0),
       status: data.status,
+      declineReason: data.declineReason,
       resultingJob: data.resultingJob,
       paymentStatus: data.paymentStatus,
       postStatus: post.status,

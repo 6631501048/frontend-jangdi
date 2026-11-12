@@ -184,6 +184,7 @@ async function load({ background = false } = {}) {
         items: r.orderData?.requirements || r.orderDetails || "-",
         total: Number(r.servicePost?.fee || 0) + Number(r.orderData?.itemBudget || 0),
         status: r.status,
+        declineReason: r.declineReason,
         jobStatus: r.jobStatus,
         paymentStatus: r.paymentStatus || r.resultingJob?.paymentStatus,
       }));
@@ -331,7 +332,7 @@ function createNewPost() {
             <p class="post-desc">{{ post.description }}</p>
           </div>
           <div class="post-status">
-            <span :class="post.status === 'pending_review' ? 'status-review' : post.isOpen ? 'status-open' : 'status-closed'">{{ post.status === 'pending_review' ? "Pending" : post.status === 'rejected' ? "ไม่อนุมัติ" : post.status === 'closed' && post.closeReason === 'manual' ? "ยกเลิก" : post.isOpen ? "เปิดรับบริการ" : "ปิดรับบริการ" }}</span>
+            <span :class="post.status === 'pending_review' ? 'status-review' : post.isOpen ? 'status-open' : 'status-closed'">{{ post.status === 'pending_review' ? "Pending" : post.status === 'rejected' ? "ไม่อนุมัติ" : post.status === 'closed' && post.closeReason === 'refund' ? "ปิดบริการหลังคืนเงิน" : post.status === 'closed' && post.closeReason === 'manual' ? "ยกเลิก" : post.isOpen ? "เปิดรับบริการ" : "ปิดรับบริการ" }}</span>
             <span v-if="post.status === 'rejected' && post.rejectionReason" class="status-sub">{{ post.rejectionReason }}</span>
           </div>
         </div>

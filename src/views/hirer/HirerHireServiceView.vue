@@ -302,7 +302,8 @@ function closeModal() {
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
           <h2 class="modal-title">ส่งคำขอบริการแล้ว</h2>
-          <p class="modal-sub">คำขอถึง {{ servicePost.workerName }} แล้ว เมื่อผู้รับจ้างตอบรับ คุณจะไปชำระเงินและดูรายละเอียดงานได้จากหน้า Feed</p>
+          <p class="modal-sub">คำขอถึง {{ servicePost.workerName }} แล้ว ติดตามผลตอบรับหรือผลไม่ได้รับเลือกได้ที่ งานของฉัน › คำขอใช้บริการ</p>
+          <RouterLink :to="{path:'/hirer/my-jobs',query:{view:'services'}}" class="btn-primary">ดูคำขอของฉัน</RouterLink>
           <button class="btn-primary" @click="closeModal">ตกลง</button>
         </div>
       </div>

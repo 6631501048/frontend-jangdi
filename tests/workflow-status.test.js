@@ -32,6 +32,9 @@ test('each refund stage has its own service group; refunded orders cannot revive
   assert.equal(servicePostWorkflowStatus(post, [{ ...request, paymentStatus: 'refunded' }, { status: 'pending' }]), 'waiting');
   assert.equal(requestWorkflowLabel({ ...request, paymentStatus: 'refunded' }), 'คืนเงินแล้ว');
   assert.equal(servicePostWorkflowStatus(post, [{ status: 'accepted' }]), 'unknown');
+  const closedRefund = { ...post, status: 'closed', closeReason: 'refund' };
+  assert.equal(servicePostWorkflowStatus(closedRefund, [{ status: 'pending' }]), 'refunded');
+  assert.equal(servicePostWorkflowStatus(closedRefund, [{ status: 'accepted', jobStatus: 'in_progress' }]), 'in_progress');
 });
 
 test('service list moves from refund review to refunded while the page stays open', async () => {
