@@ -3,7 +3,7 @@
 // FR-SERV-06: หน้านี้เช็คเบื้องต้นว่า Service Post ยังไม่เต็มจำนวนออร์เดอร์/ยังไม่ถูกปิด (เช็คจริงตอนเรียก API)
 // FR-SERV-07: เมื่อผู้รับจ้างยอมรับ Service Request นี้ ระบบจะแปลงเป็นบันทึกงาน (Job)
 // FR-PAY-01: เมื่อ Service Request ได้รับการยอมรับ เงินของผู้ว่าจ้างจะถูกนำเข้าสู่ระบบ Escrow
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
@@ -91,6 +91,18 @@ const step = ref(1);
 const submitting = ref(false);
 const hired = ref(false);
 const showSuccessModal = ref(false);
+const successPanel = ref(null);
+watch(showSuccessModal, async (visible) => {
+  if (visible) { await nextTick(); successPanel.value?.focus(); }
+});
+function successKeydown(event) {
+  if (event.key === 'Escape') { event.preventDefault(); closeModal(); return; }
+  if (event.key !== 'Tab') return;
+  const controls = Array.from(successPanel.value?.querySelectorAll('a, button') || []);
+  const first = controls[0], last = controls.at(-1);
+  if (event.shiftKey && [first, successPanel.value].includes(document.activeElement)) { event.preventDefault(); last?.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+}
 
 const step1Valid = computed(
   () =>
@@ -296,16 +308,19 @@ function closeModal() {
 
     <!-- ===== โมดัลสำเร็จ ===== -->
     <Transition name="fade">
-      <div v-if="showSuccessModal" class="modal-backdrop" @click="closeModal">
-        <div class="modal-card" @click.stop>
+      <div v-if="showSuccessModal" class="modal-backdrop" @click.self="closeModal" @keydown="successKeydown">
+        <section ref="successPanel" class="modal-card" role="dialog" aria-modal="true" aria-labelledby="service-request-success-title" aria-describedby="service-request-success-description" tabindex="-1">
           <div class="check-circle">
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
-          <h2 class="modal-title">ส่งคำขอบริการแล้ว</h2>
-          <p class="modal-sub">คำขอถึง {{ servicePost.workerName }} แล้ว ติดตามผลตอบรับหรือผลไม่ได้รับเลือกได้ที่ งานของฉัน › คำขอใช้บริการ</p>
-          <RouterLink :to="{path:'/hirer/my-jobs',query:{view:'services'}}" class="btn-primary">ดูคำขอของฉัน</RouterLink>
-          <button class="btn-primary" @click="closeModal">ตกลง</button>
-        </div>
+          <h2 id="service-request-success-title" class="modal-title">ส่งคำขอบริการแล้ว</h2>
+          <p class="modal-recipient">ส่งคำขอถึง <strong>{{ servicePost.workerName }}</strong> เรียบร้อยแล้ว</p>
+          <p id="service-request-success-description" class="modal-sub">ติดตามผลตอบรับและรายละเอียดได้ที่<br />งานของฉัน › คำขอใช้บริการ</p>
+          <div class="modal-actions">
+            <RouterLink :to="{path:'/hirer/my-jobs',query:{view:'services'}}" class="modal-primary">ดูคำขอของฉัน</RouterLink>
+            <button type="button" class="modal-secondary" @click="closeModal">กลับหน้าแรก</button>
+          </div>
+        </section>
       </div>
     </Transition>
   </div>
@@ -383,10 +398,11 @@ textarea { resize: vertical; }
 /* ---------- โมดัลสำเร็จ ---------- */
 .modal-backdrop {
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.45);
-  display: flex; align-items: center; justify-content: center; z-index: 30; padding: 24px;
+  display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px;
 }
 .modal-card {
-  width: 100%; max-width: 320px; background: #fff; border-radius: 14px; padding: 28px 20px;
+  width: min(100%, 380px); max-height: calc(100dvh - 40px); overflow-y: auto; box-sizing: border-box;
+  background: #fff; border-radius: 20px; padding: 28px 24px; box-shadow: 0 20px 60px #10182830; outline: none;
   display: flex; flex-direction: column; align-items: center; text-align: center;
 }
 .check-circle {
@@ -394,9 +410,17 @@ textarea { resize: vertical; }
   display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
 }
 .check-circle svg { width: 28px; height: 28px; stroke-width: 3; }
-.modal-title { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: #111; }
-.modal-sub { margin: 0 0 20px; font-size: 12.5px; color: #888; }
-.modal-card .btn-primary { width: 100%; }
+.modal-title { margin: 0 0 12px; font-size: 20px; line-height: 1.4; font-weight: 700; color: #111; }
+.modal-recipient { margin: 0 0 12px; font-size: 14px; line-height: 1.7; color: #475467; overflow-wrap: anywhere; }
+.modal-recipient strong { color: #344054; }
+.modal-sub { margin: 0; font-size: 13px; line-height: 1.7; color: #667085; }
+.modal-actions { display: grid; gap: 10px; width: 100%; margin-top: 24px; }
+.modal-primary, .modal-secondary { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; min-height: 46px; padding: 12px 16px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.5; text-decoration: none; cursor: pointer; }
+.modal-primary { background: #ffc93c; color: #302500; border: 1px solid #ffc93c; }
+.modal-secondary { background: #fff; color: #475467; border: 1px solid #d0d5dd; }
+.modal-primary:hover { background: #ffbf1f; }
+.modal-secondary:hover { background: #f9fafb; }
+.modal-primary:focus-visible, .modal-secondary:focus-visible { outline: 3px solid #a46a00; outline-offset: 3px; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 </style>

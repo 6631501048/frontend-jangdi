@@ -12,6 +12,9 @@ import { paymentStatus } from '../../services/finance';
 import JobPaymentStatus from '../../components/JobPaymentStatus.vue';
 import JobReviewModal from '../../components/JobReviewModal.vue';
 import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
+import DecisionDialog from '../../components/AdminDecisionDialog.vue';
+import { useAdminDecision } from '../../composables/useAdminDecision';
+const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
 
 
 const route = useRoute();
@@ -145,13 +148,13 @@ onUnmounted(() => {
 
 async function cancelJob() {
   if (!canCancelJob.value || cancellingJob.value) return;
-  const reason = window.prompt("ระบุเหตุผลที่ต้องการยกเลิกประกาศงาน (ยกเลิกได้ก่อนเลือกผู้รับจ้าง):");
+  const reason = await askDecision({ title: 'ยกเลิกประกาศงาน', message: 'ระบุเหตุผลในการยกเลิกประกาศนี้ ยกเลิกได้ก่อนเลือกผู้รับจ้างเท่านั้น', requireReason: true, minLength: 5, maxLength: 500, confirmLabel: 'ยืนยันยกเลิก' });
   if (reason === null) return;
   if (!reason.trim()) {
     errorMsg.value = "กรุณาระบุเหตุผลในการยกเลิก";
     return;
   }
-  if (!window.confirm("ยืนยันยกเลิกประกาศงานนี้หรือไม่?")) return;
+  if (!canCancelJob.value || cancellingJob.value) return;
   cancellingJob.value = true;
   try {
     await api.post(`/jobs/${job.value._id}/cancel`, { reason: reason.trim() });
@@ -193,7 +196,13 @@ const progressSteps = computed(() => {
 
 async function confirmCompletion() {
   if (mockPayment.value?.status !== "held" || !job.value || job.value.status !== "awaiting_confirmation" || confirmingCompletion.value || !proofObjectUrl.value) return;
-  if (!window.confirm("ตรวจสอบรูปหลักฐานและได้รับงานครบแล้วใช่หรือไม่? เมื่อยืนยันแล้วจะปิดงานและส่งเข้าคิวรอ admin จ่ายค่าจ้างพร้อมสลิป ยังไม่ถือว่าผู้รับจ้างได้รับเงิน")) return;
+  const answer = await askDecision({
+    title: 'ยืนยันรับงานและปิดงาน',
+    message: 'คุณตรวจสอบรูปหลักฐานและได้รับงานครบถ้วนแล้วใช่หรือไม่?',
+    notice: 'เมื่อยืนยัน ระบบจะปิดงานและส่งเข้าคิวให้แอดมินจ่ายค่าจ้างพร้อมแนบสลิป ผู้รับจ้างจะได้รับเงินหลังแอดมินบันทึกการจ่ายแล้ว',
+    confirmLabel: 'ยืนยันรับงาน',
+  });
+  if (answer === null || mockPayment.value?.status !== 'held' || job.value?.status !== 'awaiting_confirmation' || confirmingCompletion.value || !proofObjectUrl.value) return;
 
   confirmingCompletion.value = true;
   completionError.value = "";
@@ -363,6 +372,7 @@ async function confirmCompletion() {
       class="btn primary home-button refund-home-button"
       @click="goHome"
     >กลับไปหน้าแรก</button>
+    <DecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
     <JobReviewModal v-if="showReviewModal" role="hirer" :job-id="String(job._id)" @close="showReviewModal = false" @reviewed="reviewDone = true; reviewStatusLoaded = true" />
     <div v-if="showCompletionPopup" class="completion-popup-backdrop" role="presentation" @click.self="showCompletionPopup = false">
       <section class="completion-popup" role="alertdialog" aria-modal="true" aria-labelledby="completion-popup-title">

@@ -7,6 +7,9 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { servicePostWorkflowStatus, requestWorkflowLabel } from "../../services/workflowStatus";
+import DecisionDialog from '../../components/AdminDecisionDialog.vue';
+import { useAdminDecision } from '../../composables/useAdminDecision';
+const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
 
 const props = defineProps({ embedded: { type: Boolean, default: false } });
 const router = useRouter();
@@ -54,9 +57,16 @@ const servicePostFilter = ref("pending_review");
 const serviceRequestStatesByPost = ref({});
 const sortOrder = ref("latest");
 const allRequests = ref([]);
+const selectedRequestIds = ref([]);
+const batchAccepting = ref(false);
+const batchError = ref('');
+const batchSuccess = ref('');
+const remainingSlots = computed(() => Math.max(0, Number(post.value?.maxOrders || 0) - Number(post.value?.currentOrderCount || 0)));
+const selectedRequests = computed(() => allRequests.value.filter(request => request.status === 'pending' && selectedRequestIds.value.includes(request.id)));
 let clockTimer;
 let statusRefreshTimer;
-let loadInFlight = false;
+let loadTask = null;
+let disposed = false;
 const canRequestCancel = computed(() => Boolean(
   post.value?.status === "active" &&
   post.value.createdAt &&
@@ -109,9 +119,13 @@ function servicePostListStatusClass(item) {
   return "gold";
 }
 
-async function load({ background = false } = {}) {
-  if (loadInFlight) return;
-  loadInFlight = true;
+function load(options = {}) {
+  if (disposed || (options.background && (accepting.value || batchAccepting.value))) return Promise.resolve();
+  if (loadTask) return options.force ? loadTask.then(() => load({ ...options, force: false })) : loadTask;
+  loadTask = performLoad(options).finally(() => { loadTask = null; });
+  return loadTask;
+}
+async function performLoad({ background = false } = {}) {
   if (!background) loading.value = true;
   errorMsg.value = "";
   try {
@@ -142,6 +156,7 @@ async function load({ background = false } = {}) {
     }, {});
     if (!posts.length) {
       post.value = null;
+      selectedRequestIds.value = [];
       return;
     }
     if (!chosenPostId.value || !posts.some(p => p._id === chosenPostId.value)) {
@@ -188,11 +203,12 @@ async function load({ background = false } = {}) {
         jobStatus: r.jobStatus,
         paymentStatus: r.paymentStatus || r.resultingJob?.paymentStatus,
       }));
+    const pendingIds = new Set(allRequests.value.filter(request => request.status === 'pending').map(request => request.id));
+    selectedRequestIds.value = post.value.isOpen ? selectedRequestIds.value.filter(id => pendingIds.has(id)).slice(0, remainingSlots.value) : [];
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดข้อมูลประกาศบริการไม่สำเร็จ";
   } finally {
     loading.value = false;
-    loadInFlight = false;
   }
 }
 const refreshStatus = () => load({ background: true });
@@ -203,6 +219,7 @@ onMounted(() => {
   window.addEventListener("focus", refreshStatus);
 });
 onUnmounted(() => {
+  disposed = true;
   window.clearInterval(clockTimer);
   window.clearInterval(statusRefreshTimer);
   window.removeEventListener("focus", refreshStatus);
@@ -218,9 +235,52 @@ const visibleRequests = computed(() => {
 const showSuccess = ref(false);
 const acceptedRequester = ref("");
 const accepting = ref(null);
+const actionBusy = computed(() => Boolean(accepting.value || batchAccepting.value || decision.value));
+
+function toggleRequest(request, event) {
+  const checked = event.target.checked;
+  if (actionBusy.value || !post.value?.isOpen || request.status !== 'pending') return;
+  if (checked && !selectedRequestIds.value.includes(request.id)) {
+    if (selectedRequests.value.length >= remainingSlots.value) { event.target.checked = false; return; }
+    selectedRequestIds.value = [...selectedRequestIds.value, request.id];
+  } else if (!checked) selectedRequestIds.value = selectedRequestIds.value.filter(id => id !== request.id);
+  batchError.value = '';
+  batchSuccess.value = '';
+}
+function selectAvailableRequests() {
+  if (actionBusy.value || !post.value?.isOpen) return;
+  selectedRequestIds.value = visibleRequests.value.filter(request => request.status === 'pending').slice(0, remainingSlots.value).map(request => request.id);
+  batchError.value = '';
+}
+async function acceptSelectedRequests() {
+  if (actionBusy.value || !post.value?.isOpen || !selectedRequests.value.length || selectedRequests.value.length > remainingSlots.value) return;
+  const ids = selectedRequests.value.map(request => request.id);
+  const answer = await askDecision({
+    title: `ยอมรับคำขอพร้อมกัน ${ids.length} รายการ`,
+    message: `ผู้ว่าจ้างที่เลือก: ${selectedRequests.value.map(request => request.requester).join(', ')}`,
+    notice: 'ระบบจะรับคำขอที่เลือกพร้อมกัน และแจ้งให้ผู้ว่าจ้างแต่ละคนไปชำระเงิน',
+    confirmLabel: 'ยอมรับที่เลือก',
+  });
+  if (answer === null || disposed) return;
+  if (!post.value?.isOpen || ids.length > remainingSlots.value || !ids.every(id => allRequests.value.some(request => request.id === id && request.status === 'pending'))) {
+    batchError.value = 'สถานะคำขอหรือจำนวนงานว่างเปลี่ยนแล้ว กรุณาตรวจสอบและเลือกใหม่';
+    return;
+  }
+  batchAccepting.value = true;
+  batchError.value = ''; batchSuccess.value = '';
+  try {
+    await api.post(`/service-posts/${post.value.id}/requests/accept`, { requestIds: ids });
+    selectedRequestIds.value = [];
+    await load({ force: true });
+    batchSuccess.value = `ยอมรับคำขอพร้อมกัน ${ids.length} รายการแล้ว ผู้ว่าจ้างแต่ละคนจะได้รับแจ้งให้ชำระเงิน`;
+  } catch (err) {
+    await load({ force: true });
+    batchError.value = err.response?.data?.message || 'ยอมรับคำขอไม่สำเร็จ กรุณาตรวจสอบรายการแล้วลองใหม่';
+  } finally { batchAccepting.value = false; }
+}
 
 async function acceptRequest(req) {
-  if (accepting.value) return;
+  if (actionBusy.value) return;
   if (!post.value?.isOpen) {
     errorMsg.value = "ประกาศปิดรับแล้ว ไม่สามารถยอมรับคำขอเพิ่มได้";
     return;
@@ -232,7 +292,7 @@ async function acceptRequest(req) {
     req.status = "accepted";
     acceptedRequester.value = req.requester;
     showSuccess.value = true;
-    await load(); // รีเฟรชสถานะโพสต์ (เผื่อปิดอัตโนมัติเพราะเต็มแล้ว — FR-SERV-06)
+    await load({ force: true });
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "ยอมรับคำขอไม่สำเร็จ";
   } finally {
@@ -373,8 +433,22 @@ function createNewPost() {
         </select>
       </div>
 
+      <section v-if="post.isOpen && pendingCount" class="batch-selection" aria-label="เลือกคำขอพร้อมกัน">
+        <div class="batch-heading"><strong>เลือกผู้ว่าจ้างพร้อมกัน</strong><span>รับเพิ่มได้ {{ remainingSlots }} งาน · เลือกแล้ว {{ selectedRequests.length }} รายการ</span></div>
+        <div class="batch-controls">
+          <button type="button" class="batch-select" :disabled="actionBusy" @click="selectAvailableRequests">เลือกตามจำนวนว่าง</button>
+          <button v-if="selectedRequestIds.length" type="button" class="batch-select" :disabled="actionBusy" @click="selectedRequestIds = []; batchError = ''">ล้างที่เลือก</button>
+          <button type="button" class="batch-confirm" :disabled="actionBusy || !selectedRequests.length" @click="acceptSelectedRequests">{{ batchAccepting ? 'กำลังยอมรับ…' : `ยอมรับที่เลือก (${selectedRequests.length})` }}</button>
+        </div>
+      </section>
+      <p v-if="batchError" class="batch-error" role="alert">{{ batchError }}</p>
+      <div v-if="batchSuccess" class="batch-success" role="status">{{ batchSuccess }} <button type="button" @click="viewMyOrder">ดูงานของฉัน</button></div>
       <section class="request-list">
-        <article v-for="req in visibleRequests" :key="req.id" class="card request-card">
+        <article v-for="req in visibleRequests" :key="req.id" class="card request-card" :class="{ 'request-selected': selectedRequestIds.includes(req.id) }">
+          <label v-if="req.status === 'pending' && post.isOpen" class="request-select">
+            <input type="checkbox" :aria-label="`เลือกคำขอของ ${req.requester}`" :checked="selectedRequestIds.includes(req.id)" :disabled="actionBusy || (!selectedRequestIds.includes(req.id) && selectedRequests.length >= remainingSlots)" @change="toggleRequest(req, $event)" />
+            <span>เลือกคำขอของ {{ req.requester }}</span>
+          </label>
           <div class="request-head">
             <span class="post-avatar small" aria-hidden="true">
               <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
@@ -399,7 +473,7 @@ function createNewPost() {
 
           <div class="request-actions" :class="{ single: req.status === 'accepted' }">
             <button class="btn-details" @click="viewDetails(req)">รายละเอียด</button>
-            <button v-if="req.status === 'pending' && post.isOpen" class="btn-apply" :disabled="!!accepting" @click="acceptRequest(req)">
+            <button v-if="req.status === 'pending' && post.isOpen" class="btn-apply" :disabled="actionBusy" @click="acceptRequest(req)">
               {{ accepting === req.id ? "กำลังบันทึก…" : "ยอมรับคำขอ" }}
             </button>
           </div>
@@ -410,6 +484,7 @@ function createNewPost() {
       </template>
       </template>
     </main>
+    <DecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
 
     <!-- โมดัลสำเร็จหลังยอมรับคำขอ -->
     <Transition name="fade">
@@ -572,6 +647,15 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .post-card { border:1px solid #e5e7eb; }
 .embedded .content { padding:0; }
 .request-card { border:1px solid #e5e7eb; }
+.request-selected{border-color:#e7ad13;background:#fffdf4}
+.request-select{display:flex;align-items:center;gap:10px;min-height:44px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #eee;font-size:13px;cursor:pointer;overflow-wrap:anywhere}
+.request-select input{flex:none;width:18px;height:18px;accent-color:#b17a00}
+.batch-selection{padding:16px;border:1px solid #ead69b;border-radius:12px;background:#fffbef}
+.batch-heading{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:14px}.batch-heading span{font-size:12px;color:#715500}
+.batch-controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.batch-controls button{min-height:42px;padding:10px 14px;border-radius:9px;font:inherit;font-size:13px;cursor:pointer}.batch-select{border:1px solid #d7c791;background:#fff;color:#614800}.batch-confirm{margin-left:auto;border:1px solid #ffc93c;background:#ffc93c;color:#302500;font-weight:700!important}.batch-controls button:disabled{opacity:.5;cursor:not-allowed}
+.batch-error{margin:0;padding:12px;border:1px solid #fecdca;border-radius:10px;background:#fff5f4;color:#b42318;font-size:13px}
+.batch-success{padding:14px;border:1px solid #abdfba;border-radius:10px;background:#effbf3;color:#166534;font-size:13px;line-height:1.7}.batch-success button{display:block;margin-top:8px;padding:8px 12px;border:1px solid #91bda0;border-radius:8px;background:#fff;color:inherit;font:inherit;cursor:pointer}
+@media(max-width:480px){.batch-confirm{flex-basis:100%;margin-left:0}.batch-heading{flex-direction:column}}
 .requests-head { margin-top:2px; }
 .requests-head h2 { font-size:15px; }
 .request-list { gap:12px; }
