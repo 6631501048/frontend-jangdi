@@ -1,4 +1,5 @@
 <script setup>
+import AuthShell from "../../components/AuthShell.vue";
 // FR-AUTH-04: หน้ายืนยันอีเมล — ผู้ใช้กดลิงก์จากอีเมลแล้วมาที่นี่พร้อม ?token=...
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -40,7 +41,7 @@ function goToLogin() {
 </script>
 
 <template>
-  <main class="verify-page">
+  <AuthShell><div class="verification-content">
     <div v-if="status === 'loading'" class="state">
       <p>กำลังยืนยันอีเมล...</p>
     </div>
@@ -57,15 +58,16 @@ function goToLogin() {
       <p class="hint">ถ้าลิงก์หมดอายุ ให้เข้าสู่ระบบแล้วขอลิงก์ยืนยันใหม่ได้ที่หน้า "ยืนยันอีเมล"</p>
       <button @click="goToLogin">ไปหน้าเข้าสู่ระบบ</button>
     </div>
-  </main>
+  </div></AuthShell>
 </template>
 
 <style scoped>
-.verify-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.state { text-align: center; max-width: 320px; }
-.icon { font-size: 40px; margin: 0 0 8px; }
-h1 { font-size: 18px; margin: 0 0 8px; }
-p { color: #555; font-size: 14px; }
-.hint { font-size: 12px; color: #999; }
-button { margin-top: 16px; min-height: 44px; padding: 0 20px; border-radius: 8px; border: none; background: #2563eb; color: white; font-weight: 600; cursor: pointer; }
-</style>
+      .verification-content { text-align:center; overflow-wrap:anywhere; }
+      .icon { font-size:2.5rem; margin:0 0 16px; }
+      p { color:var(--jd-muted); font-size:.9375rem; }
+      .ok { color:var(--jd-success); } .err { color:var(--jd-danger); }
+      button { width:100%; min-height:48px; margin-top:12px; padding:12px; border:1px solid var(--jd-brand); border-radius:12px; background:var(--jd-brand); color:white; font-weight:600; }
+      button.secondary { border-color:var(--jd-input-border); color:var(--jd-ink); background:white; }
+      button.link { border:0; background:transparent; color:var(--jd-muted); font-weight:400; }
+      button:disabled { background:var(--jd-subtle); color:var(--jd-muted); border-color:var(--jd-input-border); }
+    </style>

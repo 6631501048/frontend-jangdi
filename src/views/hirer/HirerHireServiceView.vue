@@ -166,13 +166,13 @@ function closeModal() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page -->
     <header class="topbar">
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="back">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">Hiring</h1>
+      <h1 class="title">ขอใช้บริการ</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -202,53 +202,53 @@ function closeModal() {
           <label class="field-label">{{ isDelivery ? serviceFeeLabel : 'ค่าบริการผู้รับงาน' }}</label>
           <div class="input-suffix">
             <input v-model.number="form.serviceFee" type="number" min="0" readonly aria-label="Service Fee จากประกาศ" />
-            <span class="suffix">Baht</span>
+            <span class="suffix">บาท</span>
           </div>
 
           <label class="field-label">จุดรับ / จุดเริ่มต้น</label>
           <div class="input-icon">
-            <input v-model="form.from" type="text" readonly aria-readonly="true" />
+            <input aria-label="จุดรับ / จุดเริ่มต้น" v-model="form.from" type="text" readonly aria-readonly="true" />
             <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
           </div>
           <p class="field-hint">{{ servicePost.fromDetail }}</p>
 
           <template v-if="isDelivery && !isPassenger">
             <label class="field-label">{{ deliveryMode === 'shopping' ? 'รายการของที่ฝากหิ้ว' : 'สิ่งของ/พัสดุที่ให้ไปรับ' }}</label>
-            <input v-model="form.itemName" type="text" :placeholder="deliveryMode === 'shopping' ? 'เช่น อาหารหรือของใช้ที่ต้องการซื้อ' : 'เช่น เอกสารหรือพัสดุ'" />
+            <input :aria-label="deliveryMode === 'shopping' ? 'รายการของที่ฝากหิ้ว' : 'สิ่งของ/พัสดุที่ให้ไปรับ'" v-model="form.itemName" type="text" :placeholder="deliveryMode === 'shopping' ? 'เช่น อาหารหรือของใช้ที่ต้องการซื้อ' : 'เช่น เอกสารหรือพัสดุ'" />
             <label class="field-label">รายละเอียดสิ่งของ</label>
-            <textarea v-model="form.requirements" rows="3" placeholder="จำนวน ขนาด สี หรือลักษณะของ" required></textarea>
+            <textarea aria-label="รายละเอียดสิ่งของ" v-model="form.requirements" rows="3" placeholder="จำนวน ขนาด สี หรือลักษณะของ" required></textarea>
           </template>
 
           <template v-if="isPassenger">
             <label class="field-label">จำนวนผู้โดยสาร</label>
-            <input v-model.number="form.passengerCount" type="number" min="1" step="1" />
+            <input aria-label="จำนวนผู้โดยสาร" v-model.number="form.passengerCount" type="number" min="1" step="1" />
             <label class="field-label">หมายเหตุการเดินทาง</label>
-            <textarea v-model="form.requirements" rows="2" placeholder="เช่น สัมภาระหรือจุดสังเกต" required></textarea>
+            <textarea aria-label="หมายเหตุการเดินทาง" v-model="form.requirements" rows="2" placeholder="เช่น สัมภาระหรือจุดสังเกต" required></textarea>
           </template>
 
           <template v-if="needsPickupLocation">
             <label class="field-label">{{ isPassenger ? 'จุดรับผู้โดยสาร' : 'สถานที่เข้ารับของ' }}</label>
-            <input v-model="form.pickupLocation" type="text" required :placeholder="isPassenger ? 'ระบุจุดรับผู้โดยสาร' : 'ระบุสถานที่รับพัสดุ/สิ่งของ'" />
+            <input :aria-label="isPassenger ? 'จุดรับผู้โดยสาร' : 'สถานที่เข้ารับของ'" v-model="form.pickupLocation" type="text" required :placeholder="isPassenger ? 'ระบุจุดรับผู้โดยสาร' : 'ระบุสถานที่รับพัสดุ/สิ่งของ'" />
           </template>
 
           <label class="field-label">{{ isPassenger ? 'จุดหมายปลายทาง' : deliveryMode === 'pickup_delivery' ? 'สถานที่นำของไปส่ง' : isDelivery ? 'สถานที่ไปส่งของ' : 'สถานที่ปลายทาง' }}</label>
           <div class="input-icon">
-            <input v-model="form.to" type="text" required placeholder="เลือกที่อยู่ปลายทาง" />
+            <input :aria-label="isPassenger ? 'จุดหมายปลายทาง' : deliveryMode === 'pickup_delivery' ? 'สถานที่นำของไปส่ง' : isDelivery ? 'สถานที่ไปส่งของ' : 'สถานที่ปลายทาง'" v-model="form.to" type="text" required placeholder="เลือกที่อยู่ปลายทาง" />
             <svg class="chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></svg>
           </div>
 
           <p v-if="isDelivery && !isPassenger" class="payment-note">ค่าสินค้าชำระกับผู้รับจ้างเมื่อมาถึงสถานที่ส่งของ</p>
 
           <template v-if="!isDelivery">
-            <label class="field-label">Requirements</label>
-            <textarea v-model="form.requirements" rows="3" placeholder="ระบุรายละเอียดหรือสิ่งที่ต้องการ" required></textarea>
+            <label class="field-label">สิ่งที่ต้องการ</label>
+            <textarea aria-label="สิ่งที่ต้องการ" v-model="form.requirements" rows="3" placeholder="ระบุรายละเอียดหรือสิ่งที่ต้องการ" required></textarea>
           </template>
 
         </div>
 
         <div class="actions">
-          <button class="btn-muted" @click="router.back()">Cancel</button>
-          <button class="btn-primary" :disabled="!step1Valid" @click="goToSummary">Hiring</button>
+          <button class="btn-muted" @click="router.back()">ยกเลิก</button>
+          <button class="btn-primary" :disabled="!step1Valid" @click="goToSummary">ขอใช้บริการ</button>
         </div>
         <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
       </template>
@@ -256,10 +256,10 @@ function closeModal() {
       <!-- ===== ขั้นตอน 2: สรุปคำสั่งซื้อ ===== -->
       <template v-else>
         <div class="card">
-          <p class="section-title">Order Summary</p>
+          <p class="section-title">สรุปคำขอใช้บริการ</p>
           <dl class="review-list">
             <div class="review-row">
-              <dt>Worker</dt>
+              <dt>ผู้รับจ้าง</dt>
               <dd>{{ servicePost.workerName }}</dd>
             </div>
             <div class="review-row">
@@ -277,7 +277,7 @@ function closeModal() {
               <dd>{{ form.to }}</dd>
             </div>
             <div class="review-row">
-              <dt>Requirement</dt>
+              <dt>รายละเอียดคำขอ</dt>
               <dd>{{ form.requirements || "-" }}</dd>
             </div>
             <div class="review-row">
@@ -297,7 +297,7 @@ function closeModal() {
         </div>
 
         <div class="actions">
-          <button class="btn-muted" @click="step = 1">Cancel</button>
+          <button class="btn-muted" @click="step = 1">ยกเลิก</button>
           <button class="btn-primary" :disabled="submitting" @click="confirmHiring">
             {{ submitting ? "Confirming..." : "Confirm Hiring" }}
           </button>
@@ -327,73 +327,73 @@ function closeModal() {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.card { background: var(--jd-surface); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 
 /* ---------- หัวโพสต์ผู้รับจ้าง ---------- */
 .post-head { display: flex; gap: 10px; }
 .avatar {
-  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ddd;
-  display: flex; align-items: center; justify-content: center; color: #555;
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--jd-input-border);
+  display: flex; align-items: center; justify-content: center; color: var(--jd-muted);
 }
-.worker-name { margin: 0; font-size: 14px; font-weight: 700; color: #111; }
-.posted-ago { font-size: 11px; font-weight: 400; color: #999; margin-left: 4px; }
-.post-desc { margin: 2px 0 0; font-size: 12.5px; color: #555; }
+.worker-name { margin: 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.posted-ago { font-size: 0.875rem; font-weight: 400; color: var(--jd-muted); margin-left: 4px; }
+.post-desc { margin: 2px 0 0; font-size: 0.875rem; color: var(--jd-muted); }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.tag { background: #eee; color: #444; font-size: 11px; padding: 3px 8px; border-radius: 10px; }
+.tag { background: var(--jd-line); color: var(--jd-muted); font-size: 0.875rem; padding: 3px 8px; border-radius: 10px; }
 
 /* ---------- ฟอร์ม ---------- */
-.section-title { margin: 0 0 12px; font-size: 14px; font-weight: 700; color: #111; }
-.field-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 12px; color: #666; }
-.field-hint { margin: 4px 0 0; font-size: 11px; color: #999; }
-.payment-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: #fff6d8; color: #705500; font-size: 12px; line-height: 1.5; }
+.section-title { margin: 0 0 12px; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.field-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 0.875rem; color: var(--jd-muted); }
+.field-hint { margin: 4px 0 0; font-size: 0.875rem; color: var(--jd-muted); }
+.payment-note { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: #fff6d8; color: #705500; font-size: 0.875rem; line-height: 1.5; }
 input, textarea {
-  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #ddd;
-  font-size: 13px; font-family: inherit; min-height: 42px; color: #111; background: #fff;
+  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--jd-input-border);
+  font-size: 0.875rem; font-family: inherit; min-height: 44px; color: var(--jd-ink); background: var(--jd-surface);
 }
 textarea { resize: vertical; }
 .input-suffix { position: relative; display: flex; align-items: center; }
 .input-suffix input { padding-right: 46px; }
-.input-suffix .suffix { position: absolute; right: 12px; font-size: 12px; color: #999; }
+.input-suffix .suffix { position: absolute; right: 12px; font-size: 0.875rem; color: var(--jd-muted); }
 .input-icon { position: relative; display: flex; align-items: center; }
 .input-icon input { padding-right: 36px; }
-.input-icon .pin, .input-icon .chevron { position: absolute; right: 10px; width: 16px; height: 16px; color: #999; }
+.input-icon .pin, .input-icon .chevron { position: absolute; right: 10px; width: 16px; height: 16px; color: var(--jd-muted); }
 
 /* ---------- สรุปคำสั่งซื้อ ---------- */
 .review-list { margin: 0; display: flex; flex-direction: column; }
-.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #f2f2f2; }
+.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--jd-subtle); }
 .review-row:last-child { border-bottom: none; }
-.review-row dt { flex-shrink: 0; font-size: 12px; color: #999; }
-.review-row dd { margin: 0; font-size: 13px; color: #111; font-weight: 600; text-align: right; }
-.review-row.total dt, .review-row.total dd { font-size: 15px; font-weight: 800; color: #111; }
-.review-row.total dd { color: #d99a00; }
+.review-row dt { flex-shrink: 0; font-size: 0.875rem; color: var(--jd-muted); }
+.review-row dd { margin: 0; font-size: 0.875rem; color: var(--jd-ink); font-weight: 600; text-align: right; }
+.review-row.total dt, .review-row.total dd { font-size: 0.9375rem; font-weight: 800; color: var(--jd-ink); }
+.review-row.total dd { color: var(--jd-warning); }
 
 /* ---------- ปุ่ม ---------- */
 .actions { display: flex; gap: 10px; }
 .btn-primary, .btn-muted {
-  flex: 1; min-height: 44px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+  flex: 1; min-height: 44px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
-.btn-primary { background: #ffc93c; border: none; color: #111; }
+.btn-primary { background: var(--jd-accent); border: none; color: var(--jd-ink); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-muted { background: #e5e5e5; border: none; color: #333; }
-.error-msg { margin: 10px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
+.btn-muted { background: var(--jd-line); border: none; color: var(--jd-ink); }
+.error-msg { margin: 10px 0 0; font-size: 0.875rem; color: #e11d48; text-align: center; }
 
 /* ---------- โมดัลสำเร็จ ---------- */
 .modal-backdrop {
@@ -402,22 +402,22 @@ textarea { resize: vertical; }
 }
 .modal-card {
   width: min(100%, 380px); max-height: calc(100dvh - 40px); overflow-y: auto; box-sizing: border-box;
-  background: #fff; border-radius: 20px; padding: 28px 24px; box-shadow: 0 20px 60px #10182830; outline: none;
+  background: var(--jd-surface); border-radius: 20px; padding: 28px 24px; box-shadow: 0 20px 60px #10182830; outline: none;
   display: flex; flex-direction: column; align-items: center; text-align: center;
 }
 .check-circle {
-  width: 56px; height: 56px; border-radius: 50%; background: #22c55e; color: #fff;
+  width: 56px; height: 56px; border-radius: 50%; background: #22c55e; color: var(--jd-surface);
   display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
 }
 .check-circle svg { width: 28px; height: 28px; stroke-width: 3; }
-.modal-title { margin: 0 0 12px; font-size: 20px; line-height: 1.4; font-weight: 700; color: #111; }
-.modal-recipient { margin: 0 0 12px; font-size: 14px; line-height: 1.7; color: #475467; overflow-wrap: anywhere; }
+.modal-title { margin: 0 0 12px; font-size: 1.25rem; line-height: 1.4; font-weight: 700; color: var(--jd-ink); }
+.modal-recipient { margin: 0 0 12px; font-size: 0.875rem; line-height: 1.7; color: #475467; overflow-wrap: anywhere; }
 .modal-recipient strong { color: #344054; }
-.modal-sub { margin: 0; font-size: 13px; line-height: 1.7; color: #667085; }
+.modal-sub { margin: 0; font-size: 0.875rem; line-height: 1.7; color: var(--jd-muted); }
 .modal-actions { display: grid; gap: 10px; width: 100%; margin-top: 24px; }
-.modal-primary, .modal-secondary { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; min-height: 46px; padding: 12px 16px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 700; line-height: 1.5; text-decoration: none; cursor: pointer; }
-.modal-primary { background: #ffc93c; color: #302500; border: 1px solid #ffc93c; }
-.modal-secondary { background: #fff; color: #475467; border: 1px solid #d0d5dd; }
+.modal-primary, .modal-secondary { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 100%; min-height: 46px; padding: 12px 16px; border-radius: 10px; font: inherit; font-size: 0.875rem; font-weight: 700; line-height: 1.5; text-decoration: none; cursor: pointer; }
+.modal-primary { background: var(--jd-accent); color: #302500; border: 1px solid var(--jd-accent); }
+.modal-secondary { background: var(--jd-surface); color: #475467; border: 1px solid var(--jd-input-border); }
 .modal-primary:hover { background: #ffbf1f; }
 .modal-secondary:hover { background: #f9fafb; }
 .modal-primary:focus-visible, .modal-secondary:focus-visible { outline: 3px solid #a46a00; outline-offset: 3px; }

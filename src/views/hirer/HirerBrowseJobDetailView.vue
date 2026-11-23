@@ -59,7 +59,7 @@ function goBack() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page -->
     <header class="topbar">
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="goBack">
@@ -112,43 +112,43 @@ function goBack() {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.card { background: var(--jd-surface); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 
 /* ---------- หัวข้องาน ---------- */
 .job-head { display: flex; gap: 10px; }
 .avatar {
-  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ddd;
-  display: flex; align-items: center; justify-content: center; color: #555;
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--jd-input-border);
+  display: flex; align-items: center; justify-content: center; color: var(--jd-muted);
 }
-.hirer-name { margin: 0; font-size: 14px; font-weight: 700; color: #111; }
-.posted-ago { font-size: 11px; font-weight: 400; color: #999; margin-left: 4px; }
-.job-desc { margin: 2px 0 0; font-size: 12.5px; color: #555; }
+.hirer-name { margin: 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.posted-ago { font-size: 0.875rem; font-weight: 400; color: var(--jd-muted); margin-left: 4px; }
+.job-desc { margin: 2px 0 0; font-size: 0.875rem; color: var(--jd-muted); }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.tag { background: #eee; color: #444; font-size: 11px; padding: 3px 8px; border-radius: 10px; }
+.tag { background: var(--jd-line); color: var(--jd-muted); font-size: 0.875rem; padding: 3px 8px; border-radius: 10px; }
 
 /* ---------- รายละเอียด ---------- */
-.section-title { margin: 0 0 10px; font-size: 13px; font-weight: 700; color: #111; }
+.section-title { margin: 0 0 10px; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
 .detail-list { margin: 0; display: flex; flex-direction: column; }
-.detail-row { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid #f2f2f2; }
+.detail-row { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-bottom: 1px solid var(--jd-subtle); }
 .detail-row:last-child { border-bottom: none; }
-.detail-row dt { font-size: 12px; color: #999; }
-.detail-row dd { margin: 0; font-size: 13px; color: #111; font-weight: 600; }
+.detail-row dt { font-size: 0.875rem; color: var(--jd-muted); }
+.detail-row dd { margin: 0; font-size: 0.875rem; color: var(--jd-ink); font-weight: 600; }
 </style>

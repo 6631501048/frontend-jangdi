@@ -10,6 +10,7 @@ import WorkerMyServicePostView from "./WorkerMyServicePostView.vue";
 const router = useRouter();
 const route = useRoute();
 const viewMode = ref(route.query.view === "services" ? "services" : "jobs");
+watch(() => route.query.view, value => { viewMode.value = value === 'services' ? 'services' : 'jobs'; });
 
 const tabs = [
   { value: "waiting", label: "รอผู้ว่าจ้างเลือก" },
@@ -79,7 +80,7 @@ function openJob(job) {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page -->
     <header class="topbar">
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="router.back()">
@@ -91,8 +92,8 @@ function openJob(job) {
 
     <main class="content">
       <nav class="section-tabs" aria-label="ประเภทงานของฉัน">
-        <button type="button" :class="{ active: viewMode === 'jobs' }" @click="viewMode = 'jobs'">งานที่สมัคร</button>
-        <button type="button" :class="{ active: viewMode === 'services' }" @click="viewMode = 'services'">บริการที่โพสต์</button>
+        <button :aria-pressed="viewMode === 'jobs'" type="button" :class="{ active: viewMode === 'jobs' }" @click="viewMode = 'jobs'">งานที่สมัคร</button>
+        <button :aria-pressed="viewMode === 'services'" type="button" :class="{ active: viewMode === 'services' }" @click="viewMode = 'services'">บริการที่โพสต์</button>
       </nav>
 
       <WorkerMyServicePostView v-if="viewMode === 'services'" embedded />
@@ -100,7 +101,7 @@ function openJob(job) {
       <template v-else>
       <!-- แท็บสถานะ -->
       <nav class="tabs">
-        <button
+        <button :aria-pressed="activeTab === t.value"
           v-for="t in tabs"
           :key="t.value"
           :class="{ active: activeTab === t.value }"
@@ -142,64 +143,64 @@ function openJob(job) {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; }
 
-.section-tabs { display:flex; gap:8px; margin-bottom:14px; padding:4px; border:1px solid #eee; border-radius:11px; background:#fff; }
-.section-tabs button { flex:1; min-height:40px; border:0; border-radius:8px; background:transparent; color:#555; font-size:13px; cursor:pointer; }
-.section-tabs button.active { background:#ffc93c; color:#111; font-weight:700; }
+.section-tabs { display:flex; gap:8px; margin-bottom:14px; padding:4px; border:1px solid var(--jd-line); border-radius:11px; background:var(--jd-surface); }
+.section-tabs button { flex:1; min-height: 44px; border:0; border-radius:8px; background:transparent; color:var(--jd-muted); font-size: 0.875rem; cursor:pointer; }
+.section-tabs button.active { background:var(--jd-accent); color:var(--jd-ink); font-weight:700; }
 
 /* ---------- Tabs ---------- */
 .tabs {
-  display: flex; background: #fff; border-radius: 10px; overflow: hidden;
-  border: 1px solid #eee; margin-bottom: 14px;
+  display: flex; background: var(--jd-surface); border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--jd-line); margin-bottom: 14px;
 }
 .tabs button {
-  flex: 1; min-height: 40px; border: none; background: transparent;
-  font-size: 12.5px; color: #555; cursor: pointer;
+  flex: 1; min-height: 44px; border: none; background: transparent;
+  font-size: 0.875rem; color: var(--jd-muted); cursor: pointer;
 }
-.tabs button.active { background: #ffc93c; color: #111; font-weight: 700; }
+.tabs button.active { background: var(--jd-accent); color: var(--jd-ink); font-weight: 700; }
 
 /* ---------- รายการงาน ---------- */
 .job-list { display: flex; flex-direction: column; gap: 10px; }
 .job-row {
   display: flex; align-items: center; gap: 10px; text-align: left;
-  background: #fff; border: none; border-radius: 12px; padding: 14px 12px;
+  background: var(--jd-surface); border: none; border-radius: 12px; padding: 14px 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); cursor: default; width: 100%;
 }
 .job-row.clickable { cursor: pointer; }
 .job-avatar {
-  flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; border: 1px solid #ddd;
-  display: flex; align-items: center; justify-content: center; color: #555;
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--jd-input-border);
+  display: flex; align-items: center; justify-content: center; color: var(--jd-muted);
 }
 .job-body { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
-.job-hirer { margin: 0; font-size: 11px; line-height: 1.35; color: #999; }
-.job-title { margin: 0; font-size: 13px; line-height: 1.35; font-weight: 700; color: #111; }
-.job-meta { margin: 0; font-size: 11px; line-height: 1.35; color: #888; }
+.job-hirer { margin: 0; font-size: 0.875rem; line-height: 1.35; color: var(--jd-muted); }
+.job-title { margin: 0; font-size: 0.875rem; line-height: 1.35; font-weight: 700; color: var(--jd-ink); }
+.job-meta { margin: 0; font-size: 0.875rem; line-height: 1.35; color: var(--jd-muted); }
 .job-right { flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
-.status-tag { font-size: 11px; font-weight: 700; white-space: nowrap; }
-.status-tag.gold { color: #b8860b; }
+.status-tag { font-size: 0.875rem; font-weight: 700; white-space: nowrap; }
+.status-tag.gold { color: var(--jd-warning); }
 .status-tag.purple { color: #6d5bd0; }
-.status-tag.green { color: #1a9c4a; }
+.status-tag.green { color: var(--jd-success); }
 .status-tag.red { color: #e11d48; }
-.chevron { width: 14px; height: 14px; color: #ccc; }
+.chevron { width: 14px; height: 14px; color: var(--jd-input-border); }
 
-.error-msg { color: #b91c1c; padding: 12px; text-align: center; font-size: 13px; }
-.empty { text-align: center; color: #888; margin-top: 40px; font-size: 14px; }
+.error-msg { color: #b91c1c; padding: 12px; text-align: center; font-size: 0.875rem; }
+.empty { text-align: center; color: var(--jd-muted); margin-top: 40px; font-size: 0.875rem; }
 </style>

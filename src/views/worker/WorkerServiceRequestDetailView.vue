@@ -80,13 +80,13 @@ async function respond(action) {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page -->
     <header class="topbar">
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="router.back()">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">Details Request</h1>
+      <h1 class="title">รายละเอียดคำขอ</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -115,7 +115,7 @@ async function respond(action) {
         <div class="card">
           <p class="section-title">สรุปประมาณการ</p>
           <div class="fee-row"><span>{{ request.feeLabel }}</span><strong>{{ request.serviceFee }} บาท</strong></div>
-          <div class="fee-row"><span>Platform service + transaction fees</span><strong>{{ platformFee.toFixed(2) }} Baht</strong></div>
+          <div class="fee-row"><span>Platform service + transaction fees</span><strong>{{ platformFee.toFixed(2) }} บาท</strong></div>
           <div class="total-row"><span>ยอดชำระผ่านระบบ</span><span>{{ payableTotal.toFixed(2) }} บาท</span></div>
         </div>
         <p v-if="isPending && !canAccept" class="empty">ประกาศนี้ปิดรับหรือเต็มจำนวนแล้ว ไม่สามารถตอบรับเพิ่มได้</p>
@@ -133,69 +133,69 @@ async function respond(action) {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.card { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.card { background: var(--jd-surface); border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 
 /* ---------- ผู้ขอ ---------- */
 .requester-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .avatar {
-  flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #ddd;
-  display: flex; align-items: center; justify-content: center; color: #555;
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--jd-input-border);
+  display: flex; align-items: center; justify-content: center; color: var(--jd-muted);
 }
-.requester-name { margin: 0; font-size: 13.5px; font-weight: 700; color: #111; }
-.requester-loc { margin: 1px 0 0; font-size: 11px; color: #999; }
+.requester-name { margin: 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.requester-loc { margin: 1px 0 0; font-size: 0.875rem; color: var(--jd-muted); }
 
-.items-title { margin: 0 0 6px; font-size: 11px; color: #999; }
+.items-title { margin: 0 0 6px; font-size: 0.875rem; color: var(--jd-muted); }
 .items-list { list-style: none; margin: 0 0 6px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.items-list li { display: flex; justify-content: space-between; font-size: 13px; color: #111; }
+.items-list li { display: flex; justify-content: space-between; font-size: 0.875rem; color: var(--jd-ink); }
 .item-name { display: flex; align-items: center; gap: 6px; }
-.item-name .dot { width: 6px; height: 6px; border-radius: 50%; background: #ffc93c; flex-shrink: 0; }
+.item-name .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--jd-accent); flex-shrink: 0; }
 
 .fee-row {
-  display: flex; justify-content: space-between; font-size: 12.5px; color: #666;
-  padding-top: 10px; margin-top: 6px; border-top: 1px solid #f2f2f2;
+  display: flex; justify-content: space-between; font-size: 0.875rem; color: var(--jd-muted);
+  padding-top: 10px; margin-top: 6px; border-top: 1px solid var(--jd-subtle);
 }
 .total-row {
-  display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; color: #111;
-  padding-top: 8px; margin-top: 6px; border-top: 1px solid #f2f2f2;
+  display: flex; justify-content: space-between; font-size: 0.875rem; font-weight: 800; color: var(--jd-ink);
+  padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--jd-subtle);
 }
-.total-row span:last-child { color: #d99a00; }
+.total-row span:last-child { color: var(--jd-warning); }
 
 /* ---------- ที่อยู่ / หมายเหตุ ---------- */
-.section-title { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #111; }
-.address-line { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; color: #111; }
-.address-line .pin { width: 15px; height: 15px; color: #999; }
-.address-detail { margin: 4px 0 0 21px; font-size: 12px; color: #999; }
-.notes-text { margin: 0; font-size: 12.5px; color: #333; line-height: 1.5; }
+.section-title { margin: 0 0 8px; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.address-line { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 0.875rem; color: var(--jd-ink); }
+.address-line .pin { width: 15px; height: 15px; color: var(--jd-muted); }
+.address-detail { margin: 4px 0 0 21px; font-size: 0.875rem; color: var(--jd-muted); }
+.notes-text { margin: 0; font-size: 0.875rem; color: var(--jd-ink); line-height: 1.5; }
 
 /* ---------- ปุ่มยอมรับ ---------- */
 .accept-wrap { display: flex; justify-content: center; padding-top: 6px; }
 .btn-accept {
   min-width: 200px; min-height: 46px; padding: 0 24px; border: none; border-radius: 10px;
-  background: #ffc93c; color: #111; font-size: 14px; font-weight: 700; cursor: pointer;
+  background: var(--jd-accent); color: var(--jd-ink); font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
 .btn-accept:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>
 
 <style scoped>
 .btn-decline { min-height:46px; padding:0 22px; background:white; border:1px solid #dc2626; border-radius:10px; color:#b91c1c; cursor:pointer; }
-.fine-print { font-size:12px; color:#666; line-height:1.5; }
-.request-state { font-size:12px; color:#765107; font-weight:700; }
+.fine-print { font-size: 0.875rem; color:var(--jd-muted); line-height:1.5; }
+.request-state { font-size: 0.875rem; color:#765107; font-weight:700; }
 </style>

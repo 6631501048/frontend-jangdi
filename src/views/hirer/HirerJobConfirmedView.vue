@@ -37,20 +37,20 @@ function goToMyJobs() {
 </script>
 
 <template>
-  <main v-if="job" class="confirmed">
-    <AppHeader title="Job Confirm" />
+  <main v-if="job" class="confirmed jd-page">
+    <AppHeader title="ยืนยันงานแล้ว" />
 
     <section class="content">
       <div class="check">✓</div>
-      <p class="label">You have Selected</p>
+      <p class="label">เลือกผู้รับจ้างเรียบร้อยแล้ว</p>
       <p class="label">{{paymentStatus(payment?.status)}} · ไม่มีการโอนเงินจริง</p>
       <h2 class="worker-name">{{ job.selectedWorker?.name }}</h2>
 
       <div class="card">
-        <div class="row"><span>Job Details</span></div>
-        <div class="row"><strong>{{ job.title }}</strong><span class="price">{{ job.price }} Baht</span></div>
+        <div class="row"><span>รายละเอียดงาน</span></div>
+        <div class="row"><strong>{{ job.title }}</strong><span class="price">{{ job.price }} บาท</span></div>
         <div class="row muted"><span>Duration: {{ job.scheduledLabel }}</span></div>
-        <div class="row"><span>Total Payment (Demo)</span><strong>{{ Number(payment?.totalDue ?? job.total).toFixed(2) }} Baht</strong></div>
+        <div class="row"><span>ยอดชำระทั้งหมด (ทดสอบ)</span><strong>{{ Number(payment?.totalDue ?? job.total).toFixed(2) }} บาท</strong></div>
       </div>
 
       <button class="btn primary" @click="router.push({ name: 'hirer-mock-payment', params: { id: route.params.id } })">ชำระเงิน / ติดตามหลักฐานจ่ายค่าจ้าง</button>
@@ -64,14 +64,14 @@ function goToMyJobs() {
 .content { padding: 24px 16px; text-align: center; }
 .check {
   width: 64px; height: 64px; border-radius: 50%; background: #16a34a; color: white;
-  font-size: 32px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+  font-size: 2rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
 }
-.label { color: #888; font-size: 13px; margin: 0; }
-.worker-name { font-size: 22px; margin: 4px 0 24px; }
-.card { text-align: left; border: 1px solid #eee; border-radius: 12px; padding: 14px; margin-bottom: 24px; }
-.row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
-.row.muted { color: #888; }
+.label { color: var(--jd-muted); font-size: 0.875rem; margin: 0; }
+.worker-name { font-size: 1.375rem; margin: 4px 0 24px; }
+.card { text-align: left; border: 1px solid var(--jd-line); border-radius: 12px; padding: 14px; margin-bottom: 24px; }
+.row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.875rem; }
+.row.muted { color: var(--jd-muted); }
 .price { font-weight: 700; }
-.btn { width: 100%; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 14px; border: none; cursor: pointer; }
-.btn.primary { background: #fbbf24; color: #78350f; }
+.btn { width: 100%; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 0.875rem; border: none; cursor: pointer; }
+.btn.primary { background: var(--jd-accent); color: #78350f; }
 </style>

@@ -172,10 +172,10 @@ async function reject(post) {
 
 <template>
   <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
-  <section class="posts">
+  <section class="posts jd-page">
     <div class="header-row">
       <div>
-        <p class="section-title">Manage Posts — ทุกสถานะงาน</p>
+        <h1 class="section-title">จัดการประกาศ</h1>
         <p class="subtitle">ติดตามงานตั้งแต่รออนุมัติจนถึงเสร็จสิ้นหรือยกเลิก · Admin แก้ผลอนุมัติได้เฉพาะประกาศที่รอตรวจสอบ</p>
       </div>
       <button class="refresh-btn" :disabled="loading" @click="loadPosts">{{ loading ? "Loading..." : "Refresh" }}</button>
@@ -227,8 +227,8 @@ async function reject(post) {
               {{ expandedId === post._id ? "ซ่อนรายละเอียด" : "ดูรายละเอียด" }}
             </button>
             <template v-if="post.status === 'pending_review'">
-              <button type="button" class="action-btn approve" :disabled="Boolean(actionLoading)" @click="approve(post)">Approve</button>
-              <button type="button" class="action-btn reject" :disabled="Boolean(actionLoading)" @click="reject(post)">Reject</button>
+              <button type="button" class="action-btn approve" :disabled="Boolean(actionLoading)" @click="approve(post)">อนุมัติ</button>
+              <button type="button" class="action-btn reject" :disabled="Boolean(actionLoading)" @click="reject(post)">ปฏิเสธ</button>
             </template>
           </div>
           <dl v-if="expandedId === post._id" class="detail-box">
@@ -267,7 +267,7 @@ async function reject(post) {
 
 .post-type-tabs button {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   border: 1px solid var(--color-border);
   border-radius: 9px;
   background: var(--color-surface);
@@ -297,7 +297,7 @@ async function reject(post) {
 .subtitle {
   margin: 3px 0 0;
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 
 .refresh-btn {
@@ -349,26 +349,26 @@ async function reject(post) {
 
 .post-title {
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
 .post-meta {
   margin: 4px 0 0;
-  font-size: 11px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
 .post-text {
   margin: 10px 0;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 .post-info {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  font-size: 11px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
@@ -378,7 +378,7 @@ async function reject(post) {
   border-radius: 999px;
   background: var(--color-primary-light);
   color: var(--color-primary-dark);
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -390,7 +390,7 @@ async function reject(post) {
 
 .action-btn {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   font-weight: 700;
@@ -434,13 +434,13 @@ async function reject(post) {
   }
 }
 
-.status-filter-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; color: var(--color-text-muted); font-size: 12px; }
+.status-filter-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; color: var(--color-text-muted); font-size: 0.875rem; }
 .status-filter-summary { color: var(--color-text); font-weight: 700; }
 .status-groups { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 8px 0; }
-.group-tab { min-height: 38px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: 8px; padding: 7px 8px; cursor: pointer; color: var(--color-text-muted); font-size: 12px; }
+.group-tab { min-height: 44px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: 8px; padding: 7px 8px; cursor: pointer; color: var(--color-text-muted); font-size: 0.875rem; }
 .group-tab.chosen { border-color: var(--color-primary); background: var(--color-primary-light); color: var(--color-text); font-weight: 700; }
 .status-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; padding: 8px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
-.tab { border: 1px solid transparent; background: transparent; border-radius: 20px; padding: 7px 10px; cursor: pointer; color: var(--color-text-muted); font-size: 12px; }
+.tab { border: 1px solid transparent; background: transparent; border-radius: 20px; padding: 7px 10px; cursor: pointer; color: var(--color-text-muted); font-size: 0.875rem; }
 .tab.chosen { background: var(--color-primary); color: #3a2a05; font-weight: 700; }
 .status-badge { white-space: nowrap; }
 .status-completed { background: #dcfce7; color: #166534; }
@@ -449,11 +449,11 @@ async function reject(post) {
 .status-rejected, .status-cancelled, .status-disputed { background: #fee2e2; color: #991b1b; }
 .status-waiting { background: #e0e7ff; color: #3730a3; }
 .action-btn.outline { background: transparent; color: var(--color-text); border: 1px solid var(--color-border); }
-.detail-box { margin: 12px 0 0; background: var(--color-surface); border-top: 1px solid var(--color-border); padding-top: 12px; font-size: 12px; }
+.detail-box { margin: 12px 0 0; background: var(--color-surface); border-top: 1px solid var(--color-border); padding-top: 12px; font-size: 0.875rem; }
 .detail-box div { display: flex; justify-content: space-between; gap: 12px; margin: 7px 0; }
 .detail-box dt { color: var(--color-text-muted); min-width: 108px; }
 .detail-box dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
-.pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 18px; font-size: 12px; }
+.pager { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 18px; font-size: 0.875rem; }
 .search-box { border-radius: 12px; }
 .search-box .refresh-btn { flex-shrink: 0; }
 @media (max-width: 600px) {

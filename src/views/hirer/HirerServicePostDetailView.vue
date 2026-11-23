@@ -32,7 +32,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <header class="topbar">
       <button class="back" aria-label="ย้อนกลับ" @click="router.back()">‹</button>
       <h1>รายละเอียดบริการ</h1><span class="spacer"></span>
@@ -81,13 +81,13 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.page { min-height: 100vh; background: #f0f0f0; }
-.topbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #fff; border-bottom: 1px solid #eee; }
-.back { width: 40px; height: 40px; border: 0; background: transparent; font-size: 30px; cursor: pointer; }
-h1 { margin: 0; font-size: 16px; }.spacer { width: 40px; }
-.content { padding: 16px; display: grid; gap: 12px; }.card { padding: 16px; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px #0001; }
-.worker { margin: 0 0 6px; color: #777; font-size: 13px; }h2 { margin: 0 0 8px; font-size: 18px; }.description { margin: 0; white-space: pre-wrap; }
-.details > div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid #eee; }.details > div:last-child { border: 0; }.details span { color: #777; }.details strong { text-align: right; }
-.worker-summary { display:flex; align-items:flex-start; gap:12px; }.worker-avatar { flex:0 0 40px; width:40px; height:40px; display:grid; place-items:center; border-radius:50%; background:#f3f4f6; color:#6b7280; font-weight:700; }.worker-summary h2 { margin:4px 0 8px; }.worker-summary .description { white-space:pre-wrap; }.worker-details dl { margin:0; }.worker-details dl > div { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid #eee; }.worker-details dl > div:last-child { border:0; }.worker-details dt { color:#777; }.worker-details dd { margin:0; text-align:right; font-weight:600; }
-.apply { display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 9px; background: #ffc93c; color: #111; font-weight: 700; text-decoration: none; }.muted,.error { text-align: center; color: #777; }.error { color: #c22; }
+.page { min-height: 100vh; background: var(--jd-canvas); }
+.topbar { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--jd-surface); border-bottom: 1px solid var(--jd-line); }
+.back { width: 40px; height: 40px; border: 0; background: transparent; font-size: 1.875rem; cursor: pointer; }
+h1 { margin: 0; font-size: 1rem; }.spacer { width: 40px; }
+.content { padding: 16px; display: grid; gap: 12px; }.card { padding: 16px; background: var(--jd-surface); border-radius: 12px; box-shadow: 0 1px 3px #0001; }
+.worker { margin: 0 0 6px; color: var(--jd-muted); font-size: 0.875rem; }h2 { margin: 0 0 8px; font-size: 1.125rem; }.description { margin: 0; white-space: pre-wrap; }
+.details > div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--jd-line); }.details > div:last-child { border: 0; }.details span { color: var(--jd-muted); }.details strong { text-align: right; }
+.worker-summary { display:flex; align-items:flex-start; gap:12px; }.worker-avatar { flex:0 0 40px; width:40px; height:40px; display:grid; place-items:center; border-radius:50%; background:var(--jd-subtle); color:#6b7280; font-weight:700; }.worker-summary h2 { margin:4px 0 8px; }.worker-summary .description { white-space:pre-wrap; }.worker-details dl { margin:0; }.worker-details dl > div { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid var(--jd-line); }.worker-details dl > div:last-child { border:0; }.worker-details dt { color:var(--jd-muted); }.worker-details dd { margin:0; text-align:right; font-weight:600; }
+.apply { display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 9px; background: var(--jd-accent); color: var(--jd-ink); font-weight: 700; text-decoration: none; }.muted,.error { text-align: center; color: var(--jd-muted); }.error { color: #c22; }
 </style>

@@ -137,10 +137,10 @@ onMounted(loadAlerts);
 
 <template>
   <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
-  <section class="sos">
+  <section class="sos jd-page">
     <div class="header-row">
       <div>
-        <p class="section-title">SOS Alert</p>
+        <h1 class="section-title">แจ้งเหตุฉุกเฉิน</h1>
         <p class="subtitle">
           รับและจัดการสัญญาณ SOS จาก Worker
         </p>
@@ -157,9 +157,7 @@ onMounted(loadAlerts);
 
     <div class="card overview-card">
       <div class="overview-header">
-        <span class="overview-title">
-          SOS Alert overview
-        </span>
+        <span class="overview-title"> ภาพรวมเหตุฉุกเฉิน </span>
       </div>
 
       <div class="overview-stats">
@@ -167,27 +165,27 @@ onMounted(loadAlerts);
           <p class="overview-value">
             {{ counts.all }}
           </p>
-          <p class="overview-label">All</p>
+          <p class="overview-label">ทั้งหมด</p>
         </div>
 
         <div class="overview-stat">
           <p class="overview-value">
             {{ counts.complete }}
           </p>
-          <p class="overview-label">Complete</p>
+          <p class="overview-label">ดำเนินการแล้ว</p>
         </div>
 
         <div class="overview-stat">
           <p class="overview-value danger">
             {{ counts.pending }}
           </p>
-          <p class="overview-label">Pending</p>
+          <p class="overview-label">รอดำเนินการ</p>
         </div>
       </div>
     </div>
 
     <nav class="tabs">
-      <button
+      <button :aria-pressed="activeFilter === filter"
         v-for="filter in filters"
         :key="filter"
         :class="{ active: activeFilter === filter }"
@@ -250,39 +248,39 @@ onMounted(loadAlerts);
           class="alert-detail"
         >
           <p class="detail-row">
-            <span>Worker</span>
+            <span>ผู้รับจ้าง</span>
             <strong>
               {{ alert.worker?.fullName || "-" }}
             </strong>
           </p>
 
           <p class="detail-row">
-            <span>Phone</span>
+            <span>เบอร์โทรศัพท์</span>
             <strong>
               {{ alert.worker?.phone || "-" }}
             </strong>
           </p>
 
           <p class="detail-row">
-            <span>Job</span>
+            <span>งาน</span>
             <strong>
               {{ alert.job?.title || "-" }}
             </strong>
           </p>
 
           <p class="detail-row">
-            <span>Location</span>
+            <span>สถานที่</span>
             <strong>
               {{ locationText(alert) }}
             </strong>
           </p>
 
           <p v-if="mapsLink(alert)" class="detail-row">
-            <span>Map</span>
+            <span>แผนที่</span>
             <a :href="mapsLink(alert)" target="_blank" rel="noopener noreferrer">เปิดตำแหน่งบนแผนที่</a>
           </p>
           <p class="detail-row">
-            <span>Triggered</span>
+            <span>เวลาแจ้งเหตุ</span>
             <strong>
               {{ formatDate(alert.triggeredAt) }}
             </strong>
@@ -297,7 +295,7 @@ onMounted(loadAlerts);
           </p>
 
           <p v-if="alert.resolvedAt" class="detail-row">
-            <span>Resolved</span><strong>{{ formatDate(alert.resolvedAt) }}</strong>
+            <span>ดำเนินการแล้ว</span><strong>{{ formatDate(alert.resolvedAt) }}</strong>
           </p>
           <label v-if="alert.status === 'active'" class="resolution-input">
             หมายเหตุการดำเนินการ (5–1000 ตัวอักษร)
@@ -307,9 +305,7 @@ onMounted(loadAlerts);
             <button
               class="action-btn ghost"
               @click.stop="contactWorker(alert)"
-            >
-              Contact Worker
-            </button>
+            > ติดต่อผู้รับจ้าง </button>
 
             <button
               v-if="alert.status === 'active'"
@@ -352,7 +348,7 @@ onMounted(loadAlerts);
 
 .subtitle {
   margin: 3px 0 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
@@ -379,7 +375,7 @@ onMounted(loadAlerts);
 }
 
 .overview-title {
-  font-size: 12px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
   font-weight: 600;
 }
@@ -400,7 +396,7 @@ onMounted(loadAlerts);
 
 .overview-value {
   margin: 0;
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 800;
 }
 
@@ -410,7 +406,7 @@ onMounted(loadAlerts);
 
 .overview-label {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
@@ -469,7 +465,7 @@ onMounted(loadAlerts);
 
 .alert-text {
   flex: 1;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
@@ -478,7 +474,7 @@ onMounted(loadAlerts);
 }
 
 .status-badge {
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 700;
   padding: 5px 10px;
   border-radius: 999px;
@@ -509,7 +505,7 @@ onMounted(loadAlerts);
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 13px;
+  font-size: 0.875rem;
   margin: 0 0 7px;
 }
 
@@ -521,7 +517,7 @@ onMounted(loadAlerts);
   padding: 8px;
   border-radius: 8px;
   background: var(--color-bg);
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 
 .action-row {
@@ -532,7 +528,7 @@ onMounted(loadAlerts);
 
 .action-btn {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   font-weight: 700;
@@ -570,6 +566,6 @@ onMounted(loadAlerts);
     width: 100%;
   }
 }
-.resolution-input { display: grid; gap: 6px; margin: 12px 0; font-size: 12px; font-weight: 600; }
+.resolution-input { display: grid; gap: 6px; margin: 12px 0; font-size: 0.875rem; font-weight: 600; }
 .resolution-input textarea { width: 100%; resize: vertical; padding: 10px; border-radius: 8px; border: 1px solid var(--color-border); font: inherit; }
 </style>

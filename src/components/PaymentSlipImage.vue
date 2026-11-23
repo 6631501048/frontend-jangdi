@@ -11,4 +11,4 @@ const load=(force=false)=>loader.load({_id:props.paymentId,completionProofUrl:pr
 watch(()=>[props.paymentId,props.direction,props.version],()=>{emit('loaded',false);load();},{immediate:true});onBeforeUnmount(()=>{loader.dispose();emit('loaded',false);});
 </script>
 <template><div class="slip-image"><p v-if="state.loading" role="status">กำลังโหลดสลิป…</p><a v-else-if="state.url" :href="state.url" target="_blank" rel="noopener"><img :src="state.url" alt="สลิปจำลองของรายการนี้" @load="emit('loaded',true)" @error="emit('loaded',false);loader.fail('แสดงรูปสลิปไม่สำเร็จ')" /><span>ดูสลิปขนาดเต็ม</span></a><p v-else-if="state.error" role="alert">{{state.error}} <button @click="load(true)">ลองใหม่</button></p></div></template>
-<style scoped>.slip-image{margin:12px 0;font-size:12px}.slip-image a{display:grid;gap:6px;color:#755200}.slip-image img{max-width:100%;max-height:260px;object-fit:contain;border-radius:8px}</style>
+<style scoped>.slip-image{margin:12px 0;font-size: 0.875rem}.slip-image a{display:grid;gap:6px;color:var(--jd-warning)}.slip-image img{max-width:100%;max-height:260px;object-fit:contain;border-radius:8px}</style>

@@ -4,6 +4,8 @@ import { useAuthStore } from "../stores/auth";
 const routes = [
   { path: "/", redirect: "/login" },
   { path: "/login", name: "login", component: () => import("../views/auth/LoginView.vue") },
+  { path: '/forgot-password', name: 'forgot-password', component: () => import('../views/auth/ForgotPasswordView.vue'), meta: { authRecovery: true } },
+  { path: '/reset-password', name: 'reset-password', component: () => import('../views/auth/ResetPasswordView.vue'), meta: { authRecovery: true } },
   { path: "/register", name: "register", component: () => import("../views/auth/RegisterView.vue") },
   { path: "/verify-email", name: "verify-email", component: () => import("../views/auth/VerifyEmailView.vue") },
   {
@@ -277,6 +279,7 @@ router.beforeEach((to) => {
   if (
     auth.isLoggedIn &&
     !auth.isProfileComplete &&
+    !to.meta.authRecovery &&
     to.name !== "register" &&
     to.name !== "login"
   ) {

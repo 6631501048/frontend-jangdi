@@ -144,9 +144,9 @@ onMounted(loadUsers);
 
 <template>
   <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
-  <section class="users">
+  <section class="users jd-page">
     <div class="header-row">
-      <p class="section-title">User Management</p>
+      <h1 class="section-title">จัดการผู้ใช้</h1>
 
       <button
         class="refresh-btn"
@@ -159,7 +159,7 @@ onMounted(loadUsers);
 
     <div class="search-box">
       <span>🔍</span>
-      <input
+      <input aria-label="Search users"
         v-model="search"
         type="text"
         placeholder="Search users"
@@ -168,7 +168,7 @@ onMounted(loadUsers);
     </div>
 
     <nav class="tabs">
-      <button
+      <button :aria-pressed="activeRole === role"
         v-for="role in roles"
         :key="role"
         :class="{ active: activeRole === role }"
@@ -231,9 +231,7 @@ onMounted(loadUsers);
     </ul>
 
     <div v-if="selectedUser" class="card action-card">
-      <p class="card-title">
-        Manage Account
-      </p>
+      <p class="card-title"> จัดการบัญชี </p>
 
       <p class="selected-name">
         {{ selectedUser.fullName }}
@@ -248,25 +246,19 @@ onMounted(loadUsers);
           class="action-btn suspend"
           :disabled="actionLoading || selectedIsProtected || selectedUser.accountStatus === 'suspended'"
           @click="statusAction('suspend')"
-        >
-          Suspend
-        </button>
+        > ระงับบัญชี </button>
 
         <button
           class="action-btn warn"
           :disabled="actionLoading || selectedIsProtected"
           @click="statusAction('warn')"
-        >
-          Warning
-        </button>
+        > แจ้งเตือน </button>
 
         <button
           class="action-btn clear"
           :disabled="actionLoading || selectedIsProtected || selectedUser.accountStatus === 'active'"
           @click="statusAction('clear')"
-        >
-          Clear
-        </button>
+        > ยกเลิกสถานะ </button>
       </div>
       <div v-if="selectedUser.moderationHistory?.length" class="moderation-history">
         <p class="card-title">ประวัติการจัดการบัญชี</p>
@@ -285,7 +277,7 @@ onMounted(loadUsers);
 .moderation-history { margin-top: 16px; font-size: 0.9rem; }
 .moderation-history ul { padding-left: 20px; }
 .moderation-history li { margin-bottom: 8px; }
-.moderation-history small { color: var(--color-text-muted, #64748b); }
+.moderation-history small { color: var(--color-text-muted, var(--jd-muted)); }
 
 .users {
   padding: 16px;
@@ -391,18 +383,18 @@ onMounted(loadUsers);
 .user-name {
   margin: 0;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .user-meta,
 .user-email {
   margin: 2px 0 0;
-  font-size: 11px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
 .status-badge {
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 700;
   padding: 5px 10px;
   border-radius: 999px;
@@ -442,7 +434,7 @@ onMounted(loadUsers);
 .selected-meta {
   margin: 3px 0 12px;
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 
 .action-row {
@@ -453,7 +445,7 @@ onMounted(loadUsers);
 
 .action-btn {
   flex: 1;
-  min-height: 42px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   font-weight: 700;

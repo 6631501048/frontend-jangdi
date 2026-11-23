@@ -1,0 +1,122 @@
+/* JangDi: shared foundation for every route. Semantic status colors stay distinct. */
+:root {
+  --jd-brand: #a24936;
+  --jd-brand-hover: #873b2b;
+  --jd-peach: #e5a48a;
+  --jd-peach-soft: #fae5db;
+  --jd-accent: #ffd65c;
+  --jd-accent-soft: #fff4cf;
+  --jd-ink: #100e04;
+  --jd-muted: #635b53;
+  --jd-canvas: #fcfaf8;
+  --jd-surface: #ffffff;
+  --jd-subtle: #f3eeea;
+  --jd-line: #e9e1db;
+  --jd-input-border: #9c8e83;
+  --jd-success: #176840;
+  --jd-success-soft: #e5f6ee;
+  --jd-danger: #b42318;
+  --jd-danger-soft: #fff0ed;
+  --jd-info: #245b91;
+  --jd-info-soft: #eaf3ff;
+  --jd-warning: #755200;
+  --jd-warning-soft: #fff4cf;
+  /* Compatibility aliases for existing admin components. */
+  --color-green: #176840;
+  --color-green-bg: #e5f6ee;
+  --color-red: #b42318;
+  --color-red-bg: #fff0ed;
+  color-scheme: light;
+  font-family: "Noto Sans Thai", system-ui, sans-serif;
+  font-size: 16px;
+  color: var(--jd-ink);
+  background: var(--jd-canvas);
+}
+body { margin: 0; font-family: "Noto Sans Thai", system-ui, sans-serif; line-height: 1.65; }
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+img { max-width: 100%; }
+input, textarea, select { max-width: 100%; min-width: 0; }
+textarea { resize: vertical; }
+a { text-underline-offset: 4px; }
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--jd-brand);
+  outline-offset: 3px;
+}
+.jd-skip-link { position: fixed; top: -100px; left: 16px; z-index: 2000; padding: 12px 18px; border-radius: 10px; background: var(--jd-brand); color: white; }
+.jd-skip-link:focus { top: 12px; }
+.jd-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.app-shell { min-height: 100vh; background: var(--jd-canvas); color: var(--jd-ink); }
+.app-shell > .jd-page { width: 100%; min-height: 100vh; }
+.app-shell .jd-page:not(.jd-home) { font-family: "Noto Sans Thai", system-ui, sans-serif; }
+.app-shell .jd-page > .content,
+.app-shell .jd-page > .jd-content { width: 100%; max-width: 960px; margin-inline: auto; padding: 32px 24px 40px; }
+.app-shell .jd-page :is(.card, .job-card, .job-item, .post-card, .state-card, .job-summary):not(.jd-unstyled) {
+  border-radius: 20px; border-color: var(--jd-line);
+}
+.app-shell .jd-page:not(.jd-home) :is(.card, .job-card, .post-card) { padding: 24px; box-shadow: 0 4px 18px rgb(16 14 4 / 2%); }
+.app-shell .jd-page :is(.section-title, .card > h2) { font-size: 1.125rem; line-height: 1.5; }
+.app-shell .jd-page :is(.page-title, .page-header h1, .header-row h1) { font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.45; margin-block: 0 20px; }
+.app-shell .jd-page :is(.card-actions, .modal-actions, .actions, .action-row, .contact-buttons) { flex-wrap: wrap; }
+.app-shell .jd-page :is(.field-grid, .field-stack, .details, .job-body, .card-body, .info, .worker-info) { min-width: 0; }
+.app-shell .jd-page :is(.field-value, .desc, .description, .job-title, .post-title, dd, .notice, .hint, .error) { overflow-wrap: anywhere; }
+.app-shell .jd-page:not(.jd-home) :is(.desc, .description, .field-value, .title-text, .job-title) { font-size:1rem; line-height:1.75; }
+.app-shell .jd-page > :is(.tabs, .section-tabs, .service-history) { width:100%; max-width:960px; margin-inline:auto; }
+.app-shell > .jd-page:is(.job-detail, .applicants, .confirm, .refund, .review, .confirmed) { max-width:960px; margin-inline:auto; }
+.app-shell :is(.icon-btn, .back, .back-btn, .back-button, .menu-btn, .close-btn, .profile-btn, .avatar-btn) { min-width:44px; }
+.app-shell .jd-page :is(.contact-btn.line-contact, .contact-btn.line-contact.unavailable) { background:var(--jd-success); border-color:var(--jd-success); color:white; }
+.app-shell .jd-page .contact-btn.unavailable { background:var(--jd-subtle); border-color:var(--jd-line); color:var(--jd-muted); }
+.app-shell .jd-page .contact-btn.unavailable :is(span, strong, small, svg) { color:var(--jd-muted); }
+.app-shell .jd-page :is(.sos-title, .status-tag.red) { color:var(--jd-danger); }
+.app-shell .jd-page .worker-avatar { color:var(--jd-muted); }
+.app-shell .jd-page .tab.chosen { background:var(--jd-peach-soft); color:var(--jd-brand); border-color:var(--jd-brand); }
+.app-shell :is(button, a.btn, a[class*="btn-"], a[class$="-btn"], .text-button, .drawer-link, .back) { min-height: 44px; }
+.app-shell :is(button, input, select, textarea, a.btn):focus-visible { outline: 3px solid var(--jd-brand); outline-offset: 3px; }
+.app-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+.app-shell select, .app-shell textarea { border-color: var(--jd-input-border); border-radius: 10px; font-size: 1rem; color: var(--jd-ink); }
+.app-shell select:not([multiple]) { appearance:none; padding-right:40px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23635b53' stroke-width='1.8'%3E%3Cpath d='m5 7 5 5 5-5'/%3E%3C/svg%3E"); background-size:20px; background-position:right 12px center; background-repeat:no-repeat; }
+.app-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]), .app-shell select { min-height: 48px; }
+.app-shell input::placeholder, .app-shell textarea::placeholder { color: var(--jd-muted); opacity: 1; }
+.app-shell :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--jd-brand); }
+.app-shell .jd-page :is(.btn-primary, .btn-gold, .btn-apply, .btn-accept, .btn-select, .select-btn, .continue-btn, .modal-primary, .proof-primary, .cancel-submit, .submit, .primary:not(.stat-card), .action-btn.approve, .approve-btn) {
+  background: var(--jd-brand); border-color: var(--jd-brand); color: white; border-radius: 12px; font-weight: 600;
+}
+.app-shell .jd-page :is(.btn-primary, .btn-gold, .btn-apply, .btn-accept, .btn-select, .select-btn, .continue-btn, .modal-primary, .proof-primary, .submit, .primary):enabled:hover,
+.app-shell .jd-page a:is(.btn-primary, .btn-gold, .btn-apply, .primary):hover { background: var(--jd-brand-hover); color: white; }
+.app-shell .jd-page :is(.btn-primary, .btn-gold, .btn-apply, .btn-accept, .continue-btn, .primary):disabled { background: var(--jd-subtle); border-color: var(--jd-input-border); color: var(--jd-muted); opacity: 1; }
+.app-shell .jd-page :is(.btn-outline, .btn-details, .btn-muted, .secondary, .btn.outline, .action-btn.ghost) { border-color: var(--jd-input-border); border-radius: 12px; background: var(--jd-surface); color: var(--jd-ink); }
+.app-shell .jd-page :is(.btn-outline, .btn-details, .btn-muted, .secondary):hover { background: var(--jd-peach-soft); border-color: var(--jd-brand); }
+.app-shell .jd-page :is(.btn-sos, .danger, .reject-btn, .btn-decline, .btn.danger) { color: var(--jd-danger); border-color: var(--jd-danger); background: var(--jd-danger-soft); }
+.app-shell .jd-page .cancel-submit { color:white; border-color:var(--jd-danger); background:var(--jd-danger); }
+.app-shell .jd-page :is(.apply, .slip-form button[type="submit"]) { background:var(--jd-brand); border-color:var(--jd-brand); color:white; border-radius:12px; }
+.app-shell .jd-page .category-card.active { border-color:var(--jd-brand); background:var(--jd-peach-soft); }
+.app-shell .jd-page :is(.tabs button, .status-tabs button, .filter-tabs button, .tab-btn, .tab) { border-radius: 10px; font-size: .875rem; }
+.app-shell .jd-page :is(.tabs button.active, .status-tabs button.active, .filter-tabs button.active, .tab.active) { color: var(--jd-brand); border-color: var(--jd-brand); background: var(--jd-peach-soft); font-weight: 700; }
+.app-shell .jd-page:not(.jd-home) :is(.tabs button, .status-tabs button, .filter-tabs button, .tab) { background:var(--jd-surface); color:var(--jd-muted); border:1px solid var(--jd-input-border); }
+.app-shell .jd-page:not(.jd-home) :is(.tabs button.active, .status-tabs button.active, .filter-tabs button.active, .tab.active, .tab.chosen) { background:var(--jd-brand); color:white; border-color:var(--jd-brand); font-weight:700; }
+.app-shell .jd-page :is(.empty, .empty-state, .loading, .state-card) { line-height: 1.75; }
+.app-shell :is(.modal, .modal-card, .decision-dialog, .refund-decision-dialog, .completion-popup) { max-height: calc(100dvh - 40px); overflow-y: auto; border-radius: 20px; }
+.app-shell :is(.modal-backdrop, .decision-backdrop, .completion-popup-backdrop) { overflow-y: auto; }
+.app-shell .jd-page .progress :is(.active, .done), .app-shell .jd-page .step.active { color: var(--jd-brand); }
+.app-shell .jd-page .category-card.selected { background: var(--jd-peach-soft); border-color: var(--jd-brand); }
+.app-shell .jd-page .category-card { min-width: 0; }
+.app-shell .jd-page .payment-page { background: var(--jd-canvas); }
+.app-shell .jd-page .notice { color: var(--jd-warning); background: var(--jd-warning-soft); }
+.app-shell .jd-page:not(.jd-home) .show-more { min-height: 44px; border-radius: 12px; }
+.app-shell .jd-page .search-bar input { border-radius: 0; }
+.app-shell .jd-page .search-bar:focus-within { outline: 3px solid var(--jd-brand); outline-offset: 3px; }
+.app-shell .jd-page .search-bar input:focus-visible { outline: none; }
+@media (max-width: 600px) {
+  .app-shell .jd-page > .content, .app-shell .jd-page > .jd-content { padding: 24px 16px 32px; }
+  .app-shell .jd-page:not(.jd-home) :is(.card, .job-card, .post-card) { padding: 18px; }
+  .app-shell .jd-page .field-grid { grid-template-columns: minmax(0, 1fr); }
+  .app-shell .jd-page .field-row { flex-direction:column; gap:12px; }
+  .app-shell .jd-page .tabs { flex-wrap: wrap; }
+  .app-shell .jd-page :is(.card-head, .job-head, .post-head, .header-row, .page-header) { flex-wrap: wrap; }
+  .app-shell .jd-page .category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

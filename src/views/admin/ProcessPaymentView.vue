@@ -206,7 +206,7 @@ onMounted(loadPayments);
 
 <template>
   <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
-  <div v-if="refundDialogPayment" class="refund-decision-backdrop" @click.self="closeRefundDecision">
+  <div v-if="refundDialogPayment" class="refund-decision-backdrop jd-page" @click.self="closeRefundDecision">
     <section class="refund-decision-dialog" role="dialog" aria-modal="true" aria-labelledby="refund-decision-title">
       <h2 id="refund-decision-title">{{refundDialogAction === 'approved' ? 'อนุมัติคืนเงิน' : 'ปฏิเสธคำขอคืนเงิน'}}</h2>
       <p>{{refundDialogAction === 'approved' ? 'ระบุเหตุผลและแนบหลักฐานการโอนคืนเงินในขั้นตอนเดียวกัน' : 'ระบุเหตุผลที่ปฏิเสธคำขอคืนเงิน'}}</p>
@@ -232,10 +232,10 @@ onMounted(loadPayments);
       </div>
     </section>
   </div>
-  <section class="payment">
+  <section class="payment jd-page">
     <div class="header-row">
       <div>
-        <p class="section-title">การเงินและคำขอคืนเงิน (ทดสอบ)</p>
+        <h1 class="section-title">การเงินและคำขอคืนเงิน (ทดสอบ)</h1>
         <p class="subtitle">
           ดูสถานะเงินจำลองเท่านั้น (ยังไม่มีการรับหรือโอนเงินจริง)
         </p>
@@ -251,7 +251,7 @@ onMounted(loadPayments);
     </div>
 
     <nav class="tabs">
-      <button
+      <button :aria-pressed="activeTab === tab.label"
         v-for="tab in tabs"
         :key="tab.label"
         :class="{ active: activeTab === tab.label }"
@@ -418,7 +418,7 @@ onMounted(loadPayments);
 
 .subtitle {
   margin: 3px 0 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
@@ -496,41 +496,41 @@ onMounted(loadPayments);
 .toggle-label {
   flex: 0 0 auto;
   color: var(--color-primary-dark);
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
 .payment-details { padding-top: 4px; }
-.refund-evidence-section { margin-top:12px; padding:14px; border:1px solid var(--color-border); border-radius:var(--radius-md); background:#fafbfc; }
-.refund-evidence-section .subtitle { margin:0 0 8px; font-size:14px; }
+.refund-evidence-section { margin-top:12px; padding:14px; border:1px solid var(--color-border); border-radius:var(--radius-md); background:var(--jd-canvas); }
+.refund-evidence-section .subtitle { margin:0 0 8px; font-size: 0.875rem; }
 .refund-decision-backdrop { position:fixed; inset:0; z-index:1000; display:flex; align-items:center; justify-content:center; overflow:auto; padding:18px; background:#10182880; }
-.refund-decision-dialog { display:grid; gap:12px; width:min(100%,520px); max-height:90dvh; overflow:auto; padding:20px; border-radius:14px; background:#fff; color:#17212f; box-shadow:0 16px 48px #0003; }
-.refund-decision-dialog h2 { margin:0; font-size:18px; }
-.refund-decision-dialog p { margin:0; font-size:13px; line-height:1.6; }
-.refund-decision-field { display:grid; gap:7px; font-size:13px; font-weight:600; }
-.refund-decision-field textarea, .refund-decision-field input { width:100%; padding:10px; border:1px solid #98a2b3; border-radius:8px; font:inherit; }
+.refund-decision-dialog { display:grid; gap:12px; width:min(100%,520px); max-height:90dvh; overflow:auto; padding:20px; border-radius:14px; background:var(--jd-surface); color:var(--jd-ink); box-shadow:0 16px 48px #0003; }
+.refund-decision-dialog h2 { margin:0; font-size: 1.125rem; }
+.refund-decision-dialog p { margin:0; font-size: 0.875rem; line-height:1.6; }
+.refund-decision-field { display:grid; gap:7px; font-size: 0.875rem; font-weight:600; }
+.refund-decision-field textarea, .refund-decision-field input { width:100%; padding:10px; border:1px solid var(--jd-muted); border-radius:8px; font:inherit; }
 .refund-decision-field textarea { resize:vertical; }
-.refund-decision-hint { color:#667085; }
+.refund-decision-hint { color:var(--jd-muted); }
 .refund-decision-actions { display:flex; justify-content:flex-end; gap:10px; }
-.refund-decision-actions button { min-height:42px; padding:8px 14px; border:1px solid #d0d5dd; border-radius:8px; background:#fff; font:inherit; cursor:pointer; }
-.refund-decision-actions .confirm { border-color:#ffc629; background:#ffc629; color:#342600; font-weight:700; }
+.refund-decision-actions button { min-height: 44px; padding:8px 14px; border:1px solid var(--jd-input-border); border-radius:8px; background:var(--jd-surface); font:inherit; cursor:pointer; }
+.refund-decision-actions .confirm { border-color: var(--jd-warning); background:var(--jd-accent); color:#342600; font-weight:700; }
 .refund-decision-actions button:disabled { opacity:.55; cursor:not-allowed; }
 
 .name {
   margin: 0;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .subtitle {
   margin: 3px 0 0;
-  font-size: 11px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
 .status-badge {
   height: fit-content;
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 700;
   padding: 5px 10px;
   border-radius: 999px;
@@ -557,7 +557,7 @@ onMounted(loadPayments);
   gap: 10px;
   padding: 7px 0;
   border-bottom: 1px solid var(--color-border);
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 .detail-row span {
@@ -569,7 +569,7 @@ onMounted(loadPayments);
   padding: 8px;
   background: var(--color-bg);
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 
 .action-row {
@@ -580,7 +580,7 @@ onMounted(loadPayments);
 
 .action-btn {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   font-weight: 700;

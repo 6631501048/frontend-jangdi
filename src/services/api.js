@@ -9,7 +9,7 @@ const api = axios.create({
 // แนบ JWT token ทุก request อัตโนมัติหลัง login
 api.interceptors.request.use((config) => {
   const auth = useAuthStore();
-  if (auth.token) {
+  if (auth.token && !config.publicAuth) {
     config.headers.Authorization = `Bearer ${auth.token}`;
   }
   return config;
@@ -19,7 +19,7 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && !error.config?.publicAuth && !error.config?.keepSessionOnUnauthorized) {
       const auth = useAuthStore();
       auth.logout();
       router.push({ name: "login" });

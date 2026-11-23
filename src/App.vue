@@ -19,13 +19,13 @@ watch(() => auth.token, (token) => {
 </script>
 
 <template>
-  <div class="app-shell"><RouterView /></div>
+  <div class="app-shell"><RouterView v-slot="{ Component, route }"><component :is="Component" :key="route.path" /></RouterView></div>
 </template>
 
 <style>
 * { box-sizing: border-box; }
 html, body, #app { min-height: 100%; }
-body { margin: 0; font-family: system-ui, "Noto Sans Thai", sans-serif; }
+body { margin: 0; font-family: "Noto Sans Thai", system-ui, sans-serif; }
 .app-shell { width: 100%; min-height: 100vh; }
 </style>
 

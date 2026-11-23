@@ -30,7 +30,7 @@ onUnmounted(() => { disposed = true; window.clearInterval(refreshTimer); });
   <section class="requests" aria-label="คำขอใช้บริการของฉัน">
     <h2>คำขอใช้บริการของฉัน</h2>
     <nav class="request-filters" aria-label="กรองคำขอใช้บริการ">
-      <button v-for="item in filters" :key="item.value" type="button" :class="{ active: filter === item.value }" @click="filter = item.value">{{ item.label }}</button>
+      <button :aria-pressed="filter === item.value" v-for="item in filters" :key="item.value" type="button" :class="{ active: filter === item.value }" @click="filter = item.value">{{ item.label }}</button>
     </nav>
     <p v-if="loading" role="status">กำลังโหลดคำขอ…</p>
     <p v-if="error" role="alert">{{ error }} <button type="button" @click="load">ลองใหม่</button></p>
@@ -49,5 +49,5 @@ onUnmounted(() => { disposed = true; window.clearInterval(refreshTimer); });
 </template>
 
 <style scoped>
-.requests h2{font-size:16px;margin:0 0 12px}.request-filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:12px}.request-filters button{flex-shrink:0;min-height:38px;padding:7px 12px;border:1px solid #ddd;border-radius:20px;background:#fff;color:#444;cursor:pointer}.request-filters button.active{background:#ffc93c;border-color:#ffc93c;color:#111}.request-card{padding:16px;margin-bottom:12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff}.request-card h3{font-size:15px;margin:0 0 8px}.state{font-size:13px;font-weight:700;color:#886000}.state.declined{color:#b91c1c}.state.accepted{color:#166534}.details{font-size:13px;white-space:pre-wrap;overflow-wrap:anywhere}.date{font-size:11px;color:#666}.request-card a{display:inline-block;margin:5px 16px 0 0;font-size:13px;color:#765500}
+.requests h2{font-size: 1rem;margin:0 0 12px}.request-filters{display:flex;gap:6px;overflow-x:auto;padding-bottom:12px}.request-filters button{flex-shrink:0;min-height: 44px;padding:7px 12px;border:1px solid var(--jd-input-border);border-radius:20px;background:var(--jd-surface);color:var(--jd-muted);cursor:pointer}.request-filters button.active{background:var(--jd-accent);border-color: var(--jd-warning);color:var(--jd-ink)}.request-card{padding:16px;margin-bottom:12px;border:1px solid var(--jd-line);border-radius:12px;background:var(--jd-surface)}.request-card h3{font-size: 0.9375rem;margin:0 0 8px}.state{font-size: 0.875rem;font-weight:700;color:#886000}.state.declined{color:#b91c1c}.state.accepted{color:#166534}.details{font-size: 0.875rem;white-space:pre-wrap;overflow-wrap:anywhere}.date{font-size: 0.875rem;color:var(--jd-muted)}.request-card a{display:inline-block;margin:5px 16px 0 0;font-size: 0.875rem;color:#765500}
 </style>

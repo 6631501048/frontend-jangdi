@@ -28,5 +28,5 @@ const paid = computed(() => props.payment?.status === 'released' && props.paymen
 </template>
 
 <style scoped>
-.job-payment{background:#fffaf0;border:1px solid #f3d995;border-radius:12px;padding:16px;margin:14px 0;font-size:13px;line-height:1.7}.job-payment h2{font-size:16px;margin:0 0 8px}.job-payment h3{font-size:14px}.job-payment p{margin:8px 0}.hint{font-size:12px;color:#667085}
+.job-payment{background:var(--jd-accent-soft);border:1px solid #f3d995;border-radius:12px;padding:16px;margin:14px 0;font-size: 0.875rem;line-height:1.7}.job-payment h2{font-size: 1rem;margin:0 0 8px}.job-payment h3{font-size: 0.875rem}.job-payment p{margin:8px 0}.hint{font-size: 0.875rem;color:var(--jd-muted)}
 </style>

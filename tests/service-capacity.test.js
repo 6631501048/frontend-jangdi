@@ -47,7 +47,7 @@ test('review and submitted payload keep capacity one; fractional capacities are 
     assert.equal(Boolean(find(view.root,'button','ถัดไป').props.disabled),false);
     fire(find(view.root,'button','ถัดไป'),'click');await flush();
     assert.ok(text(view.root).includes('จำนวนงานที่รับพร้อมกันสูงสุด1 งาน'));
-    fire(find(view.root,'button','Confirm'),'click');await flush();
+    fire(find(view.root,'button','ยืนยันประกาศบริการ'),'click');await flush();
     const posted=calls.find(call=>call.method==='post');
     assert.equal(posted.url,'/service-posts');assert.equal(posted.args[0].maxSimultaneousOrders,1);
   }finally{

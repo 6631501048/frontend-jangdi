@@ -1,0 +1,12 @@
+{
+  "fixtureData": true,
+  "checks": [
+    "password login: normalized email, wrong password inline, successful worker redirect",
+    "forgot password: domain validation, SMTP error, generic confirmation and resend cooldown",
+    "missing/expired link gives a new-link action; secret fragment is removed",
+    "reset: incomplete-profile session allowed, matching validation, retry, success clears session",
+    "incorrect current password preserves the profile session",
+    "login/forgot/reset: responsive, contrast, targets and keyboard focus at 320/390/768/1440px"
+  ],
+  "errors": []
+}

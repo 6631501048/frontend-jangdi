@@ -170,7 +170,7 @@ function close() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page: ปุ่มปิด + ชื่อหน้า -->
     <header class="topbar">
       <button class="icon-btn" aria-label="ปิด" @click="close">
@@ -212,7 +212,7 @@ function close() {
           <section v-if="step === 1" class="step-body">
             <h2 class="section-title">เลือกหมวดหมู่งาน</h2>
             <div class="category-grid">
-              <button
+              <button :aria-pressed="form.category === c.id"
                 v-for="c in categories"
                 :key="c.id"
                 type="button"
@@ -232,25 +232,25 @@ function close() {
             <h2 class="section-title">รายละเอียดงาน</h2>
             <div class="selected-category">
               <div>
-                <span class="selected-category-label">Selected หมวดหมู่งาน</span>
+                <span class="selected-category-label">หมวดหมู่งานที่เลือก</span>
                 <strong>{{ categoryLabel }}</strong>
               </div>
               <button type="button" class="change-category-btn" @click="step = 1">เปลี่ยนหมวดหมู่</button>
             </div>
 
             <label class="field-label">ชื่องาน / บริการ</label>
-            <input v-model="form.name" type="text" :placeholder="isCleaning ? 'เช่น ทำความสะอาดบ้านหรือคอนโด' : isDelivery ? 'เช่น รับส่งพัสดุ / ซื้อของฝาก' : form.category === 'tutoring' ? 'เช่น สอนคณิตศาสตร์ระดับมัธยม' : 'เช่น ทำเว็บไซต์หรือแก้ไขระบบ'" />
+            <input aria-label="ชื่องาน / บริการ" v-model="form.name" type="text" :placeholder="isCleaning ? 'เช่น ทำความสะอาดบ้านหรือคอนโด' : isDelivery ? 'เช่น รับส่งพัสดุ / ซื้อของฝาก' : form.category === 'tutoring' ? 'เช่น สอนคณิตศาสตร์ระดับมัธยม' : 'เช่น ทำเว็บไซต์หรือแก้ไขระบบ'" />
 
             <template v-if="!isCleaning">
               <label class="field-label">{{ detailsLabel }}</label>
-              <textarea v-model="form.details" rows="3" :placeholder="detailsPlaceholder"></textarea>
+              <textarea :aria-label="detailsLabel" v-model="form.details" rows="3" :placeholder="detailsPlaceholder"></textarea>
             </template>
 
             <div class="field-row">
               <div class="field-col">
                 <label class="field-label">ค่าจ้างผู้รับจ้าง</label>
                 <div class="input-suffix">
-                  <input v-model.number="form.serviceFee" type="number" min="40" placeholder="40" />
+                  <input aria-label="ค่าจ้างผู้รับจ้าง" v-model.number="form.serviceFee" type="number" min="40" placeholder="40" />
                   <span class="suffix">บาท</span>
                 </div>
                 <small class="price-hint">ค่าจ้างขั้นต่ำ 40 บาท</small>
@@ -262,7 +262,7 @@ function close() {
               <div class="field-col">
                 <label class="field-label">วันและเวลาที่ต้องการให้เริ่มงาน</label>
                 <div class="time-range">
-                  <input v-model="form.scheduledAt" type="datetime-local" :min="minScheduledAt" required />
+                  <input aria-label="วันและเวลาที่ต้องการให้เริ่มงาน" v-model="form.scheduledAt" type="datetime-local" :min="minScheduledAt" required />
                   <small v-if="form.scheduledAt && new Date(form.scheduledAt).getTime() <= Date.now()" class="price-hint">กรุณาเลือกวันและเวลาในอนาคต</small>
                 </div>
               </div>
@@ -270,40 +270,40 @@ function close() {
 
             <p class="location-title">สถานที่ทำงาน</p>
             <button type="button" class="location-btn" :disabled="locating" @click="useCurrentLocation">
-              {{ locating ? "Getting location..." : location.lat !== null ? "Location selected" : "Use current location" }}
+              {{ locating ? "กำลังค้นหาตำแหน่ง…" : location.lat !== null ? "เลือกตำแหน่งแล้ว" : "ใช้ตำแหน่งปัจจุบัน" }}
             </button>
             <!-- TODO: เพิ่ม Google Maps pin เลือกตำแหน่งที่ตั้งแทน input ข้อความ -->
             <template v-if="isDelivery">
             <label class="field-label">จุดรับสิ่งของ</label>
             <div class="input-icon">
-              <input v-model="form.from" type="text" placeholder="ตำแหน่งต้นทาง" />
+              <input aria-label="จุดรับสิ่งของ" v-model="form.from" type="text" placeholder="ตำแหน่งต้นทาง" />
               <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
             </div>
             <label class="field-label">จุดส่งสิ่งของ</label>
             <div class="input-icon">
-              <input v-model="form.to" type="text" placeholder="ตำแหน่งปลายทาง" />
+              <input aria-label="จุดส่งสิ่งของ" v-model="form.to" type="text" placeholder="ตำแหน่งปลายทาง" />
               <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
             </div>
             </template>
             <template v-else>
               <label class="field-label">{{ isCleaning ? 'ที่อยู่ที่ให้ไปทำความสะอาด' : 'สถานที่นัดหมาย / สถานที่ทำงาน' }}</label>
               <div class="input-icon">
-                <input v-model="form.from" type="text" placeholder="ระบุที่อยู่หรือสถานที่ให้ชัดเจน" />
+                <input :aria-label="isCleaning ? 'ที่อยู่ที่ให้ไปทำความสะอาด' : 'สถานที่นัดหมาย / สถานที่ทำงาน'" v-model="form.from" type="text" placeholder="ระบุที่อยู่หรือสถานที่ให้ชัดเจน" />
                 <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
               </div>
             </template>
 
             <template v-if="isCleaning">
               <label class="field-label">ใช้เวลาทำงานกี่ชั่วโมง</label>
-              <div class="input-suffix"><input v-model.number="form.durationHours" type="number" min="1" max="24" step="0.5" placeholder="เช่น 3" /><span class="suffix">ชั่วโมง</span></div>
+              <div class="input-suffix"><input aria-label="ใช้เวลาทำงานกี่ชั่วโมง" v-model.number="form.durationHours" type="number" min="1" max="24" step="0.5" placeholder="เช่น 3" /><span class="suffix">ชั่วโมง</span></div>
             </template>
             <template v-else-if="usesDurationHours">
               <label class="field-label">{{ isCleaning ? 'ใช้เวลาทำงานกี่ชั่วโมง' : 'สอนเป็นเวลากี่ชั่วโมง' }}</label>
-              <div class="input-suffix"><input v-model.number="form.durationHours" type="number" :min="isCleaning ? 1 : 0.5" max="24" step="0.5" :placeholder="isCleaning ? 'เช่น 3' : 'เช่น 2'" /><span class="suffix">ชั่วโมง</span></div>
+              <div class="input-suffix"><input :aria-label="isCleaning ? 'ใช้เวลาทำงานกี่ชั่วโมง' : 'สอนเป็นเวลากี่ชั่วโมง'" v-model.number="form.durationHours" type="number" :min="isCleaning ? 1 : 0.5" max="24" step="0.5" :placeholder="isCleaning ? 'เช่น 3' : 'เช่น 2'" /><span class="suffix">ชั่วโมง</span></div>
             </template>
 
             <label class="field-label">รายละเอียดงานเพิ่มเติม (บังคับ)</label>
-            <textarea v-model="form.notes" rows="3" required placeholder="ระบุรายละเอียดเพิ่มเติมที่ผู้รับจ้างจำเป็นต้องทราบ"></textarea>
+            <textarea aria-label="รายละเอียดงานเพิ่มเติม (บังคับ)" v-model="form.notes" rows="3" required placeholder="ระบุรายละเอียดเพิ่มเติมที่ผู้รับจ้างจำเป็นต้องทราบ"></textarea>
           </section>
 
           <!-- ขั้นตอน 3: ตรวจสอบก่อนส่ง -->
@@ -359,15 +359,15 @@ function close() {
 
           <!-- ปุ่มควบคุมขั้นตอน -->
           <div class="actions">
-            <button class="btn-muted" @click="back">Previous</button>
+            <button class="btn-muted" @click="back">ย้อนกลับ</button>
             <button
               v-if="step < 3"
               class="btn-primary"
               :disabled="(step === 1 && !step1Valid) || (step === 2 && !step2Valid)"
               @click="next"
-            >Next</button>
+            >ถัดไป</button>
             <button v-else class="btn-primary" :disabled="submitting" @click="submit">
-              {{ submitting ? "Posting..." : "Post" }}
+              {{ submitting ? "กำลังส่งประกาศ…" : "ยืนยันประกาศงาน" }}
             </button>
           </div>
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
@@ -378,49 +378,49 @@ function close() {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; }
-.card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.card { background: var(--jd-surface); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 
 /* ---------- Stepper ---------- */
 .stepper { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 20px; }
 .step-dot {
-  width: 26px; height: 26px; border-radius: 50%; border: 1px solid #ddd;
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--jd-input-border);
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #999; background: #fff; flex-shrink: 0;
+  font-size: 0.875rem; font-weight: 700; color: var(--jd-muted); background: var(--jd-surface); flex-shrink: 0;
 }
-.step-dot.active { background: #ffc93c; border-color: #ffc93c; color: #111; }
-.step-line { width: 36px; height: 1px; background: #ddd; }
+.step-dot.active { background: var(--jd-accent); border-color: var(--jd-warning); color: var(--jd-ink); }
+.step-line { width: 36px; height: 1px; background: var(--jd-input-border); }
 
-.section-title { margin: 0 0 14px; font-size: 14px; font-weight: 700; color: #111; }
+.section-title { margin: 0 0 14px; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
 
 .selected-category {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 12px; margin-bottom: 4px; border: 1px solid #f3d574;
-  border-radius: 8px; background: #fffbea;
+  border-radius: 8px; background: var(--jd-accent-soft);
 }
 .selected-category > div { display: flex; flex-direction: column; gap: 4px; }
-.selected-category-label { font-size: 11px; color: #777; }
-.selected-category strong { font-size: 13px; color: #111; }
+.selected-category-label { font-size: 0.875rem; color: var(--jd-muted); }
+.selected-category strong { font-size: 0.875rem; color: var(--jd-ink); }
 .change-category-btn {
   flex-shrink: 0; border: 0; padding: 8px 10px; border-radius: 6px;
-  background: #fff; color: #78350f; font-size: 12px; font-weight: 700; cursor: pointer;
+  background: var(--jd-surface); color: #78350f; font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
 
 /* ---------- ขั้นตอน 1: หมวดหมู่ ---------- */
@@ -429,72 +429,72 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; padding: 20px 8px; min-height: 88px;
-  border: 1px solid #e5e5e5; border-radius: 10px; background: #fff; cursor: pointer;
+  border: 1px solid var(--jd-line); border-radius: 10px; background: var(--jd-surface); cursor: pointer;
 }
-.category-card.active { border-color: #ffc93c; background: #fffbea; }
-.cat-dot { position: absolute; top: 8px; left: 8px; width: 8px; height: 8px; border-radius: 50%; background: #ffc93c; }
-.cat-icon { font-size: 22px; }
-.cat-label { font-size: 13px; color: #333; text-align: center; }
-.category-card.active .cat-label { color: #111; font-weight: 600; }
+.category-card.active { border-color: var(--jd-warning); background: var(--jd-accent-soft); }
+.cat-dot { position: absolute; top: 8px; left: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--jd-accent); }
+.cat-icon { font-size: 1.375rem; }
+.cat-label { font-size: 0.875rem; color: var(--jd-ink); text-align: center; }
+.category-card.active .cat-label { color: var(--jd-ink); font-weight: 600; }
 
 /* ---------- ขั้นตอน 2: ฟอร์มรายละเอียด ---------- */
 .step-body { display: flex; flex-direction: column; }
-.field-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 12px; color: #666; }
+.field-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 0.875rem; color: var(--jd-muted); }
 input, select, textarea {
-  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #ddd;
-  font-size: 13px; font-family: inherit; min-height: 42px; color: #111; background: #fff;
+  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--jd-input-border);
+  font-size: 0.875rem; font-family: inherit; min-height: 44px; color: var(--jd-ink); background: var(--jd-surface);
 }
 textarea { resize: vertical; }
 .field-row { display: flex; gap: 10px; }
 .field-col { flex: 1; min-width: 0; }
 .input-suffix { position: relative; display: flex; align-items: center; }
 .input-suffix input { padding-right: 46px; }
-.input-suffix .suffix { position: absolute; right: 12px; font-size: 12px; color: #999; }
-.price-hint { display: block; margin-top: 4px; color: #888; font-size: 11px; }
-.price-breakdown { margin-top: 8px; padding: 10px; border-radius: 8px; background: #fafafa; font-size: 12px; }
-.price-breakdown > div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; color: #777; }
-.price-breakdown strong { color: #333; font-weight: 600; }
-.price-breakdown .price-total { margin-top: 4px; padding-top: 7px; border-top: 1px solid #e5e5e5; color: #111; }
-.price-breakdown .price-total strong { color: #111; font-size: 13px; }
+.input-suffix .suffix { position: absolute; right: 12px; font-size: 0.875rem; color: var(--jd-muted); }
+.price-hint { display: block; margin-top: 4px; color: var(--jd-muted); font-size: 0.875rem; }
+.price-breakdown { margin-top: 8px; padding: 10px; border-radius: 8px; background: var(--jd-canvas); font-size: 0.875rem; }
+.price-breakdown > div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; color: var(--jd-muted); }
+.price-breakdown strong { color: var(--jd-ink); font-weight: 600; }
+.price-breakdown .price-total { margin-top: 4px; padding-top: 7px; border-top: 1px solid var(--jd-line); color: var(--jd-ink); }
+.price-breakdown .price-total strong { color: var(--jd-ink); font-size: 0.875rem; }
 .time-range { display: flex; align-items: center; gap: 6px; }
 .time-range input { min-width: 0; }
-.time-range .dash { color: #999; flex-shrink: 0; }
+.time-range .dash { color: var(--jd-muted); flex-shrink: 0; }
 
-.location-title { margin: 16px 0 0; font-size: 12px; font-weight: 700; color: #111; }
-.location-btn { margin-top: 8px; min-height: 38px; border: 1px solid #fbbf24; border-radius: 8px; background: #fffbea; color: #78350f; font-weight: 600; cursor: pointer; }
+.location-title { margin: 16px 0 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.location-btn { margin-top: 8px; min-height: 44px; border: 1px solid var(--jd-accent); border-radius: 8px; background: var(--jd-accent-soft); color: #78350f; font-weight: 600; cursor: pointer; }
 .location-btn:disabled { opacity: .65; cursor: not-allowed; }
 .input-icon { position: relative; display: flex; align-items: center; }
 .input-icon input { padding-right: 36px; }
-.input-icon .pin { position: absolute; right: 10px; width: 16px; height: 16px; color: #999; }
+.input-icon .pin { position: absolute; right: 10px; width: 16px; height: 16px; color: var(--jd-muted); }
 
 /* ---------- ขั้นตอน 3: ตรวจสอบ ---------- */
 .review-list { margin: 0; display: flex; flex-direction: column; }
-.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #f2f2f2; }
+.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--jd-subtle); }
 .review-row:last-child { border-bottom: none; }
-.review-row dt { flex-shrink: 0; font-size: 12px; color: #999; }
-.review-row dd { margin: 0; font-size: 13px; color: #111; font-weight: 600; text-align: right; }
-.review-row.review-total { border-top: 1px solid #ddd; border-bottom: none; margin-top: 4px; padding-top: 12px; }
-.review-row.review-total dt, .review-row.review-total dd { color: #111; font-weight: 700; }
+.review-row dt { flex-shrink: 0; font-size: 0.875rem; color: var(--jd-muted); }
+.review-row dd { margin: 0; font-size: 0.875rem; color: var(--jd-ink); font-weight: 600; text-align: right; }
+.review-row.review-total { border-top: 1px solid var(--jd-input-border); border-bottom: none; margin-top: 4px; padding-top: 12px; }
+.review-row.review-total dt, .review-row.review-total dd { color: var(--jd-ink); font-weight: 700; }
 
 /* ---------- ปุ่ม ---------- */
 .actions { display: flex; gap: 10px; margin-top: 20px; }
 .btn-primary, .btn-muted {
-  flex: 1; min-height: 44px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+  flex: 1; min-height: 44px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
-.btn-primary { background: #ffc93c; border: none; color: #111; }
+.btn-primary { background: var(--jd-accent); border: none; color: var(--jd-ink); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-muted { background: #e5e5e5; border: none; color: #333; }
-.error-msg { margin: 10px 0 0; color: #e11d48; text-align: center; font-size: 12px; }
+.btn-muted { background: var(--jd-line); border: none; color: var(--jd-ink); }
+.error-msg { margin: 10px 0 0; color: #e11d48; text-align: center; font-size: 0.875rem; }
 
 /* ---------- หน้าจอสำเร็จ ---------- */
 .success { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 8px 8px; }
 .check-circle {
-  width: 64px; height: 64px; border-radius: 50%; background: #22c55e; color: #fff;
+  width: 64px; height: 64px; border-radius: 50%; background: #22c55e; color: var(--jd-surface);
   display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
 }
 .check-circle svg { width: 32px; height: 32px; stroke-width: 3; }
-.success-title { margin: 0 0 6px; font-size: 18px; font-weight: 700; color: #22c55e; }
-.success-sub { margin: 0 0 32px; font-size: 13px; color: #888; }
+.success-title { margin: 0 0 6px; font-size: 1.125rem; font-weight: 700; color: var(--jd-success); }
+.success-sub { margin: 0 0 32px; font-size: 0.875rem; color: var(--jd-muted); }
 .success-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; }
 .success-actions .btn-primary, .success-actions .btn-muted { width: 100%; }
 </style>

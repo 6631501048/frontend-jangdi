@@ -36,13 +36,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <AppTopBar role-label="" :show-notifications="false" @menu="drawerOpen = true" />
     <AppRoleDrawer v-model="drawerOpen" />
     <main class="content">
       <RouterLink to="/profile" class="back-link">‹ กลับหน้าโปรไฟล์</RouterLink>
       <section class="card">
-        <h1>Ratings</h1>
+        <h1>คะแนนและรีวิว</h1>
         <div class="summary">
           <strong>{{ averageRating }}</strong>
           <span class="stars"><span v-for="n in 5" :key="n" :class="{ filled: n <= ratingStars }">★</span></span>
@@ -67,20 +67,20 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.page { min-height: 100vh; background: #f0f0f0; }
+.page { min-height: 100vh; background: var(--jd-canvas); }
 .content { max-width: 620px; margin: 0 auto; padding: 16px; }
-.back-link { display: inline-block; margin: 0 0 12px; color: #8a5a00; text-decoration: none; font-size: 14px; font-weight: 600; }
-.card { padding: 18px; background: #fff; border-radius: 14px; box-shadow: 0 1px 3px #0000000f; }
-h1 { margin: 0 0 14px; font-size: 18px; }
+.back-link { display: inline-block; margin: 0 0 12px; color: var(--jd-warning); text-decoration: none; font-size: 0.875rem; font-weight: 600; }
+.card { padding: 18px; background: var(--jd-surface); border-radius: 14px; box-shadow: 0 1px 3px #0000000f; }
+h1 { margin: 0 0 14px; font-size: 1.125rem; }
 .summary, .item-head { display: flex; align-items: center; gap: 10px; }
 .summary { margin-bottom: 14px; }
-.summary strong { font-size: 24px; }
-.stars { color: #ddd; letter-spacing: 1px; white-space: nowrap; }
-.stars .filled { color: #ffc93c; }
-.muted { color: #888; font-size: 13px; }
+.summary strong { font-size: 1.5rem; }
+.stars { color: var(--jd-input-border); letter-spacing: 1px; white-space: nowrap; }
+.stars .filled { color: var(--jd-warning); }
+.muted { color: var(--jd-muted); font-size: 0.875rem; }
 .list { margin: 0; padding: 0; list-style: none; }
-.item { padding: 14px 0; border-top: 1px solid #eee; }
+.item { padding: 14px 0; border-top: 1px solid var(--jd-line); }
 .item-head { justify-content: space-between; gap: 8px; }
-.item-head strong { font-size: 14px; }
-.comment { margin: 8px 0 4px; color: #555; font-size: 14px; white-space: pre-wrap; }
+.item-head strong { font-size: 0.875rem; }
+.comment { margin: 8px 0 4px; color: var(--jd-muted); font-size: 0.875rem; white-space: pre-wrap; }
 </style>

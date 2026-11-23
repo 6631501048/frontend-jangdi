@@ -51,11 +51,11 @@ async function confirmAndPay() {
 </script>
 
 <template>
-  <main v-if="job && worker" class="confirm">
-    <AppHeader title="Confirm Selection" />
+  <main v-if="job && worker" class="confirm jd-page">
+    <AppHeader title="ยืนยันเลือกผู้รับจ้าง" />
 
     <section class="card">
-      <p class="label">You Selected</p>
+      <p class="label">ผู้รับจ้างที่คุณเลือก</p>
       <div class="worker">
         <div class="avatar">👤</div>
         <div>
@@ -64,19 +64,19 @@ async function confirmAndPay() {
         </div>
       </div>
 
-      <h2 class="section-title">Payment Summary (Demo)</h2>
+      <h2 class="section-title">สรุปค่าใช้จ่าย (ทดสอบ)</h2>
       <p class="label">เลือก Worker ก่อน จากนั้นกดชำระจำลองในหน้าถัดไป (ไม่มีการโอนเงินจริง)</p>
       <dl class="rows">
-        <div class="row"><dt>Worker Fee</dt><dd>{{ Number(job.price || 0).toFixed(2) }} Baht</dd></div>
-        <div v-if="job.serviceFee" class="row"><dt>Additional Service Fee</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} Baht</dd></div>
-        <div class="row"><dt>Platform service + transaction fees</dt><dd>{{ transactionFee.toFixed(2) }} Baht</dd></div>
-        <div class="row total"><dt>Total Payment</dt><dd>{{ feeBreakdown.totalDue.toFixed(2) }} Baht</dd></div>
+        <div class="row"><dt>ค่าจ้างผู้รับจ้าง</dt><dd>{{ Number(job.price || 0).toFixed(2) }} บาท</dd></div>
+        <div v-if="job.serviceFee" class="row"><dt>ค่าบริการเพิ่มเติม</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} บาท</dd></div>
+        <div class="row"><dt>Platform service + transaction fees</dt><dd>{{ transactionFee.toFixed(2) }} บาท</dd></div>
+        <div class="row total"><dt>ยอดชำระทั้งหมด</dt><dd>{{ feeBreakdown.totalDue.toFixed(2) }} บาท</dd></div>
       </dl>
 
       <div class="actions">
-        <button class="btn outline" @click="cancel">Cancel</button>
+        <button class="btn outline" @click="cancel">ยกเลิก</button>
         <button class="btn primary" :disabled="!canConfirm || submitting" @click="confirmAndPay">
-          {{ submitting ? "Confirming..." : "Select Worker & Continue to Demo Payment" }}
+          {{ submitting ? "กำลังยืนยัน…" : "เลือกผู้รับจ้างและไปชำระเงินทดสอบ" }}
         </button>
       </div>
       <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
@@ -87,21 +87,21 @@ async function confirmAndPay() {
 <style scoped>
 .confirm { padding-bottom: 32px; }
 .card { padding: 16px; }
-.label { font-size: 12px; color: #888; margin: 0 0 8px; }
-.worker { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; }
-.avatar { width: 40px; height: 40px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; }
-.name { font-weight: 700; font-size: 15px; }
-.rating { font-size: 12px; color: #b45309; margin-top: 2px; }
-.section-title { font-size: 14px; margin: 16px 0 4px; }
+.label { font-size: 0.875rem; color: var(--jd-muted); margin: 0 0 8px; }
+.worker { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--jd-canvas); }
+.avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--jd-subtle); display: flex; align-items: center; justify-content: center; }
+.name { font-weight: 700; font-size: 0.9375rem; }
+.rating { font-size: 0.875rem; color: #b45309; margin-top: 2px; }
+.section-title { font-size: 0.875rem; margin: 16px 0 4px; }
 .rows { margin: 4px 0; }
-.row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
-.row dt { color: #888; }
+.row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--jd-canvas); font-size: 0.875rem; }
+.row dt { color: var(--jd-muted); }
 .row dd { margin: 0; font-weight: 600; }
-.row.total dd { font-size: 16px; }
+.row.total dd { font-size: 1rem; }
 .actions { display: flex; gap: 10px; margin-top: 20px; }
-.btn { flex: 1; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 14px; border: 1px solid #e5e7eb; cursor: pointer; }
-.btn.outline { background: white; color: #555; }
-.btn.primary { background: #fbbf24; color: #78350f; border: none; }
+.btn { flex: 1; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 0.875rem; border: 1px solid var(--jd-line); cursor: pointer; }
+.btn.outline { background: white; color: var(--jd-muted); }
+.btn.primary { background: var(--jd-accent); color: #78350f; border: none; }
 .btn:disabled { opacity: .6; cursor: not-allowed; }
-.error-msg { color: #e11d48; text-align: center; font-size: 12px; }
+.error-msg { color: #e11d48; text-align: center; font-size: 0.875rem; }
 </style>

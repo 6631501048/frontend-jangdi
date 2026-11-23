@@ -3,10 +3,11 @@
 // FR-BROWSE-02: กรองตามประเภทประกาศ (ทั้งหมด/ผู้ว่าจ้าง/ผู้รับจ้าง) และตามหมวดหมู่
 // FR-BROWSE-03/04: ดูรายละเอียดก่อนสมัคร + สมัครงาน (เฉพาะประกาศงานแบบ Job เข้าคิว JOB_WAITING)
 // FR-BROWSE-06: ห้ามสมัคร Service Post ของตัวเอง หรืองานที่เลือกผู้รับจ้างแล้ว (เช็คตอนเรียก API จริง)
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
 import api from "../../services/api";
+import { belongsToAccount } from "../../services/feedVisibility";
 import UserAvatar from "../../components/UserAvatar.vue";
 import AppTopBar from "../../components/AppTopBar.vue";
 import AppRoleDrawer from "../../components/AppRoleDrawer.vue";
@@ -14,35 +15,7 @@ import AppRoleDrawer from "../../components/AppRoleDrawer.vue";
 const auth = useAuthStore();
 const router = useRouter();
 
-/* ---------- ส่วนบน: เมนู/โปรไฟล์ ---------- */
 const drawerOpen = ref(false);
-const drawerItems = [
-  { label: "หน้าแรก", icon: "home", to: "/worker" },
-  { label: "งานของฉัน", icon: "briefcase", to: "/worker/jobs" },
-  { label: "การชำระเงิน", icon: "wallet", to: "/worker/payment" },
-];
-
-// NFR-USE-04: สลับบทบาทผู้ว่าจ้าง/ผู้รับจ้าง (FR-AUTH-06)
-const switching = ref(false);
-async function switchRole() {
-  if (switching.value) return;
-  switching.value = true;
-  try {
-    const { data } = await api.patch("/auth/role", { role: "hirer" });
-    auth.updateUser(data.user);
-    drawerOpen.value = false;
-    router.push({ name: "hirer-dashboard" });
-  } catch (e) {
-    alert("สลับบทบาทไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
-  } finally {
-    switching.value = false;
-  }
-}
-function logout() {
-  auth.logout();
-  drawerOpen.value = false;
-  router.push({ name: "login" });
-}
 
 /* ---------- ค้นหา / กรอง ---------- */
 const searchQuery = ref("");
@@ -50,8 +23,8 @@ const showCategoryFilter = ref(true);
 
 const tabs = [
   { value: "all", label: "ทั้งหมด" },
-  { value: "hirer", label: "ผู้ว่าจ้าง" },
-  { value: "worker", label: "ผู้รับจ้าง" },
+  { value: "hirer", label: "ประกาศงาน" },
+  { value: "worker", label: "บริการจากผู้รับจ้าง" },
 ];
 const activeTab = ref("all");
 
@@ -66,90 +39,11 @@ const categories = [
 ];
 const activeCategory = ref("all");
 
-/* ---------- ข้อมูลฟีด ----------
-   TODO: แทนที่ mock นี้ด้วย GET /api/jobs?type={activeTab}&category={activeCategory}&search={searchQuery}
-   (รวมทั้งประกาศงานประเภท Job และ Service Post ตาม FR-BROWSE-01) */
-function minutesAgo(mins) {
-  return new Date(Date.now() - mins * 60 * 1000);
-}
-/* const posts = ref([
-  {
-    id: "j1",
-    type: "hirer", // ประกาศงาน (Job) — ผู้รับจ้างสมัครได้
-    category: "delivery",
-    name: "Pitak",
-    postedAt: minutesAgo(60),
-    description: "ไปรับพัสดุที่ไปรษณีย์ MFU แล้วนำไปส่งที่ตึก E1 ให้หน่อย",
-    price: 50,
-    window: "1 ชม.",
-    eta: "20 นาที",
-    status: "เปิดรับสมัคร",
-  },
-  {
-    id: "j2",
-    type: "hirer",
-    category: "delivery",
-    name: "Thanawit",
-    postedAt: minutesAgo(45),
-    description: "กำลังหาคนไปรับอาหารที่ร้าน Hachikyu ให้หน่อย",
-    price: 50,
-    window: "1 ชม.",
-    eta: "20 นาที",
-    status: "เปิดรับสมัคร",
-  },
-  {
-    id: "j3",
-    type: "hirer",
-    category: "writing",
-    name: "Chanidapa",
-    postedAt: minutesAgo(20),
-    description: "อยากได้คนช่วยปริ้นเอกสาร 20 หน้า",
-    price: 30,
-    window: "1 ชม.",
-    eta: "15 นาที",
-    status: "เปิดรับสมัคร",
-  },
-  {
-    id: "s1",
-    type: "worker", // Service Post — ต้องกด Details เพื่อดูรายละเอียด/ขอใช้บริการ
-    category: "delivery",
-    name: "Somsak",
-    postedAt: minutesAgo(5),
-    description: "จะไปซื้อข้าวมันไก่ที่หลิงลิน ใครอยากฝากซื้อบ้าง?",
-    price: 10,
-    window: "30 นาที",
-    eta: "5 นาที",
-    status: "รับออเดอร์อยู่",
-  },
-  {
-    id: "s2",
-    type: "worker",
-    category: "cleaning",
-    name: "Mo",
-    postedAt: minutesAgo(9),
-    description: "จะไปซักผ้าที่ร้านสะดวกซัก มีใครอยากฝากซักด้วยไหม?",
-    price: 20,
-    window: "45 นาที",
-    eta: "10 นาที",
-    status: "รับออเดอร์อยู่",
-  },
-  {
-    id: "s3",
-    type: "worker",
-    category: "errands",
-    name: "Modeng",
-    postedAt: minutesAgo(12),
-    description: "จะไปตลาดหน้ามหาลัย มีใครอยากฝากซื้ออะไรไหม?",
-    price: 10,
-    window: "40 นาที",
-    eta: "12 นาที",
-    status: "รับออเดอร์อยู่",
-  },
-]); */
-
+/* โหลดฟีดจาก API เดิม */
 const posts = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
+let feedRequestId = 0;
 
 function formatWindow(start, end) {
   if (!start && !end) return "";
@@ -192,6 +86,7 @@ function mapServicePost(post) {
 }
 
 async function loadFeed() {
+  const requestId = ++feedRequestId;
   loading.value = true;
   errorMsg.value = "";
   try {
@@ -199,10 +94,12 @@ async function loadFeed() {
       api.get("/jobs", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value, search: searchQuery.value.trim() || undefined } }),
       api.get("/service-posts", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value } }),
     ]);
+    if (requestId !== feedRequestId) return;
     const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data.jobs || [];
     const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
-    const openJobs = jobs.filter((job) => job.status === "waiting");
+    const openJobs = jobs.filter((job) => job.status === "waiting" && !belongsToAccount(job.hirer, auth.user));
     const availableServicePosts = servicePosts.filter((post) =>
+      !belongsToAccount(post.worker, auth.user) &&
       post.status === "active" &&
       new Date(post.availabilityEnd).getTime() >= Date.now() &&
       Number(post.currentOrderCount || 0) < Number(post.maxSimultaneousOrders ?? Infinity),
@@ -210,12 +107,13 @@ async function loadFeed() {
     posts.value = [...openJobs.map(mapJob), ...availableServicePosts.map(mapServicePost)]
       .sort((a, b) => b.postedAt - a.postedAt);
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
+    if (requestId === feedRequestId) errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
   } finally {
-    loading.value = false;
+    if (requestId === feedRequestId) loading.value = false;
   }
 }
 onMounted(loadFeed);
+onUnmounted(() => { feedRequestId += 1; });
 watch([activeCategory, searchQuery], loadFeed);
 watch([activeCategory, activeTab, searchQuery], () => { visiblePostCount.value = 10; });
 
@@ -233,6 +131,18 @@ const filteredPosts = computed(() => {
 const visiblePostCount = ref(10);
 const visiblePosts = computed(() => filteredPosts.value.slice(0, visiblePostCount.value));
 function showMorePosts() { visiblePostCount.value += 10; }
+
+function resetFilters() {
+  searchQuery.value = "";
+  activeCategory.value = "all";
+  activeTab.value = "all";
+}
+function categoryLabel(id) {
+  return categories.find((category) => category.id === id)?.label || "อื่น ๆ";
+}
+const hasFilters = computed(() => !!searchQuery.value || activeCategory.value !== "all" || activeTab.value !== "all");
+const priceFormatter = new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 });
+
 
 function timeAgo(date) {
   const diffMin = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
@@ -271,377 +181,82 @@ async function applyToJob(post) {
 </script>
 
 <template>
-  <div class="page">
-    <!-- แถบด้านบน -->
+  <div class="page jd-page jd-home">
+    <a class="skip-link" href="#worker-content">ข้ามไปเนื้อหาหลัก</a>
     <AppTopBar role-label="ผู้รับจ้าง" @menu="drawerOpen = true" />
     <AppRoleDrawer v-model="drawerOpen" />
 
-    <!-- ทักทาย + ค้นหา -->
-    <div class="search-row">
-      <p class="greeting">สวัสดี {{ auth.user?.fullName || "ผู้รับจ้าง" }}</p>
-      <div class="search-bar">
-        <svg class="search-icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
-        <input v-model="searchQuery" type="search" placeholder="ค้นหา" />
-        <button
-          class="filter-btn"
-          :class="{ active: showCategoryFilter }"
-          aria-label="ตัวกรองหมวดหมู่"
-          @click="showCategoryFilter = !showCategoryFilter"
-        >
-          <svg viewBox="0 0 24 24"><path d="M4 5h16M7 12h10M10 19h4" /></svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- แท็บ: ทั้งหมด / ผู้ว่าจ้าง / ผู้รับจ้าง (FR-BROWSE-02) -->
-    <nav class="tabs">
-      <button
-        v-for="t in tabs"
-        :key="t.value"
-        :class="{ active: activeTab === t.value }"
-        @click="activeTab = t.value"
-      >{{ t.label }}</button>
-    </nav>
-
-    <!-- หมวดหมู่ (FR-BROWSE-02) -->
-    <div v-if="showCategoryFilter" class="categories">
-      <button
-        v-for="c in categories"
-        :key="c.id"
-        :class="{ active: activeCategory === c.id }"
-        @click="activeCategory = c.id"
-      >
-        <span class="cat-icon">{{ c.icon }}</span>{{ c.label }}
-      </button>
-    </div>
-
-    <!-- ฟีดประกาศ -->
-    <section class="feed-list">
-      <p v-if="loading" class="empty">กำลังโหลดประกาศ...</p>
-      <p v-else-if="errorMsg" class="empty error-text">{{ errorMsg }}</p>
-      <article v-for="post in visiblePosts" :key="post.id" class="card">
-        <div class="card-avatar"><UserAvatar :src="post.avatarUrl" :name="post.name" :label="`รูปโปรไฟล์ ${post.name}`" /></div>
-        <div class="card-body">
-          <div class="card-head">
-            <span class="name">{{ post.name }}</span>
-            <span class="time">{{ timeAgo(post.postedAt) }}</span>
-          </div>
-          <p class="desc">{{ post.description }}</p>
-          <div class="tags">
-            <span class="tag">{{ post.priceLabel }} ฿{{ post.price }}</span>
-            <span class="tag">ภายใน {{ post.window }}</span>
-            <span class="tag">{{ post.eta }}</span>
-          </div>
+    <main id="worker-content" class="main-content" tabindex="-1">
+      <section class="welcome" aria-labelledby="welcome-title">
+        <div class="welcome-copy">
+          <p class="eyebrow">JANGDI · ให้ทุกวันง่ายขึ้น</p>
+          <p class="greeting">สวัสดี {{ auth.user?.fullName || "ผู้รับจ้าง" }}</p>
+          <h1 id="welcome-title">เปลี่ยนสิ่งที่ถนัด<br />เป็นงานที่ใช่</h1>
+          <p class="intro">เลือกงานที่สนใจ หรือประกาศบริการ<br class="desktop-break" />ให้ผู้ว่าจ้างค้นพบสิ่งที่คุณทำได้</p>
         </div>
-        <div class="card-actions">
-          <button v-if="post.type === 'hirer'" class="btn-apply" :disabled="applyingJobIds.has(post.id) || appliedJobIds.has(post.id)" @click="applyToJob(post)">{{ appliedJobIds.has(post.id) ? "สมัครแล้ว" : applyingJobIds.has(post.id) ? "กำลังสมัคร…" : "สมัครงาน" }}</button>
-          <p v-if="applyErrors[post.id]" class="apply-error">{{ applyErrors[post.id] }}</p>
-          <RouterLink v-if="post.type === 'hirer'" :to="`/worker/jobs/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
-          <RouterLink v-else :to="`/worker/service-posts/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
+        <aside class="start-card" aria-label="เริ่มเสนอบริการ">
+          <span class="start-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="14" rx="3" /><path d="M9 7V5a3 3 0 0 1 6 0v2M4 13h16M10 13v3h4v-3" /></svg></span>
+          <h2>คุณถนัดเรื่องอะไร?</h2>
+          <p>บอกบริการและเวลาที่สะดวกให้ผู้ว่าจ้างรู้</p>
+          <RouterLink to="/worker/service-posts/new" class="btn-primary post-job"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>ประกาศบริการใหม่</RouterLink>
+          <RouterLink to="/worker/jobs?view=services" class="manage-link">จัดการบริการของฉัน</RouterLink>
+        </aside>
+      </section>
+
+      <RouterLink class="request-history-link" to="/worker/jobs">
+        <span class="history-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="17" rx="2" /><path d="M9 4V2h6v2M9 10h6M9 15h4" /></svg></span>
+        <span class="history-copy"><strong>งานและคำขอใช้บริการของฉัน</strong><span>ติดตามงานที่สมัครและคำขอจากผู้ว่าจ้าง</span></span>
+      </RouterLink>
+
+      <section class="browse" aria-labelledby="browse-title">
+        <div class="section-heading"><div><p class="eyebrow">ค้นหาสิ่งที่ใช่</p><h2 id="browse-title">บริการและประกาศงาน</h2></div></div>
+        <div class="search-controls">
+          <div class="search-bar">
+            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+            <label for="worker-search" class="sr-only">ค้นหาจากชื่อผู้ประกาศหรือรายละเอียด</label>
+            <input aria-label="ค้นหาจากชื่อผู้ประกาศหรือรายละเอียด" id="worker-search" v-model="searchQuery" type="search" placeholder="ค้นหาบริการ งาน หรือชื่อผู้ประกาศ" aria-describedby="search-help" />
+          </div>
+          <button :aria-pressed="showCategoryFilter" type="button" class="filter-btn" :class="{ active: showCategoryFilter }" :aria-expanded="showCategoryFilter" aria-controls="category-filters" @click="showCategoryFilter = !showCategoryFilter">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M7 12h10M10 19h4" /></svg>หมวดหมู่
+          </button>
         </div>
-      </article>
+        <p id="search-help" class="search-help">ค้นหาจากชื่อผู้ประกาศหรือคำในรายละเอียด แล้วเลือกหมวดหมู่เพื่อจำกัดผลลัพธ์</p>
 
-      <p v-if="!loading && !errorMsg && filteredPosts.length" class="results-count">แสดง {{ visiblePosts.length }} จาก {{ filteredPosts.length }} รายการ</p>
-      <button v-if="visiblePosts.length < filteredPosts.length" class="show-more" @click="showMorePosts">โหลดเพิ่ม</button>
-      <p v-if="!loading && !errorMsg && !filteredPosts.length" class="empty">ไม่พบประกาศที่ตรงกับตัวกรองของคุณ</p>
-    </section>
+        <div class="tabs" role="group" aria-label="ประเภทประกาศ">
+          <button v-for="t in tabs" :key="t.value" type="button" :class="{ active: activeTab === t.value }" :aria-pressed="activeTab === t.value" @click="activeTab = t.value">{{ t.label }}</button>
+        </div>
+        <div v-show="showCategoryFilter" id="category-filters" class="categories" role="group" aria-label="หมวดหมู่งาน">
+          <button v-for="c in categories" :key="c.id" type="button" :class="{ active: activeCategory === c.id }" :aria-pressed="activeCategory === c.id" @click="activeCategory = c.id"><span aria-hidden="true">{{ c.icon }}</span>{{ c.label }}</button>
+        </div>
 
-    <!-- ปุ่มสร้างประกาศใหม่ -->
-    <RouterLink to="/worker/service-posts/new" class="fab" aria-label="สร้างประกาศใหม่">
-      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
-    </RouterLink>
-
+        <div class="feed-heading">
+          <p role="status" aria-live="polite">{{ loading ? 'กำลังค้นหาประกาศ…' : errorMsg ? 'ยังแสดงประกาศไม่ได้' : `พบ ${filteredPosts.length} ประกาศ` }}</p>
+          <button v-if="hasFilters" type="button" class="reset-btn" @click="resetFilters">ล้างตัวกรอง</button>
+          <span v-else class="sort-label">ประกาศล่าสุดก่อน</span>
+        </div>
+        <section class="feed-list" aria-label="ผลการค้นหาประกาศ" :aria-busy="loading">
+          <div v-if="loading" class="empty-state loading-state" role="status"><span class="loading-mark" aria-hidden="true"></span><h3>กำลังโหลดประกาศ</h3><p>รอสักครู่ เรากำลังค้นหางานและบริการให้คุณ</p></div>
+          <div v-else-if="errorMsg" class="empty-state error-state" role="alert"><h3>โหลดประกาศไม่สำเร็จ</h3><p>{{ errorMsg }}</p><button type="button" class="btn-primary" @click="loadFeed()">ลองอีกครั้ง</button></div>
+          <template v-else>
+            <article v-for="post in visiblePosts" :key="`${post.type}-${post.id}`" class="card">
+              <div class="card-top"><span class="type-badge" :class="{ service: post.type === 'worker' }">{{ post.type === 'worker' ? 'บริการจากผู้รับจ้าง' : 'ประกาศงาน' }}</span><span class="category-label">{{ categoryLabel(post.category) }}</span></div>
+              <div class="person"><div class="card-avatar"><UserAvatar :src="post.avatarUrl" :name="post.name" :label="`รูปโปรไฟล์ ${post.name}`" /></div><div class="person-copy"><h3>{{ post.name }}</h3><span class="time">{{ timeAgo(post.postedAt) }}</span></div></div>
+              <p class="desc">{{ post.description }}</p>
+              <dl class="post-meta"><div><dt>ช่วงเวลา</dt><dd>{{ post.window === '-' ? 'ไม่ระบุเวลา' : post.window }}</dd></div><div><dt>พื้นที่บริการ / สถานที่</dt><dd>{{ post.eta === '-' ? 'ไม่ระบุพื้นที่' : post.eta }}</dd></div></dl>
+              <div class="card-bottom"><div class="price"><span>{{ post.priceLabel }}</span><strong>฿{{ priceFormatter.format(post.price) }}</strong></div><div class="card-actions">
+                <button v-if="post.type === 'hirer'" type="button" class="btn-apply" :disabled="applyingJobIds.has(post.id) || appliedJobIds.has(post.id)" @click="applyToJob(post)">{{ appliedJobIds.has(post.id) ? "สมัครแล้ว" : applyingJobIds.has(post.id) ? "กำลังสมัคร…" : "สมัครงาน" }}</button>
+                <RouterLink :to="post.type === 'hirer' ? `/worker/jobs/${post.id}` : `/worker/service-posts/${post.id}`" class="btn-details">รายละเอียด</RouterLink>
+                <p v-if="applyErrors[post.id]" class="apply-error" role="alert">{{ applyErrors[post.id] }}</p>
+              </div></div>
+            </article>
+            <div v-if="!filteredPosts.length" class="empty-state"><span class="empty-icon" aria-hidden="true">⌕</span><h3>{{ hasFilters ? 'ยังไม่พบประกาศที่ตรงกัน' : 'ยังไม่มีประกาศในตอนนี้' }}</h3><p>{{ hasFilters ? 'ลองเปลี่ยนคำค้น หรือเลือกหมวดหมู่อื่นดูนะ' : 'กลับมาดูใหม่ได้ หรือประกาศบริการเพื่อให้ผู้ว่าจ้างค้นพบคุณ' }}</p><button v-if="hasFilters" type="button" class="btn-primary" @click="resetFilters">ดูประกาศทั้งหมด</button><RouterLink v-else to="/worker/service-posts/new" class="btn-primary">ประกาศบริการใหม่</RouterLink></div>
+          </template>
+        </section>
+        <div v-if="!loading && !errorMsg && filteredPosts.length" class="feed-footer"><p>แสดง {{ visiblePosts.length }} จาก {{ filteredPosts.length }} ประกาศ</p><button v-if="visiblePosts.length < filteredPosts.length" type="button" class="btn-details show-more" @click="showMorePosts">ดูประกาศเพิ่มเติม</button></div>
+      </section>
+      <p class="page-note">เจองานที่สนใจ? อ่านรายละเอียดและเงื่อนไขก่อนสมัครได้เลย</p>
+    </main>
   </div>
 </template>
 
-<style scoped>
-:root { --gold: #ffc93c; }
-
-.page {
-  position: relative;
-  min-height: 100vh;
-  padding-bottom: 24px;
-  background: #f0f0f0;
-  font-family: inherit;
-}
-
-svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-/* ---------- Top bar ---------- */
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  background: #fff;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  border-bottom: 1px solid #eee;
-}
-.icon-btn, .avatar-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: transparent;
-  border-radius: 50%;
-  color: #111;
-  cursor: pointer;
-}
-.avatar-btn { border: 1px solid #111; padding: 0; cursor: pointer; flex-shrink: 0; position: relative; z-index: 11; }
-.brand { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 18px; }
-.brand-icon { font-size: 18px; }
-.brand-name { color: #111; }
-.role-pill {
-  font-size: 11px; font-weight: 700; color: #14532d; background: #ecfdf5;
-  border: 1px solid #16a34a; border-radius: 10px; padding: 2px 8px; white-space: nowrap;
-}
-
-/* ---------- Drawer ---------- */
-.backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 20;
-}
-.drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 78%;
-  max-width: 300px;
-  background: #fff;
-  z-index: 21;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
-}
-.drawer-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 18px; margin-bottom: 4px; }
-.drawer-role { font-size: 13px; color: #555; margin-bottom: 16px; }
-.drawer-role strong { color: #111; }
-.drawer-link {
-  display: block;
-  text-align: left;
-  padding: 12px 8px;
-  min-height: 44px;
-  border: none;
-  background: transparent;
-  border-bottom: 1px solid #f2f2f2;
-  color: #111;
-  text-decoration: none;
-  font-size: 15px;
-  cursor: pointer;
-}
-.drawer-link.logout { color: #d33; margin-top: auto; }
-.drawer-link:disabled { opacity: 0.6; cursor: default; }
-.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.slide-enter-active, .slide-leave-active { transition: transform 0.2s; }
-.slide-enter-from, .slide-leave-to { transform: translateX(-100%); }
-
-/* ---------- Search row ---------- */
-.search-row { padding: 12px 16px 0; }
-.greeting { margin: 0 0 8px; font-weight: 700; font-size: 15px; color: #111; }
-.search-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 10px;
-  padding: 0 10px;
-  min-height: 44px;
-}
-.search-icon { color: #999; flex-shrink: 0; }
-.search-bar input {
-  flex: 1;
-  border: none;
-  outline: none;
-  min-height: 44px;
-  font-size: 14px;
-  background: transparent;
-}
-.filter-btn {
-  border: none;
-  background: transparent;
-  color: #666;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.filter-btn.active { color: #111; background: #ffe9a8; }
-
-/* ---------- Tabs ---------- */
-.tabs {
-  display: flex;
-  margin: 12px 16px 0;
-  background: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid #eee;
-}
-.tabs button {
-  flex: 1;
-  min-height: 44px;
-  border: none;
-  background: transparent;
-  font-size: 14px;
-  color: #555;
-  cursor: pointer;
-  border-bottom: 3px solid transparent;
-}
-.tabs button.active {
-  color: #111;
-  font-weight: 700;
-  border-bottom-color: #ffc93c;
-}
-
-/* ---------- Categories ---------- */
-.categories {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding: 10px 16px;
-  scrollbar-width: none;
-}
-.categories::-webkit-scrollbar { display: none; }
-.categories button {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 36px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  border: 1px solid #e0d3a3;
-  background: #fff8e6;
-  color: #7a5c00;
-  font-size: 13px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.categories button.active { background: #ffc93c; border-color: #ffc93c; color: #111; font-weight: 700; }
-.cat-icon { font-size: 14px; }
-
-/* ---------- Feed list ---------- */
-.feed-list { padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
-.card {
-  display: flex;
-  gap: 10px;
-  background: #fff;
-  border-radius: 12px;
-  padding: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-}
-.card-avatar {
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 1px solid #ddd;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #555;
-}
-.card-body { flex: 1; min-width: 0; }
-.card-head { display: flex; align-items: baseline; gap: 6px; }
-.name { font-weight: 700; font-size: 14px; color: #111; }
-.time { font-size: 11px; color: #999; }
-.desc {
-  margin: 4px 0 8px;
-  font-size: 13px;
-  color: #333;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.tag {
-  background: #eee;
-  color: #444;
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 10px;
-}
-.card-actions {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  justify-content: center;
-}
-.btn-apply, .btn-details {
-  min-height: 34px;
-  padding: 0 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-  cursor: pointer;
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.btn-apply { background: #ffc93c; border: none; color: #111; }
-.btn-apply:disabled { opacity: 0.65; cursor: not-allowed; }
-.apply-error { max-width: 180px; margin: 0; color: #e11d48; font-size: 11px; text-align: center; }
-.btn-details { background: #fff; border: 1px solid #ccc; color: #111; }
-
-.results-count { margin: 12px 16px 4px; color: #777; font-size: 12px; text-align: center; }
-.show-more { display:block; margin: 10px auto 20px; padding: 9px 18px; border: 1px solid #ddd; border-radius: 20px; background:#fff; color:#554000; cursor:pointer; }
-.empty { text-align: center; color: #888; margin-top: 40px; font-size: 14px; }
-
-/* ---------- FAB ---------- */
-.fab {
-  position: fixed;
-  right: 20px;
-  bottom: 48px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: #ffc93c;
-  border: 2px solid #111;
-  color: #111;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
-  z-index: 5;
-}
-
-@media (min-width: 768px) {
-  .search-row { padding-left: 24px; padding-right: 24px; }
-  .tabs { margin: 12px 24px 0; }
-  .categories { padding-left: 24px; padding-right: 24px; }
-  .feed-list { padding: 4px 24px 16px; }
-}
-</style>
-
-
-
-
-
-
-
-
+<style scoped src="../../styles/marketplace.css"></style>

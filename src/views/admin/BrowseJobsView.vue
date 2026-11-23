@@ -57,9 +57,9 @@ function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).joi
 </script>
 
 <template>
-  <section class="browse">
-    <div class="header-row"><div><p class="greeting">Hello, Admin</p><p class="subtitle">ตรวจสอบประกาศงานจาก Hirer และประกาศบริการจาก Worker</p></div><button class="refresh-btn" :disabled="loading" @click="loadJobs">{{ loading ? 'Loading...' : 'Refresh' }}</button></div>
-    <nav class="post-switch" aria-label="ชนิดประกาศ"><button :class="{active:type==='jobs'}" @click="changeType('jobs')">ประกาศงาน Hirer</button><button :class="{active:type==='services'}" @click="changeType('services')">ประกาศบริการ Worker</button></nav>
+  <section class="browse jd-page">
+    <div class="header-row"><div><h1 class="greeting">ประกาศงานและบริการ</h1><p class="subtitle">ตรวจสอบประกาศจากผู้ว่าจ้างและผู้รับจ้าง</p></div><button class="refresh-btn" :disabled="loading" @click="loadJobs">{{ loading ? 'กำลังโหลด…' : 'รีเฟรช' }}</button></div>
+    <nav class="post-switch" aria-label="ชนิดประกาศ"><button :aria-pressed="type==='jobs'" :class="{active:type==='jobs'}" @click="changeType('jobs')">ประกาศงาน Hirer</button><button :aria-pressed="type==='services'" :class="{active:type==='services'}" @click="changeType('services')">ประกาศบริการ Worker</button></nav>
     <div class="search-box"><span>⌕</span><input v-model="search" placeholder="ค้นหาชื่องานหรือรายละเอียด" aria-label="ค้นหาประกาศ" /></div>
     <label class="filter-label">สถานะ: <select v-model="status" @change="changeStatus"><option v-for="s in statuses" :key="s" :value="s">{{ s === 'all' ? 'ทุกสถานะ' : (statusText[s] || s) }}</option></select></label>
     <p v-if="errorMessage" class="error-box" role="alert">{{ errorMessage }}</p>
@@ -115,7 +115,7 @@ function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).joi
 .subtitle {
   margin: 3px 0 0;
   color: var(--color-text-muted);
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 
 .refresh-btn {
@@ -149,7 +149,7 @@ function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).joi
   background: var(--color-red-bg);
   color: var(--color-red);
   margin-bottom: 12px;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 .job-list {
@@ -190,19 +190,19 @@ function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).joi
 
 .job-name {
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
 .job-title {
   margin: 4px 0;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
 .job-text {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 0.875rem;
   opacity: 0.85;
 }
 
@@ -214,7 +214,7 @@ function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).joi
 
 .job-info span,
 .email {
-  font-size: 11px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
@@ -230,7 +230,7 @@ function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).joi
 
 .action-btn {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   font-weight: 700;
@@ -269,27 +269,27 @@ function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).joi
 </style>
 <style scoped>
 .post-switch { display:flex; gap:8px; margin-bottom:12px; }
-.post-switch button { padding:10px; border:1px solid #ddd; border-radius:8px; background:#fff; }
-.post-switch button.active { background:#ffca3a; font-weight:700; }
-.filter-label,.count { display:block; margin-bottom:12px; font-size:13px; }
-.filter-label select { margin-left:8px; padding:8px; border:1px solid #ddd; background:white; border-radius:8px; }
+.post-switch button { padding:10px; border:1px solid var(--jd-input-border); border-radius:8px; background:var(--jd-surface); }
+.post-switch button.active { background:var(--jd-accent); font-weight:700; }
+.filter-label,.count { display:block; margin-bottom:12px; font-size: 0.875rem; }
+.filter-label select { margin-left:8px; padding:8px; border:1px solid var(--jd-input-border); background:white; border-radius:8px; }
 .job-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.status-label { display:inline-block; flex-shrink:0; padding:4px 8px; border-radius:12px; font-size:11px; font-weight:700; line-height:1.2; }
+.status-label { display:inline-block; flex-shrink:0; padding:4px 8px; border-radius:12px; font-size: 0.875rem; font-weight:700; line-height:1.2; }
 .status-pending_review, .status-awaiting_confirmation { background:#fef3c7; color:#92400e; }
 .status-waiting, .status-active { background:#dbeafe; color:#1d4ed8; }
 .status-assigned, .status-in_progress { background:#e0e7ff; color:#4338ca; }
 .status-completed { background:#dcfce7; color:#166534; }
 .status-rejected, .status-cancelled, .status-disputed, .status-closed, .status-expired { background:#fee2e2; color:#b91c1c; }
-.detail-btn { display:block; margin-top:9px; border:1px solid var(--color-border); border-radius:7px; background:transparent; padding:6px 10px; color:var(--color-text); font-size:12px; font-weight:700; }
+.detail-btn { display:block; margin-top:9px; border:1px solid var(--color-border); border-radius:7px; background:transparent; padding:6px 10px; color:var(--color-text); font-size: 0.875rem; font-weight:700; }
 .moderation-actions { display:flex; gap:8px; margin-top:8px; }
-.moderation-actions button { min-height:34px; padding:6px 10px; border:0; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; }
+.moderation-actions button { min-height: 44px; padding:6px 10px; border:0; border-radius:7px; font-size: 0.875rem; font-weight:700; cursor:pointer; }
 .approve-btn { background:#dcfce7; color:#166534; }
 .reject-btn { background:#fee2e2; color:#b91c1c; }
 .moderation-actions button:disabled { opacity:.6; cursor:default; }
-.detail-box { margin-top:8px; padding:10px; background:#f8fafc; overflow-wrap:anywhere; font-size:12px; border-radius:8px; }
+.detail-box { margin-top:8px; padding:10px; background:var(--jd-canvas); overflow-wrap:anywhere; font-size: 0.875rem; border-radius:8px; }
 .detail-box p { margin:0 0 6px; }
 .detail-box p:last-of-type { margin-bottom:0; }
 .pagination { display:flex; gap:14px; justify-content:center; align-items:center; padding:18px; }
-.pagination button { padding:9px 12px; background:white; border:1px solid #ddd; border-radius:8px; }
+.pagination button { padding:9px 12px; background:white; border:1px solid var(--jd-input-border); border-radius:8px; }
 .pagination button:disabled { opacity:.45; }
 </style>

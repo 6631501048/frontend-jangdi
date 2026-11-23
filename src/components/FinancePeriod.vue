@@ -15,7 +15,7 @@ function update(key, value, current) { emit('update:modelValue', { ...current, [
   </fieldset>
 </template>
 <style scoped>
-.period { display:flex; flex-wrap:wrap; gap:12px; border:1px solid #e5e7eb; padding:14px; border-radius:12px; margin:0; background:#fff; }
-legend { font-weight:700; font-size:14px; } label { display:flex; flex:1; flex-direction:column; gap:5px; font-size:12px; min-width:125px; color:#555; }
-select,input { font:inherit; color:#111; min-height:42px; border:1px solid #d1d5db; border-radius:8px; padding:8px; background:#fff; width:100%; }
+.period { display:flex; flex-wrap:wrap; gap:12px; border:1px solid var(--jd-line); padding:14px; border-radius:12px; margin:0; background:var(--jd-surface); }
+legend { font-weight:700; font-size: 0.875rem; } label { display:flex; flex:1; flex-direction:column; gap:5px; font-size: 0.875rem; min-width:125px; color:var(--jd-muted); }
+select,input { font:inherit; color:var(--jd-ink); min-height: 44px; border:1px solid var(--jd-input-border); border-radius:8px; padding:8px; background:var(--jd-surface); width:100%; }
 </style>

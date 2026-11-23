@@ -19,4 +19,4 @@ watch(() => [props.paymentId,props.count],load,{immediate:true});
 onBeforeUnmount(() => { generation++; clear(); });
 </script>
 <template><div class="evidence"><p v-if="loading" role="status">กำลังโหลดหลักฐาน…</p><a v-for="(url,index) in images" :key="url" :href="url" target="_blank" rel="noopener"><img :src="url" :alt="`หลักฐานขอคืนเงิน ภาพที่ ${index+1}`" /></a><p v-if="error" role="alert">{{error}} <button @click="load">ลองใหม่</button></p></div></template>
-<style scoped>.evidence{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.evidence img{width:96px;height:96px;object-fit:cover;border-radius:8px}.evidence p{font-size:12px}</style>
+<style scoped>.evidence{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.evidence img{width:96px;height:96px;object-fit:cover;border-radius:8px}.evidence p{font-size: 0.875rem}</style>

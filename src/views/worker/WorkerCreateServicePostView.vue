@@ -171,13 +171,13 @@ function backToHome() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page: ปุ่มย้อนกลับ + ชื่อหน้า -->
     <header class="topbar">
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="submitted ? backToHome() : back()">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">Post Job</h1>
+      <h1 class="title">ประกาศบริการ</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -191,8 +191,8 @@ function backToHome() {
           <h2 class="success-title">ส่งประกาศบริการแล้ว</h2>
           <p class="success-sub">ประกาศกำลังรอผู้ดูแลตรวจสอบ เมื่ออนุมัติแล้วจึงจะแสดงใน Feed</p>
           <div class="success-actions">
-            <button class="btn-primary" @click="viewMyPosts">View My Posts</button>
-            <button class="btn-muted" @click="backToHome">Back to Home</button>
+            <button class="btn-primary" @click="viewMyPosts">ดูประกาศของฉัน</button>
+            <button class="btn-muted" @click="backToHome">กลับหน้าแรก</button>
           </div>
         </section>
 
@@ -209,9 +209,9 @@ function backToHome() {
 
           <!-- ขั้นตอน 1: หมวดหมู่ -->
           <section v-if="step === 1" class="step-body">
-            <h2 class="section-title">Select หมวดหมู่บริการ</h2>
+            <h2 class="section-title">เลือกหมวดหมู่บริการ</h2>
             <div class="category-grid">
-              <button
+              <button :aria-pressed="form.category === c.id"
                 v-for="c in categories"
                 :key="c.id"
                 type="button"
@@ -235,14 +235,14 @@ function backToHome() {
             </div>
 
             <label class="field-label">ชื่อบริการ</label>
-            <input v-model="form.name" type="text" :placeholder="form.category === 'delivery' ? 'เช่น รับฝากหิ้วของจากห้าง' : 'เช่น รับส่งพัสดุ / ให้บริการทำความสะอาด'" />
+            <input aria-label="ชื่อบริการ" v-model="form.name" type="text" :placeholder="form.category === 'delivery' ? 'เช่น รับฝากหิ้วของจากห้าง' : 'เช่น รับส่งพัสดุ / ให้บริการทำความสะอาด'" />
 
-            <label class="field-label">Details</label>
-            <textarea v-model="form.details" rows="3" placeholder="อธิบายบริการของคุณ"></textarea>
+            <label class="field-label">รายละเอียด</label>
+            <textarea aria-label="รายละเอียด" v-model="form.details" rows="3" placeholder="อธิบายบริการของคุณ"></textarea>
 
             <template v-if="form.category === 'delivery'">
               <label class="field-label">รูปแบบบริการ</label>
-              <select v-model="form.serviceType">
+              <select aria-label="รูปแบบบริการ" v-model="form.serviceType">
                 <option v-for="mode in deliveryModes" :key="mode.id" :value="mode.id">{{ mode.label }}</option>
               </select>
             </template>
@@ -251,7 +251,7 @@ function backToHome() {
               <div class="field-col">
                 <label class="field-label">{{ form.category === 'delivery' ? deliveryFeeLabel : 'ค่าบริการต่อรายการ' }}</label>
                 <div class="input-suffix">
-                  <input v-model.number="form.feePerOrder" type="number" min="40" placeholder="40" />
+                  <input :aria-label="form.category === 'delivery' ? deliveryFeeLabel : 'ค่าบริการต่อรายการ'" v-model.number="form.feePerOrder" type="number" min="40" placeholder="40" />
                   <span class="suffix">บาท</span>
                 </div>
                 <small class="price-hint">ค่าจ้างขั้นต่ำ 40 บาท</small>
@@ -259,7 +259,7 @@ function backToHome() {
               <div class="field-col">
                 <label class="field-label">จำนวนงานที่รับพร้อมกัน</label>
                 <div class="input-suffix">
-                  <input v-model.number="form.maxOrders" type="number" min="1" max="3" step="1" placeholder="1" />
+                  <input aria-label="จำนวนงานที่รับพร้อมกัน" v-model.number="form.maxOrders" type="number" min="1" max="3" step="1" placeholder="1" />
                   <span class="suffix">งาน</span>
                 </div>
                 <small class="price-hint">กำหนดได้ตั้งแต่ 1 ถึง 3 งานพร้อมกัน</small>
@@ -269,11 +269,11 @@ function backToHome() {
             <div class="field-row">
               <div class="field-col">
                 <label class="field-label">วันที่ให้บริการ</label>
-                <input v-model="form.serviceDate" type="date" :min="today" required />
+                <input aria-label="วันที่ให้บริการ" v-model="form.serviceDate" type="date" :min="today" required />
               </div>
               <div class="field-col">
                 <label class="field-label">เวลา</label>
-                <select v-model="form.time">
+                <select aria-label="เวลา" v-model="form.time">
                   <option value="" disabled>เลือกเวลา</option>
                   <option v-for="t in timeOptions" :key="t" :value="t">{{ t }}</option>
                 </select>
@@ -281,15 +281,15 @@ function backToHome() {
               <div class="field-col">
                 <label v-if="form.category === 'delivery'" class="field-label">รัศมีให้บริการ</label>
                 <label v-else class="field-label">สถานที่ให้บริการ</label>
-                <select v-if="form.category === 'delivery'" v-model="form.radius">
+                <select aria-label="รัศมีให้บริการ" v-if="form.category === 'delivery'" v-model="form.radius">
                   <option value="" disabled>เลือกรัศมี</option>
                   <option v-for="r in radiusOptions" :key="r" :value="r">{{ r }}</option>
                 </select>
-                <input v-else v-model="form.serviceLocation" type="text" placeholder="เช่น อาคาร/หอพัก/สถานที่ที่รับงาน" />
+                <input aria-label="สถานที่ให้บริการ" v-else v-model="form.serviceLocation" type="text" placeholder="เช่น อาคาร/หอพัก/สถานที่ที่รับงาน" />
               </div>
             </div>
             <label class="field-label">หมายเหตุเพิ่มเติม (ไม่บังคับ)</label>
-            <textarea v-model="form.notes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+            <textarea aria-label="หมายเหตุเพิ่มเติม (ไม่บังคับ)" v-model="form.notes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
           </section>
 
           <!-- ขั้นตอน 3: ตรวจสอบก่อนส่ง -->
@@ -305,7 +305,7 @@ function backToHome() {
                 <dd>{{ form.name || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Details</dt>
+                <dt>รายละเอียด</dt>
                 <dd>{{ form.details || "-" }}</dd>
               </div>
               <div class="review-row">
@@ -349,7 +349,7 @@ function backToHome() {
               @click="next"
             >ถัดไป</button>
             <button v-else class="btn-primary" :disabled="submitting" @click="submit">
-              {{ submitting ? "Posting..." : "Confirm" }}
+              {{ submitting ? "กำลังส่งประกาศ…" : "ยืนยันประกาศบริการ" }}
             </button>
           </div>
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
@@ -360,42 +360,42 @@ function backToHome() {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; }
-.card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.card { background: var(--jd-surface); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 
 /* ---------- Stepper ---------- */
 .stepper { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 20px; }
 .step-dot {
-  width: 26px; height: 26px; border-radius: 50%; border: 1px solid #ddd;
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--jd-input-border);
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #999; background: #fff; flex-shrink: 0;
+  font-size: 0.875rem; font-weight: 700; color: var(--jd-muted); background: var(--jd-surface); flex-shrink: 0;
 }
-.step-dot.active { background: #ffc93c; border-color: #ffc93c; color: #111; }
-.step-line { width: 36px; height: 1px; background: #ddd; }
+.step-dot.active { background: var(--jd-accent); border-color: var(--jd-warning); color: var(--jd-ink); }
+.step-line { width: 36px; height: 1px; background: var(--jd-input-border); }
 
-.section-title { margin: 0 0 14px; font-size: 14px; font-weight: 700; color: #111; }
-.selected-category { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; padding:10px 12px; border:1px solid #f0e2b5; border-radius:9px; background:#fffaf0; }
+.section-title { margin: 0 0 14px; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.selected-category { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; padding:10px 12px; border:1px solid #f0e2b5; border-radius:9px; background:var(--jd-accent-soft); }
 .selected-category > div { display:flex; flex-direction:column; gap:4px; }
-.selected-category-label { font-size:11px; color:#777; }
-.selected-category strong { font-size:13px; color:#111; }
-.change-category-btn { flex-shrink:0; border:0; padding:8px 10px; border-radius:6px; background:#fff; color:#78350f; font-size:12px; font-weight:700; cursor:pointer; }
+.selected-category-label { font-size: 0.875rem; color:var(--jd-muted); }
+.selected-category strong { font-size: 0.875rem; color:var(--jd-ink); }
+.change-category-btn { flex-shrink:0; border:0; padding:8px 10px; border-radius:6px; background:var(--jd-surface); color:#78350f; font-size: 0.875rem; font-weight:700; cursor:pointer; }
 
 /* ---------- ขั้นตอน 1: หมวดหมู่ ---------- */
 .category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -403,57 +403,57 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; padding: 20px 8px; min-height: 88px;
-  border: 1px solid #e5e5e5; border-radius: 10px; background: #fff; cursor: pointer;
+  border: 1px solid var(--jd-line); border-radius: 10px; background: var(--jd-surface); cursor: pointer;
 }
-.category-card.active { border-color: #ffc93c; background: #fffbea; }
-.cat-dot { position: absolute; top: 8px; left: 8px; width: 8px; height: 8px; border-radius: 50%; background: #ffc93c; }
-.cat-icon { font-size: 22px; }
-.cat-label { font-size: 13px; color: #333; text-align: center; }
-.category-card.active .cat-label { color: #111; font-weight: 600; }
+.category-card.active { border-color: var(--jd-warning); background: var(--jd-accent-soft); }
+.cat-dot { position: absolute; top: 8px; left: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--jd-accent); }
+.cat-icon { font-size: 1.375rem; }
+.cat-label { font-size: 0.875rem; color: var(--jd-ink); text-align: center; }
+.category-card.active .cat-label { color: var(--jd-ink); font-weight: 600; }
 
 /* ---------- ขั้นตอน 2: ฟอร์มรายละเอียด ---------- */
 .step-body { display: flex; flex-direction: column; }
-.field-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 12px; color: #666; }
+.field-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 0.875rem; color: var(--jd-muted); }
 input, select, textarea {
-  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #ddd;
-  font-size: 13px; font-family: inherit; min-height: 42px; color: #111; background: #fff;
+  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--jd-input-border);
+  font-size: 0.875rem; font-family: inherit; min-height: 44px; color: var(--jd-ink); background: var(--jd-surface);
 }
 textarea { resize: vertical; }
-select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, #999 50%), linear-gradient(135deg, #999 50%, transparent 50%); background-position: calc(100% - 18px) center, calc(100% - 13px) center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
+select { appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--jd-muted) 50%), linear-gradient(135deg, var(--jd-muted) 50%, transparent 50%); background-position: calc(100% - 18px) center, calc(100% - 13px) center; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; }
 .field-row { display: flex; gap: 10px; }
 .field-col { flex: 1; min-width: 0; }
-.price-hint { display: block; margin-top: 4px; color: #888; font-size: 11px; }
-.fixed-capacity { margin: 0; min-height: 42px; display: flex; align-items: center; padding: 0 12px; border: 1px solid #e5e5e5; border-radius: 8px; background: #f8f8f8; font-size: 13px; }
+.price-hint { display: block; margin-top: 4px; color: var(--jd-muted); font-size: 0.875rem; }
+.fixed-capacity { margin: 0; min-height: 44px; display: flex; align-items: center; padding: 0 12px; border: 1px solid var(--jd-line); border-radius: 8px; background: #f8f8f8; font-size: 0.875rem; }
 .input-suffix { position: relative; display: flex; align-items: center; }
 .input-suffix input { padding-right: 46px; }
-.input-suffix .suffix { position: absolute; right: 12px; font-size: 12px; color: #999; }
+.input-suffix .suffix { position: absolute; right: 12px; font-size: 0.875rem; color: var(--jd-muted); }
 
 /* ---------- ขั้นตอน 3: ตรวจสอบ ---------- */
 .review-list { margin: 0; display: flex; flex-direction: column; }
-.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #f2f2f2; }
+.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--jd-subtle); }
 .review-row:last-child { border-bottom: none; }
-.review-row dt { flex-shrink: 0; font-size: 12px; color: #999; }
-.review-row dd { margin: 0; font-size: 13px; color: #111; font-weight: 600; text-align: right; }
+.review-row dt { flex-shrink: 0; font-size: 0.875rem; color: var(--jd-muted); }
+.review-row dd { margin: 0; font-size: 0.875rem; color: var(--jd-ink); font-weight: 600; text-align: right; }
 
 /* ---------- ปุ่ม ---------- */
 .actions { display: flex; gap: 10px; margin-top: 20px; }
 .btn-primary, .btn-muted {
-  flex: 1; min-height: 44px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+  flex: 1; min-height: 44px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
-.btn-primary { background: #ffc93c; border: none; color: #111; }
+.btn-primary { background: var(--jd-accent); border: none; color: var(--jd-ink); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-muted { background: #e5e5e5; border: none; color: #333; }
-.error-msg { margin: 10px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
+.btn-muted { background: var(--jd-line); border: none; color: var(--jd-ink); }
+.error-msg { margin: 10px 0 0; font-size: 0.875rem; color: #e11d48; text-align: center; }
 
 /* ---------- หน้าจอสำเร็จ ---------- */
 .success { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 8px 8px; }
 .check-circle {
-  width: 64px; height: 64px; border-radius: 50%; background: #22c55e; color: #fff;
+  width: 64px; height: 64px; border-radius: 50%; background: #22c55e; color: var(--jd-surface);
   display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
 }
 .check-circle svg { width: 32px; height: 32px; stroke-width: 3; }
-.success-title { margin: 0 0 6px; font-size: 18px; font-weight: 700; color: #22c55e; }
-.success-sub { margin: 0 0 32px; font-size: 13px; color: #888; }
+.success-title { margin: 0 0 6px; font-size: 1.125rem; font-weight: 700; color: var(--jd-success); }
+.success-sub { margin: 0 0 32px; font-size: 0.875rem; color: var(--jd-muted); }
 .success-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; }
 .success-actions .btn-primary, .success-actions .btn-muted { width: 100%; }
 </style>

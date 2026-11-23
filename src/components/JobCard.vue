@@ -32,7 +32,7 @@ defineEmits(["open"]);
   align-items: center;
   gap: 12px;
   padding: 14px;
-  border: 1px solid #eee;
+  border: 1px solid var(--jd-line);
   border-radius: 12px;
   background: white;
   text-align: left;
@@ -43,23 +43,23 @@ defineEmits(["open"]);
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #f3f4f6;
+  background: var(--jd-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 1.125rem;
   flex-shrink: 0;
 }
 .info { flex: 1; min-width: 0; }
 .title {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 0.875rem;
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.meta { font-size: 12px; color: #888; margin-top: 4px; }
+.meta { font-size: 0.875rem; color: var(--jd-muted); margin-top: 4px; }
 .right {
   display: flex;
   flex-direction: column;
@@ -67,5 +67,5 @@ defineEmits(["open"]);
   gap: 6px;
   flex-shrink: 0;
 }
-.detail-link { font-size: 12px; color: #2563eb; }
+.detail-link { font-size: 0.875rem; color: #2563eb; }
 </style>

@@ -28,13 +28,13 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <AppTopBar role-label="" :show-notifications="false" @menu="drawerOpen = true" />
     <AppRoleDrawer v-model="drawerOpen" />
     <main class="content">
       <RouterLink to="/profile" class="back-link">‹ กลับหน้าโปรไฟล์</RouterLink>
       <section class="card">
-        <h1>Post History</h1>
+        <h1>ประวัติประกาศ</h1>
         <p v-if="loading || error" class="empty">{{ loading ? "กำลังโหลดประวัติโพสต์…" : error }}</p>
         <template v-else>
           <h2 class="role-band hirer-band">งานที่ประกาศ (Hirer)</h2>
@@ -65,22 +65,22 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.page { min-height: 100vh; background: #f0f0f0; }
+.page { min-height: 100vh; background: var(--jd-canvas); }
 .content { max-width: 620px; margin: 0 auto; padding: 16px; }
-.back-link { display: inline-block; margin: 0 0 12px; color: #8a5a00; text-decoration: none; font-size: 14px; font-weight: 600; }
-.card { padding: 18px; background: #fff; border-radius: 14px; box-shadow: 0 1px 3px #0000000f; }
-h1 { margin: 0 0 14px; font-size: 18px; }
-h2 { margin: 20px 0 8px; font-size: 14px; }
+.back-link { display: inline-block; margin: 0 0 12px; color: var(--jd-warning); text-decoration: none; font-size: 0.875rem; font-weight: 600; }
+.card { padding: 18px; background: var(--jd-surface); border-radius: 14px; box-shadow: 0 1px 3px #0000000f; }
+h1 { margin: 0 0 14px; font-size: 1.125rem; }
+h2 { margin: 20px 0 8px; font-size: 0.875rem; }
 h2:first-of-type { margin-top: 0; }
 .role-band { padding: 9px 11px; border-radius: 8px; }
-.hirer-band { background: #fff5d6; color: #805500; border-left: 4px solid #f0b429; }
+.hirer-band { background: var(--jd-accent-soft); color: #805500; border-left: 4px solid #f0b429; }
 .worker-band { background: #eaf3ff; color: #245b91; border-left: 4px solid #5b9bd5; }
-.empty { margin: 0 0 8px; color: #888; font-size: 13px; }
+.empty { margin: 0 0 8px; color: var(--jd-muted); font-size: 0.875rem; }
 .list { margin: 0; padding: 0; list-style: none; }
-.item { padding: 12px 0; border-top: 1px solid #eee; }
+.item { padding: 12px 0; border-top: 1px solid var(--jd-line); }
 .item:first-child { border-top: 0; }
 .item-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.item-head strong { font-size: 14px; }
-.meta { margin-top: 4px; color: #888; font-size: 12px; }
-.reason { margin-top: 4px; color: #b91c1c; font-size: 12px; }
+.item-head strong { font-size: 0.875rem; }
+.meta { margin-top: 4px; color: var(--jd-muted); font-size: 0.875rem; }
+.reason { margin-top: 4px; color: #b91c1c; font-size: 0.875rem; }
 </style>

@@ -63,10 +63,10 @@ async function submitReport() {
 <style scoped>
 .report-control { margin: 14px 0; }
 .report-trigger { border: 0; background: transparent; color: #b42318; text-decoration: underline; cursor: pointer; padding: 8px 0; }
-.report-form { display: grid; gap: 12px; padding: 14px; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; }
-label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
-select, textarea { width: 100%; border: 1px solid #d1d5db; border-radius: 7px; padding: 9px; font: inherit; }
-.submit { min-height: 42px; border: 0; border-radius: 8px; background: #ffc629; font-weight: 700; cursor: pointer; }
+.report-form { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--jd-line); border-radius: 10px; background: var(--jd-surface); }
+label { display: grid; gap: 6px; font-size: 0.875rem; font-weight: 600; }
+select, textarea { width: 100%; border: 1px solid var(--jd-input-border); border-radius: 7px; padding: 9px; font: inherit; }
+.submit { min-height: 44px; border: 0; border-radius: 8px; background: var(--jd-accent); font-weight: 700; cursor: pointer; }
 .submit:disabled { opacity: .6; cursor: not-allowed; }
-.report-message { font-size: 13px; }
+.report-message { font-size: 0.875rem; }
 </style>

@@ -126,13 +126,13 @@ function goBack() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page -->
     <header class="topbar">
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="goBack">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">Select Worker</h1>
+      <h1 class="title">เลือกผู้รับจ้าง</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -164,7 +164,7 @@ function goBack() {
       <!-- รายชื่อผู้สมัคร -->
       <div class="applicants-head">
         <h2>Applicants ({{ applicants.length }})</h2>
-        <span class="sort-hint">Nearest first</span>
+        <span class="sort-hint">ใกล้ที่สุดก่อน</span>
       </div>
 
       <section class="applicant-list">
@@ -195,14 +195,14 @@ function goBack() {
           </div>
 
           <div class="applicant-actions">
-            <button class="btn-details" @click="router.push(`/users/${a.workerId}`)">Profile</button>
+            <button class="btn-details" @click="router.push(`/users/${a.workerId}`)">โปรไฟล์</button>
             <button
               v-if="job.selectedWorkerId !== a.workerId"
               class="btn-select"
               :disabled="isAssigned"
               @click="openConfirm(a)"
-            >Select</button>
-            <span v-else class="hired-pill">Hired</span>
+            >เลือกผู้รับจ้าง</button>
+            <span v-else class="hired-pill">เลือกแล้ว</span>
           </div>
         </article>
 
@@ -220,7 +220,7 @@ function goBack() {
             Other applicants will no longer be selectable.
           </p>
           <div class="modal-actions">
-            <button class="btn-muted" :disabled="submitting" @click="closeConfirm">Cancel</button>
+            <button class="btn-muted" :disabled="submitting" @click="closeConfirm">ยกเลิก</button>
             <button class="btn-primary" :disabled="submitting" @click="confirmSelect">
               {{ submitting ? "Confirming..." : "Confirm" }}
             </button>
@@ -236,9 +236,9 @@ function goBack() {
           <div class="check-circle">
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
-          <h2 class="modal-title">Hiring Successful</h2>
+          <h2 class="modal-title">เลือกผู้รับจ้างสำเร็จ</h2>
           <p class="modal-sub">You have successfully hired {{ hiredName }}.</p>
-          <button class="btn-primary" @click="closeSuccessModal">Done</button>
+          <button class="btn-primary" @click="closeSuccessModal">เสร็จสิ้น</button>
         </div>
       </div>
     </Transition>
@@ -246,84 +246,84 @@ function goBack() {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.card { background: var(--jd-surface); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 
 /* ---------- การ์ดสรุปงาน ---------- */
 .job-card { padding: 14px; }
 .job-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
-.job-title { margin: 0; font-size: 14px; font-weight: 700; color: #111; }
-.job-desc { margin: 3px 0 0; font-size: 12px; color: #777; }
-.status-pill { flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
-.status-pill.is-waiting { background: #fff3cd; color: #8a6300; }
+.job-title { margin: 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.job-desc { margin: 3px 0 0; font-size: 0.875rem; color: var(--jd-muted); }
+.status-pill { flex-shrink: 0; font-size: 0.875rem; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
+.status-pill.is-waiting { background: #fff3cd; color: var(--jd-warning); }
 .status-pill.is-assigned { background: #dcf7e3; color: #1a7a3d; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.tag { background: #eee; color: #444; font-size: 11px; padding: 3px 8px; border-radius: 10px; }
+.tag { background: var(--jd-line); color: var(--jd-muted); font-size: 0.875rem; padding: 3px 8px; border-radius: 10px; }
 
 .error-banner {
   margin: 0; padding: 10px 12px; border-radius: 8px; background: #fdecea;
-  color: #b3261e; font-size: 12.5px;
+  color: #b3261e; font-size: 0.875rem;
 }
 .assigned-hint {
   margin: 0; padding: 10px 12px; border-radius: 8px; background: #fff3cd;
-  color: #8a6300; font-size: 12.5px;
+  color: var(--jd-warning); font-size: 0.875rem;
 }
 
 /* ---------- หัวข้อผู้สมัคร ---------- */
 .applicants-head { display: flex; align-items: baseline; justify-content: space-between; margin-top: 4px; }
-.applicants-head h2 { margin: 0; font-size: 13px; font-weight: 700; color: #111; }
-.sort-hint { font-size: 11px; color: #999; }
+.applicants-head h2 { margin: 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.sort-hint { font-size: 0.875rem; color: var(--jd-muted); }
 
 /* ---------- รายการผู้สมัคร ---------- */
 .applicant-list { display: flex; flex-direction: column; gap: 10px; }
 .applicant-card { padding: 14px; }
-.applicant-card.selected { outline: 2px solid #ffc93c; }
+.applicant-card.selected { outline: 2px solid var(--jd-accent); }
 .applicant-head { display: flex; gap: 10px; align-items: flex-start; }
 .avatar {
-  flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; border: 1px solid #ddd;
-  display: flex; align-items: center; justify-content: center; color: #555;
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--jd-input-border);
+  display: flex; align-items: center; justify-content: center; color: var(--jd-muted);
 }
 .applicant-body { flex: 1; min-width: 0; }
-.name { margin: 0; font-size: 14px; font-weight: 700; color: #111; }
+.name { margin: 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
 .rating-row { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
-.stars { color: #ddd; letter-spacing: 1px; font-size: 12px; }
-.stars .filled { color: #ffc93c; }
-.rating-value { font-size: 11.5px; font-weight: 700; color: #111; }
-.rating-count { font-size: 11px; color: #999; }
+.stars { color: var(--jd-input-border); letter-spacing: 1px; font-size: 0.875rem; }
+.stars .filled { color: var(--jd-warning); }
+.rating-value { font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.rating-count { font-size: 0.875rem; color: var(--jd-muted); }
 .applicant-meta { flex-shrink: 0; text-align: right; }
-.distance { display: block; font-size: 12.5px; font-weight: 700; color: #111; }
-.applied-ago { font-size: 10.5px; color: #999; }
+.distance { display: block; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.applied-ago { font-size: 0.875rem; color: var(--jd-muted); }
 
 .applicant-actions { display: flex; gap: 8px; margin-top: 12px; }
 .btn-details, .btn-select {
-  flex: 1; min-height: 40px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;
+  flex: 1; min-height: 44px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
-.btn-details { background: #e5e5e5; border: none; color: #333; }
-.btn-select { background: #ffc93c; border: none; color: #111; }
+.btn-details { background: var(--jd-line); border: none; color: var(--jd-ink); }
+.btn-select { background: var(--jd-accent); border: none; color: var(--jd-ink); }
 .btn-select:disabled { opacity: 0.5; cursor: not-allowed; }
 .hired-pill {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  min-height: 40px; border-radius: 8px; background: #dcf7e3; color: #1a7a3d; font-size: 13px; font-weight: 700;
+  min-height: 44px; border-radius: 8px; background: #dcf7e3; color: #1a7a3d; font-size: 0.875rem; font-weight: 700;
 }
 
-.empty { text-align: center; color: #888; margin-top: 20px; font-size: 14px; }
+.empty { text-align: center; color: var(--jd-muted); margin-top: 20px; font-size: 0.875rem; }
 
 /* ---------- โมดัล (ยืนยัน / สำเร็จ) ---------- */
 .modal-backdrop {
@@ -331,25 +331,25 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   display: flex; align-items: center; justify-content: center; z-index: 30; padding: 24px;
 }
 .modal-card {
-  width: 100%; max-width: 320px; background: #fff; border-radius: 14px; padding: 24px 20px;
+  width: 100%; max-width: 320px; background: var(--jd-surface); border-radius: 14px; padding: 24px 20px;
   display: flex; flex-direction: column; align-items: center; text-align: center;
 }
 .check-circle {
-  width: 56px; height: 56px; border-radius: 50%; background: #22c55e; color: #fff;
+  width: 56px; height: 56px; border-radius: 50%; background: #22c55e; color: var(--jd-surface);
   display: flex; align-items: center; justify-content: center; margin-bottom: 14px;
 }
 .check-circle svg { width: 28px; height: 28px; stroke-width: 3; }
-.modal-title { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: #111; }
-.modal-sub { margin: 0 0 20px; font-size: 12.5px; color: #888; }
+.modal-title { margin: 0 0 6px; font-size: 1rem; font-weight: 700; color: var(--jd-ink); }
+.modal-sub { margin: 0 0 20px; font-size: 0.875rem; color: var(--jd-muted); }
 .modal-card .btn-primary { width: 100%; }
 .modal-actions { display: flex; gap: 10px; width: 100%; }
 .modal-actions .btn-muted, .modal-actions .btn-primary { flex: 1; }
 .btn-primary, .btn-muted {
-  min-height: 44px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+  min-height: 44px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
-.btn-primary { background: #ffc93c; border: none; color: #111; }
+.btn-primary { background: var(--jd-accent); border: none; color: var(--jd-ink); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-muted { background: #e5e5e5; border: none; color: #333; }
+.btn-muted { background: var(--jd-line); border: none; color: var(--jd-ink); }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

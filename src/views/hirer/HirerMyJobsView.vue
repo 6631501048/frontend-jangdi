@@ -62,23 +62,23 @@ function goBack() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <header class="topbar">
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="goBack">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">My Jobs</h1>
+      <h1 class="title">งานของฉัน</h1>
       <span class="spacer"></span>
     </header>
 
     <nav class="section-tabs" aria-label="ประเภทงานของฉัน">
-      <button type="button" :class="{ active: viewMode === 'jobs' }" @click="viewMode = 'jobs'">งานที่ประกาศ</button>
-      <button type="button" :class="{ active: viewMode === 'services' }" @click="viewMode = 'services'">คำขอใช้บริการ</button>
+      <button :aria-pressed="viewMode === 'jobs'" type="button" :class="{ active: viewMode === 'jobs' }" @click="viewMode = 'jobs'">งานที่ประกาศ</button>
+      <button :aria-pressed="viewMode === 'services'" type="button" :class="{ active: viewMode === 'services' }" @click="viewMode = 'services'">คำขอใช้บริการ</button>
     </nav>
     <HirerServiceRequests v-if="viewMode === 'services'" class="service-history" />
     <template v-else>
     <nav class="tabs">
-      <button v-for="t in tabs" :key="t.value" :class="{ active: activeTab === t.value }" @click="activeTab = t.value">
+      <button :aria-pressed="activeTab === t.value" v-for="t in tabs" :key="t.value" :class="{ active: activeTab === t.value }" @click="activeTab = t.value">
         {{ t.label }}
       </button>
     </nav>
@@ -88,7 +88,7 @@ function goBack() {
       <p v-else-if="errorMsg" class="error">{{ errorMsg }}</p>
       <p v-else-if="!jobs.length" class="hint">ยังไม่มีงานในสถานะนี้</p>
 
-      <article v-for="job in jobs" :key="job._id" class="card" @click="openJob(job)">
+      <article v-for="job in jobs" :key="job._id" class="card" role="link" tabindex="0" @keydown.enter.self="openJob(job)" @click="openJob(job)">
         <div class="card-body">
           <p class="title-text">{{ job.title }}</p>
           <p class="desc">{{ job.description }}</p>
@@ -110,31 +110,31 @@ function goBack() {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
-.section-tabs{display:flex;gap:8px;padding:12px;background:#fff}.section-tabs button{flex:1;min-height:42px;border:1px solid #ddd;border-radius:10px;background:#fff;cursor:pointer}.section-tabs button.active{background:#ffc93c;border-color:#ffc93c;font-weight:700}.service-history{padding:16px}
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
+.section-tabs{display:flex;gap:8px;padding:12px;background:var(--jd-surface)}.section-tabs button{flex:1;min-height: 44px;border:1px solid var(--jd-input-border);border-radius:10px;background:var(--jd-surface);cursor:pointer}.section-tabs button.active{background:var(--jd-accent);border-color: var(--jd-warning);font-weight:700}.service-history{padding:16px}
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid #eee; }
-.icon-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: none; background: transparent; border-radius: 50%; color: #111; cursor: pointer; }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--jd-line); }
+.icon-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border: none; background: transparent; border-radius: 50%; color: var(--jd-ink); cursor: pointer; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
-.tabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px; background: #fff; border-bottom: 1px solid #eee; }
-.tabs button { flex-shrink: 0; min-height: 36px; padding: 6px 14px; border-radius: 20px; border: 1px solid #ddd; background: #fff; font-size: 12.5px; color: #555; cursor: pointer; }
-.tabs button.active { background: #ffc93c; border-color: #ffc93c; color: #111; font-weight: 700; }
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px; background: var(--jd-surface); border-bottom: 1px solid var(--jd-line); }
+.tabs button { flex-shrink: 0; min-height: 44px; padding: 6px 14px; border-radius: 20px; border: 1px solid var(--jd-input-border); background: var(--jd-surface); font-size: 0.875rem; color: var(--jd-muted); cursor: pointer; }
+.tabs button.active { background: var(--jd-accent); border-color: var(--jd-warning); color: var(--jd-ink); font-weight: 700; }
 
 .content { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
-.hint, .error { text-align: center; color: #888; margin-top: 24px; font-size: 13px; }
+.hint, .error { text-align: center; color: var(--jd-muted); margin-top: 24px; font-size: 0.875rem; }
 .error { color: #e11d48; }
 
-.card { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer; }
+.card { display: flex; align-items: center; gap: 10px; background: var(--jd-surface); border-radius: 12px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer; }
 .card-body { flex: 1; min-width: 0; }
-.title-text { margin: 0; font-size: 14px; font-weight: 700; color: #111; }
-.desc { margin: 4px 0 8px; font-size: 12.5px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.status-note { margin: 0 0 8px; font-size: 12px; }
+.title-text { margin: 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.desc { margin: 4px 0 8px; font-size: 0.875rem; color: var(--jd-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-note { margin: 0 0 8px; font-size: 0.875rem; }
 .status-note.pending { color: #b45309; }
 .status-note.rejected { color: #b91c1c; }
 .tags { display: flex; gap: 6px; }
-.tag { background: #eee; color: #444; font-size: 11px; padding: 3px 8px; border-radius: 10px; }
-.cta { flex-shrink: 0; font-size: 12.5px; font-weight: 700; color: #d99a00; }
-.cta.muted { color: #999; }
+.tag { background: var(--jd-line); color: var(--jd-muted); font-size: 0.875rem; padding: 3px 8px; border-radius: 10px; }
+.cta { flex-shrink: 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-warning); }
+.cta.muted { color: var(--jd-muted); }
 </style>

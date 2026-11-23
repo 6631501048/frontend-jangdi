@@ -1,0 +1,1663 @@
+{
+  "fixtureData": true,
+  "routes": [
+    {
+      "name": "login",
+      "role": "public",
+      "route": "/login",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ยินดีต้อนรับสู่ JangDi",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ยินดีต้อนรับสู่ JangDi",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ยินดีต้อนรับสู่ JangDi",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ยินดีต้อนรับสู่ JangDi",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nพื้นที่เล็ก ๆ ของคนพร้อมช่วย\n\nให้ทุกวันง่ายขึ้น\n\nมีงานให้ช่วย\nมีคนให้เจอ\n\nพื้นที่เชื่อมต่อผู้ว่าจ้างและผู้รับจ้าง\nในชุมชนมหาวิทยาลัยแม่ฟ้าหลวง\n\nหาคนช่วยทำงานที่ต้องการ\nเสนอบริการจากสิ่งที่คุณถนัด\nติดตามงานและคำขอได้ในที่เดียว\nเริ่มต้"
+    },
+    {
+      "name": "register",
+      "role": "hirer",
+      "route": "/register",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "กรอกข้อมูลโปรไฟล์",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "กรอกข้อมูลโปรไฟล์",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "กรอกข้อมูลโปรไฟล์",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "กรอกข้อมูลโปรไฟล์",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nพื้นที่เล็ก ๆ ของคนพร้อมช่วย\n\nให้ทุกวันง่ายขึ้น\n\nมีงานให้ช่วย\nมีคนให้เจอ\n\nพื้นที่เชื่อมต่อผู้ว่าจ้างและผู้รับจ้าง\nในชุมชนมหาวิทยาลัยแม่ฟ้าหลวง\n\nหาคนช่วยทำงานที่ต้องการ\nเสนอบริการจากสิ่งที่คุณถนัด\nติดตามงานและคำขอได้ในที่เดียว\nเริ่มต้"
+    },
+    {
+      "name": "verify",
+      "role": "public",
+      "route": "/verify-email?token=fixture",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ยืนยันอีเมลสำเร็จ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ยืนยันอีเมลสำเร็จ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ยืนยันอีเมลสำเร็จ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ยืนยันอีเมลสำเร็จ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nพื้นที่เล็ก ๆ ของคนพร้อมช่วย\n\nให้ทุกวันง่ายขึ้น\n\nมีงานให้ช่วย\nมีคนให้เจอ\n\nพื้นที่เชื่อมต่อผู้ว่าจ้างและผู้รับจ้าง\nในชุมชนมหาวิทยาลัยแม่ฟ้าหลวง\n\nหาคนช่วยทำงานที่ต้องการ\nเสนอบริการจากสิ่งที่คุณถนัด\nติดตามงานและคำขอได้ในที่เดียว\nเริ่มต้"
+    },
+    {
+      "name": "verify-pending",
+      "role": "hirer",
+      "route": "/verify-email/pending",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "กรุณายืนยันอีเมลก่อนใช้งาน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "กรุณายืนยันอีเมลก่อนใช้งาน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "กรุณายืนยันอีเมลก่อนใช้งาน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "กรุณายืนยันอีเมลก่อนใช้งาน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nพื้นที่เล็ก ๆ ของคนพร้อมช่วย\n\nให้ทุกวันง่ายขึ้น\n\nมีงานให้ช่วย\nมีคนให้เจอ\n\nพื้นที่เชื่อมต่อผู้ว่าจ้างและผู้รับจ้าง\nในชุมชนมหาวิทยาลัยแม่ฟ้าหลวง\n\nหาคนช่วยทำงานที่ต้องการ\nเสนอบริการจากสิ่งที่คุณถนัด\nติดตามงานและคำขอได้ในที่เดียว\nเริ่มต้"
+    },
+    {
+      "name": "hirer-home",
+      "role": "hirer",
+      "route": "/hirer",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "งานของคุณมีคนพร้อมช่วย",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "งานของคุณมีคนพร้อมช่วย",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 753,
+          "heading": "งานของคุณมีคนพร้อมช่วย",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1425,
+          "heading": "งานของคุณมีคนพร้อมช่วย",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "ข้ามไปเนื้อหาหลัก\nJangDi\nผู้ว่าจ้าง\n1\nธใ\n\nJANGDI · ให้ทุกวันง่ายขึ้น\n\nสวัสดี ธนวิทย์ ใจดี\n\nงานของคุณ\nมีคนพร้อมช่วย\n\nค้นหาบริการที่ต้องการ หรือประกาศงาน\nเพื่อให้ผู้รับจ้างเข้ามาสมัคร\n\nอยากให้ช่วยเรื่องอะไร?\n\nบอกสิ่งที่ต้องการ แล้วเริ่มหาคนช่"
+    },
+    {
+      "name": "post-job",
+      "role": "hirer",
+      "route": "/hirer/post-job",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ประกาศงาน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ประกาศงาน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ประกาศงาน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ประกาศงาน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "ประกาศงาน\n1\n2\n3\nเลือกหมวดหมู่งาน\n🧹\nทำความสะอาด\n🛵\nจัดส่ง\n📘\nสอนพิเศษ\n💻\nไอทีและเขียนโปรแกรม\nย้อนกลับ\nถัดไป"
+    },
+    {
+      "name": "hirer-jobs",
+      "role": "hirer",
+      "route": "/hirer/my-jobs",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "งานของฉัน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "งานของฉัน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "งานของฉัน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "งานของฉัน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "งานของฉัน\nงานที่ประกาศ\nคำขอใช้บริการ\nรอตรวจสอบ\nเปิดรับสมัคร\nกำลังดำเนินการ\nรอคืนเงิน\nเสร็จสิ้น\nยกเลิก\nถูกปฏิเสธ\n\nช่วยทำความสะอาดห้องพักช่วงบ่าย\n\nทำความสะอาดห้องพักและจัดของให้เรียบร้อย กรุณาแจ้งเวลาที่สะดวกก่อนเริ่มงาน\n\n฿350\ncleaning\nดูผู้ส"
+    },
+    {
+      "name": "hirer-requests",
+      "role": "hirer",
+      "route": "/hirer/my-jobs?view=services",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "งานของฉัน",
+          "overflow": [
+            "BUTTON."
+          ]
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "งานของฉัน",
+          "overflow": [
+            "BUTTON."
+          ]
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "งานของฉัน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "งานของฉัน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "งานของฉัน\nงานที่ประกาศ\nคำขอใช้บริการ\nคำขอใช้บริการของฉัน\nทั้งหมด\nรอตอบรับ\nรับคำขอแล้ว\nไม่ได้รับเลือก / ปฏิเสธ\nรับทำความสะอาดห้องพัก\n\nรอการตอบรับ\n\nช่วยทำความสะอาดห้องพักช่วงบ่าย นัดหมายเวลาก่อนเริ่มงาน\n\nส่งคำขอ 23/11/69 06:00"
+    },
+    {
+      "name": "hirer-job-detail",
+      "role": "hirer",
+      "route": "/hirer/my-jobs/job-1",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nรายละเอียดงาน\n👤\nช่วยทำความสะอาดห้องพักช่วงบ่าย\nทำความสะอาดห้องพักและจัดของให้เรียบร้อย กรุณาแจ้งเวลาที่สะดวกก่อนเริ่มงาน\nเปิดรับสมัคร\nประเภทงาน\ncleaning\nรายละเอียด\nทำความสะอาดห้องพักและจัดของให้เรียบร้อย กรุณาแจ้งเวลาที่สะดวกก่อนเริ่มงาน"
+    },
+    {
+      "name": "applicants",
+      "role": "hirer",
+      "route": "/hirer/my-jobs/job-1/applicants",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ผู้สมัครงาน (1)",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ผู้สมัครงาน (1)",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ผู้สมัครงาน (1)",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ผู้สมัครงาน (1)",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nผู้สมัครงาน (1)\nดูรายละเอียด / ยกเลิกประกาศ\nสรุปค่าใช้จ่าย\nค่าจ้างผู้รับจ้าง\n350.00 บาท\nPlatform service + transaction fees\n41.80 บาท\nยอดชำระทั้งหมด\n391.80 บาท\n👤\nมินท์ พร้อมช่วย\n⭐ 4.8 (12 reviews) · 1.0 km\nเลือกผู้รับจ้าง"
+    },
+    {
+      "name": "selection",
+      "role": "hirer",
+      "route": "/hirer/my-jobs/job-1/applicants/worker-1/confirm",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ยืนยันเลือกผู้รับจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ยืนยันเลือกผู้รับจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ยืนยันเลือกผู้รับจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ยืนยันเลือกผู้รับจ้าง",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nยืนยันเลือกผู้รับจ้าง\n\nผู้รับจ้างที่คุณเลือก\n\n👤\nมินท์ พร้อมช่วย\n⭐ 4.8\nสรุปค่าใช้จ่าย (ทดสอบ)\n\nเลือก Worker ก่อน จากนั้นกดชำระจำลองในหน้าถัดไป (ไม่มีการโอนเงินจริง)\n\nค่าจ้างผู้รับจ้าง\n350.00 บาท\nPlatform service + transaction fees\n41.80 บ"
+    },
+    {
+      "name": "checkout",
+      "role": "hirer",
+      "route": "/hirer/my-jobs/job-1/mock-payment",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "ชำระเงินและติดตามสถานะ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "ชำระเงินและติดตามสถานะ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 753,
+          "heading": "ชำระเงินและติดตามสถานะ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1425,
+          "heading": "ชำระเงินและติดตามสถานะ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nชำระเงินและติดตามสถานะ\n\nStripe โหมดทดสอบ: hirer ชำระผ่านบัตรหรือ QR โดยไม่ต้องแนบสลิป เมื่อจบงาน admin จะบันทึกจ่ายพร้อมหลักฐานให้ worker ไม่มีการโอนเงินจริงในระบบทดสอบ\n\nขั้นตอนการชำระเงิน\n1\nชำระเงิน\n\nบัตรหรือ PromptPay ผ่าน Stripe ไม่ต้อ"
+    },
+    {
+      "name": "confirmed",
+      "role": "hirer",
+      "route": "/hirer/my-jobs/job-1/confirmed",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ยืนยันงานแล้ว",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ยืนยันงานแล้ว",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ยืนยันงานแล้ว",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ยืนยันงานแล้ว",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nยืนยันงานแล้ว\n✓\n\nเลือกผู้รับจ้างเรียบร้อยแล้ว\n\nรอชำระเงิน · ไม่มีการโอนเงินจริง\n\nรายละเอียดงาน\nช่วยทำความสะอาดห้องพักช่วงบ่าย\n350 บาท\nDuration: 23/11/2569 06:00:00 - 31/12/2570 10:00:00\nยอดชำระทั้งหมด (ทดสอบ)\n368.00 บาท\nชำระเงิน / ติดตามห"
+    },
+    {
+      "name": "review-worker",
+      "role": "hirer",
+      "route": "/hirer/my-jobs/job-1/review",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รีวิวผู้รับจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รีวิวผู้รับจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รีวิวผู้รับจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รีวิวผู้รับจ้าง",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nรีวิวผู้รับจ้าง\n👤\nมินท์ พร้อมช่วย\nผู้รับจ้าง\n★\n★\n★\n★\n★\n\nคุณรู้สึกอย่างไรกับการทำงานของผู้รับจ้าง?\n\nOn time\nFast & Efficient\nItem as Described\nFriendly\nCommunicated Well\nReliable\nPolite\nส่งรีวิว"
+    },
+    {
+      "name": "refund",
+      "role": "hirer",
+      "route": "/hirer/my-jobs/job-1/refund",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ขอคืนเงินสำหรับงานนี้",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ขอคืนเงินสำหรับงานนี้",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ขอคืนเงินสำหรับงานนี้",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ขอคืนเงินสำหรับงานนี้",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nขอคืนเงินสำหรับงานนี้\n\nหากไม่ยอมรับงาน ให้ขอคืนเงินก่อนยืนยันรับงาน ผู้ดูแลจะตรวจสอบและตัดสินใจ ส่วนการให้ดาวและรีวิวทำได้หลังยืนยันรับงานแล้ว\n\nช่วยทำความสะอาดห้องพักช่วงบ่าย\n\nทำความสะอาดห้องพักและจัดของให้เรียบร้อย กรุณาแจ้งเวลาที่สะดวกก"
+    },
+    {
+      "name": "browse-job",
+      "role": "hirer",
+      "route": "/hirer/jobs/job-1",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "รายละเอียดงาน\n\nธนวิทย์ ใจดี 19 ชม.ที่แล้ว\n\nทำความสะอาดห้องพักและจัดของให้เรียบร้อย กรุณาแจ้งเวลาที่สะดวกก่อนเริ่มงาน\n\n฿350\n23/11/2569 06:00:00\n\nข้อมูลงาน\n\nค่าจ้าง\n฿350\nจาก\nเชียงราย · รอบมหาวิทยาลัย\nถึง\n-\nเวลานัดหมาย\n23/11/2569 06:00:00"
+    },
+    {
+      "name": "hirer-service-detail",
+      "role": "hirer",
+      "route": "/hirer/service-posts/service-1",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nรายละเอียดบริการ\n\nมินท์ พร้อมช่วย\n\nรับทำความสะอาดห้องพัก\n\nใส่ใจทุกมุม พร้อมช่วยให้วันยุ่ง ๆ ของคุณเบาขึ้น\n\nประเภทบริการ\ncleaning\nค่าบริการ\n฿350.00\nสถานที่ให้บริการ\nเชียงราย · รอบมหาวิทยาลัย\nช่วงเวลาที่ให้บริการ\n23/11/2569 06:00:00 – 31/12"
+    },
+    {
+      "name": "hire-service",
+      "role": "hirer",
+      "route": "/hirer/hire/service-1",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ขอใช้บริการ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ขอใช้บริการ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ขอใช้บริการ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ขอใช้บริการ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "ขอใช้บริการ\n\nมินท์ พร้อมช่วย 19h ago\n\nใส่ใจทุกมุม พร้อมช่วยให้วันยุ่ง ๆ ของคุณเบาขึ้น\n\nค่าบริการ ฿350\n31/12/2570 10:00:00\nNaN กม.\n\nรายละเอียดการจ้าง\n\nค่าบริการผู้รับงาน\nบาท\nจุดรับ / จุดเริ่มต้น\n\nสถานที่ปลายทาง\nสิ่งที่ต้องการ\nยกเลิก\nขอใช้บริ"
+    },
+    {
+      "name": "hirer-payment",
+      "role": "hirer",
+      "route": "/hirer/payment",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "การเงินผู้ว่าจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "การเงินผู้ว่าจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 753,
+          "heading": "การเงินผู้ว่าจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1425,
+          "heading": "การเงินผู้ว่าจ้าง",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nการเงินผู้ว่าจ้าง\n\nการชำระเงินจำลองและ Stripe โหมดทดสอบ ไม่มีการตัดเงินหรือโอนเงินจริง\n\nช่วงเวลาของรายงาน\nช่วงเวลา\nเดือนนี้\nเดือนที่แล้ว\nทั้งหมด\nกำหนดวันที่เอง\nดูรายงาน\nยอดชำระสะสมทั้งหมด\nซ่อนยอด\n\n฿ 0.00\n\nรวมเงินที่ผู้ดูแลรับแล้วและพักอยู"
+    },
+    {
+      "name": "hirer-transactions",
+      "role": "hirer",
+      "route": "/hirer/payment/transactions",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รายการชำระเงินทั้งหมด",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รายการชำระเงินทั้งหมด",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รายการชำระเงินทั้งหมด",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รายการชำระเงินทั้งหมด",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nรายการชำระเงินทั้งหมด\n‹ กลับหน้าการเงิน\nรายการชำระเงินในช่วงเวลานี้\n\nพฤศจิกายน 2569\n\nยังไม่มีรายการในช่วงเวลาที่เลือก"
+    },
+    {
+      "name": "worker-feed",
+      "role": "worker",
+      "route": "/worker/feed",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "เปลี่ยนสิ่งที่ถนัดเป็นงานที่ใช่",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "เปลี่ยนสิ่งที่ถนัดเป็นงานที่ใช่",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 753,
+          "heading": "เปลี่ยนสิ่งที่ถนัดเป็นงานที่ใช่",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1425,
+          "heading": "เปลี่ยนสิ่งที่ถนัดเป็นงานที่ใช่",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "ข้ามไปเนื้อหาหลัก\nJangDi\nผู้รับจ้าง\n1\nธใ\n\nJANGDI · ให้ทุกวันง่ายขึ้น\n\nสวัสดี ธนวิทย์ ใจดี\n\nเปลี่ยนสิ่งที่ถนัด\nเป็นงานที่ใช่\n\nเลือกงานที่สนใจ หรือประกาศบริการ\nให้ผู้ว่าจ้างค้นพบสิ่งที่คุณทำได้\n\nคุณถนัดเรื่องอะไร?\n\nบอกบริการและเวลาที่สะดวกให้"
+    },
+    {
+      "name": "worker-jobs",
+      "role": "worker",
+      "route": "/worker/jobs",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "งานของฉัน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "งานของฉัน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "งานของฉัน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "งานของฉัน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "งานของฉัน\nงานที่สมัคร\nบริการที่โพสต์\nรอผู้ว่าจ้างเลือก\nกำลังดำเนินงาน\nคำขอคืนเงิน\nเสร็จสิ้น\nยกเลิก\n\nช่วยทำความสะอาดห้องพักช่วงบ่าย\n\n฿350  •  23/11/2569 06:00:00\n\nรอผู้ว่าจ้างเลือก"
+    },
+    {
+      "name": "worker-services",
+      "role": "worker",
+      "route": "/worker/jobs?view=services",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "งานของฉัน",
+          "overflow": [
+            "BUTTON.",
+            "BUTTON.",
+            "BUTTON.",
+            "BUTTON.",
+            "BUTTON."
+          ]
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "งานของฉัน",
+          "overflow": [
+            "BUTTON.",
+            "BUTTON.",
+            "BUTTON.",
+            "BUTTON.",
+            "BUTTON."
+          ]
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "งานของฉัน",
+          "overflow": [
+            "BUTTON.",
+            "BUTTON.",
+            "BUTTON.",
+            "BUTTON."
+          ]
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "งานของฉัน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "งานของฉัน\nงานที่สมัคร\nบริการที่โพสต์\nรออนุมัติ (0)\nรอผู้ขอรับบริการ (1)\nกำลังดำเนินงาน (0)\nรอพิจารณาคืนเงิน (0)\nรอแอดมินคืนเงิน (0)\nคืนเงินแล้ว (0)\nเสร็จสิ้น (0)\nยกเลิก (0)\nตรวจสอบสถานะ (0)\n\nยังไม่มีบริการในสถานะนี้"
+    },
+    {
+      "name": "worker-job-detail",
+      "role": "worker",
+      "route": "/worker/jobs/job-1",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "รายละเอียดงาน\n\nธนวิทย์ ใจดี\n\nช่วยทำความสะอาดห้องพักช่วงบ่าย\n\nทำความสะอาดห้องพักและจัดของให้เรียบร้อย กรุณาแจ้งเวลาที่สะดวกก่อนเริ่มงาน\n\nประเภทงาน\ncleaning\nสถานที่ทำงาน\nเชียงราย · รอบมหาวิทยาลัย\nค่าจ้าง\n350 บาท\nเวลานัดหมาย\n23 พ.ย. 2569 06:00"
+    },
+    {
+      "name": "tracking",
+      "role": "worker",
+      "route": "/worker/jobs/job-1/tracking",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 753,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1425,
+          "heading": "รายละเอียดงาน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "รายละเอียดงาน\nสถานะค่าจ้าง\nรอชำระเงิน\n\nรอผู้ว่าจ้างชำระเงิน ระบบจะยืนยันก่อนผู้รับจ้างเริ่มงาน\n\nระบบทดสอบ การบันทึกสลิปเป็นข้อมูลที่ admin ยืนยัน ไม่ได้ตรวจยอดเข้าบัญชีธนาคารอัตโนมัติ\n\nธนวิทย์ ใจดี\n\nช่วยทำความสะอาดห้องพักช่วงบ่าย\n\nทำความสะอ"
+    },
+    {
+      "name": "review-hirer",
+      "role": "worker",
+      "route": "/worker/jobs/job-1/review",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "เขียนรีวิว",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "เขียนรีวิว",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "เขียนรีวิว",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "เขียนรีวิว",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "เขียนรีวิว\n\nยังไม่สามารถรีวิวงานนี้ได้"
+    },
+    {
+      "name": "post-service",
+      "role": "worker",
+      "route": "/worker/service-posts/new",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ประกาศบริการ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ประกาศบริการ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ประกาศบริการ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ประกาศบริการ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "ประกาศบริการ\n1\n2\n3\nเลือกหมวดหมู่บริการ\n🧹\nทำความสะอาด\n🛵\nจัดส่ง / รับหิ้ว\n📘\nสอนพิเศษ\n💻\nไอทีและเขียนโปรแกรม\nย้อนกลับ\nถัดไป"
+    },
+    {
+      "name": "worker-service-detail",
+      "role": "worker",
+      "route": "/worker/service-posts/service-1",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nรายละเอียดบริการ\nม\n\nมินท์ พร้อมช่วย\n\nรับทำความสะอาดห้องพัก\n\nใส่ใจทุกมุม พร้อมช่วยให้วันยุ่ง ๆ ของคุณเบาขึ้น\n\nประเภทบริการ\ncleaning\nค่าบริการ\n฿350.00\nสถานที่ให้บริการ\nเชียงราย · รอบมหาวิทยาลัย\nช่วงเวลาที่ให้บริการ\n23/11/2569 06:00:00 – 31/"
+    },
+    {
+      "name": "manage-service",
+      "role": "worker",
+      "route": "/worker/my-services/service-1",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 753,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1425,
+          "heading": "รายละเอียดบริการ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "รายละเอียดบริการ\n\nรับทำความสะอาดห้องพัก\n\n19 ชม.ที่แล้ว\n\nใส่ใจทุกมุม พร้อมช่วยให้วันยุ่ง ๆ ของคุณเบาขึ้น\n\nเปิดรับบริการ\n฿350 ต่อรายการ\n23/11/69 06:00 – 31/12/70 10:00\nข้อมูลบริการ\nค่าบริการ\n฿350 ต่อรายการ\nงานที่รับพร้อมกัน\n0 / 3 งาน\nสถานที่ใ"
+    },
+    {
+      "name": "request-detail",
+      "role": "worker",
+      "route": "/worker/service-requests/request-1",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รายละเอียดคำขอ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รายละเอียดคำขอ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รายละเอียดคำขอ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รายละเอียดคำขอ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "รายละเอียดคำขอ\n👤\n\nธนวิทย์ ใจดี\n\nรับทำความสะอาดห้องพัก\n\nรายละเอียดคำขอจาก Hirer\n\nช่วยทำความสะอาดห้องพักช่วงบ่าย นัดหมายเวลาก่อนเริ่มงาน\n\nสถานะ: รอการตอบรับ\n\nรายละเอียดการจัดส่ง\n\nจุดรับ: ไม่ระบุ (ข้อมูลเก่า)\n\nปลายทาง: ไม่ระบุ (ข้อมูลเก่า)\n\nห"
+    },
+    {
+      "name": "worker-payment",
+      "role": "worker",
+      "route": "/worker/payment",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "การเงินผู้รับจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "การเงินผู้รับจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 753,
+          "heading": "การเงินผู้รับจ้าง",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1425,
+          "heading": "การเงินผู้รับจ้าง",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nการเงินผู้รับจ้าง\n\nการชำระเงินจำลองและ Stripe โหมดทดสอบ ไม่มีการตัดเงินหรือโอนเงินจริง\n\nช่วงเวลาของรายงาน\nช่วงเวลา\nเดือนนี้\nเดือนที่แล้ว\nทั้งหมด\nกำหนดวันที่เอง\nดูรายงาน\nค่าจ้างสะสมที่บันทึกจ่ายแล้ว\nซ่อนยอด\n\n฿ 0.00\n\nนับค่าจ้างหลัง admin บั"
+    },
+    {
+      "name": "worker-transactions",
+      "role": "worker",
+      "route": "/worker/payment/transactions",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รายการชำระเงินทั้งหมด",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รายการชำระเงินทั้งหมด",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รายการชำระเงินทั้งหมด",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รายการชำระเงินทั้งหมด",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "‹\nรายการชำระเงินทั้งหมด\n‹ กลับหน้าการเงิน\nรายการชำระเงินในช่วงเวลานี้\n\nพฤศจิกายน 2569\n\nยังไม่มีรายการในช่วงเวลาที่เลือก"
+    },
+    {
+      "name": "profile",
+      "role": "hirer",
+      "route": "/profile",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "จัดการโปรไฟล์",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "จัดการโปรไฟล์",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 753,
+          "heading": "จัดการโปรไฟล์",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1425,
+          "heading": "จัดการโปรไฟล์",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ว่าจ้าง\nธใ\nจัดการโปรไฟล์\nเปลี่ยนรูปโปรไฟล์\nข้อมูลส่วนตัว\nชื่อ–นามสกุล\nธนวิทย์ ใจดี\nรหัสนักศึกษา\n-\nแนะนำตัว\n-\nเบอร์โทรศัพท์\n0800000000\nอีเมล\npreview@lamduan.mfu.ac.th\nLine\njangdi-preview\nรหัสผ่าน\n••••••••\nFacebook\nบัญชีธนาคาร\nธนาคา"
+    },
+    {
+      "name": "ratings",
+      "role": "hirer",
+      "route": "/profile/ratings",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "คะแนนและรีวิว",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "คะแนนและรีวิว",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "คะแนนและรีวิว",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "คะแนนและรีวิว",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ว่าจ้าง\nธใ\n‹ กลับหน้าโปรไฟล์\nคะแนนและรีวิว\n4.8\n★★★★★\nจาก 0 รีวิว\nผู้ใช้\n★★★★★\n\nตรงเวลาและสื่อสารเข้าใจง่าย\n\n23 พ.ย. 2569"
+    },
+    {
+      "name": "history",
+      "role": "hirer",
+      "route": "/profile/history",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ประวัติประกาศ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ประวัติประกาศ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ประวัติประกาศ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ประวัติประกาศ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ว่าจ้าง\nธใ\n‹ กลับหน้าโปรไฟล์\nประวัติประกาศ\nงานที่ประกาศ (Hirer)\nช่วยทำความสะอาดห้องพักช่วงบ่าย\ncleaning · 350 บาท · 23 พ.ย. 2569\nบริการที่เสนอ (Worker)\nรับทำความสะอาดห้องพัก\ncleaning · 350 บาท · 23 พ.ย. 2569"
+    },
+    {
+      "name": "notifications",
+      "role": "hirer",
+      "route": "/notifications",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "การแจ้งเตือน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "การแจ้งเตือน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "การแจ้งเตือน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "การแจ้งเตือน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "การแจ้งเตือน\nอ่านทั้งหมด\n\nติดตามความเคลื่อนไหวของงานและคำขอใช้บริการ · ยังไม่อ่าน 1 รายการ\n\nทั้งหมด\nยังไม่อ่าน\nมีคำขอใช้บริการใหม่\nยังไม่อ่าน\nตรวจดูรายละเอียดก่อนตอบรับคำขอได้เลย\n19 ชั่วโมงที่แล้ว"
+    },
+    {
+      "name": "admin-dashboard",
+      "role": "admin",
+      "route": "/admin/dashboard",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "ภาพรวมระบบ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "ภาพรวมระบบ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 753,
+          "heading": "ภาพรวมระบบ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1425,
+          "heading": "ภาพรวมระบบ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ดูแลระบบ\nธใ\nภาพรวมระบบ\n\nภาพรวมการทำงานของระบบ JangDi\n\nรีเฟรช\n\nผู้ใช้ทั้งหมด\n\n128\n\nคน\n\nงานทั้งหมด\n\n42\n\nงาน\n\nงานรออนุมัติ\n\n3\n\nรอผู้ดูแลตรวจสอบ\n\nแจ้งเหตุฉุกเฉิน\n\n1\n\nเหตุที่ยังดำเนินการอยู่\n\nรายงานการเงิน\n\nข้อมูลจำลองและ Stripe โหมดทด"
+    },
+    {
+      "name": "admin-jobs",
+      "role": "admin",
+      "route": "/admin/jobs",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "ประกาศงานและบริการ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "ประกาศงานและบริการ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "ประกาศงานและบริการ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "ประกาศงานและบริการ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ดูแลระบบ\nธใ\nประกาศงานและบริการ\n\nตรวจสอบประกาศจากผู้ว่าจ้างและผู้รับจ้าง\n\nรีเฟรช\nประกาศงาน Hirer\nประกาศบริการ Worker\n⌕\nสถานะ: \nทุกสถานะ\nรออนุมัติ\nปฏิเสธ\nเปิดรับ\nมอบหมายงานแล้ว\nกำลังทำงาน\nรอยืนยัน\nเสร็จแล้ว\nยกเลิก\nมีข้อพิพาท\n\nพบ 1 ร"
+    },
+    {
+      "name": "admin-users",
+      "role": "admin",
+      "route": "/admin/users",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "จัดการผู้ใช้",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "จัดการผู้ใช้",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "จัดการผู้ใช้",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "จัดการผู้ใช้",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ดูแลระบบ\nธใ\nจัดการผู้ใช้\nRefresh\n🔍\nAll\nHirer\nWorker\n👤\n\nธนวิทย์ ใจดี\n\n- · -\n\npreview@lamduan.mfu.ac.th\n\n-\n👤\n\nมินท์ พร้อมช่วย\n\n- · -\n\npreview@lamduan.mfu.ac.th\n\n-"
+    },
+    {
+      "name": "admin-posts",
+      "role": "admin",
+      "route": "/admin/posts",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 305,
+          "heading": "จัดการประกาศ",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 375,
+          "heading": "จัดการประกาศ",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "จัดการประกาศ",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "จัดการประกาศ",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ดูแลระบบ\nธใ\nจัดการประกาศ\n\nติดตามงานตั้งแต่รออนุมัติจนถึงเสร็จสิ้นหรือยกเลิก · Admin แก้ผลอนุมัติได้เฉพาะประกาศที่รอตรวจสอบ\n\nRefresh\nงานจาก Hirer\nงานจาก Worker\nกรองตามกลุ่มสถานะ\nทั้งหมด · 0 รายการ\nทั้งหมด\nรอตรวจสอบ\nกำลังดำเนินการ\nส"
+    },
+    {
+      "name": "admin-payments",
+      "role": "admin",
+      "route": "/admin/payments",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "การเงินและคำขอคืนเงิน (ทดสอบ)",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "การเงินและคำขอคืนเงิน (ทดสอบ)",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "การเงินและคำขอคืนเงิน (ทดสอบ)",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "การเงินและคำขอคืนเงิน (ทดสอบ)",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ดูแลระบบ\nธใ\nการเงินและคำขอคืนเงิน (ทดสอบ)\n\nดูสถานะเงินจำลองเท่านั้น (ยังไม่มีการรับหรือโอนเงินจริง)\n\nรีเฟรช\nชำระเงิน\nพักเงินรองานเสร็จ\nงานเสร็จ รอ admin จ่ายค่าจ้าง\nบันทึกจ่ายค่าจ้างแล้ว\nรอพิจารณาคืนเงิน\nรายการคืนเงิน / ผลพิจารณา\n"
+    },
+    {
+      "name": "admin-reports",
+      "role": "admin",
+      "route": "/admin/reports",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "รายงานผู้ใช้",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "รายงานผู้ใช้",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "รายงานผู้ใช้",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "รายงานผู้ใช้",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ดูแลระบบ\nธใ\nรายงานผู้ใช้\nRefresh\n📁\n\nรายงานทั้งหมด\n\n1\n\n⏳\n\nรอพิจารณา\n\n1\n\n✅\n\nดำเนินการแล้ว\n\n0\n\nรายงานทั้งหมด\n\nAll Status\nPending\nInvestigating\nResolved\nDismissed\n⚠️\nขอให้ตรวจสอบการติดต่อ\nReported by: ธนวิทย์ ใจดี · Reported user: มิ"
+    },
+    {
+      "name": "admin-sos",
+      "role": "admin",
+      "route": "/admin/sos",
+      "sizes": [
+        {
+          "width": 320,
+          "scroll": 320,
+          "heading": "แจ้งเหตุฉุกเฉิน",
+          "overflow": []
+        },
+        {
+          "width": 390,
+          "scroll": 390,
+          "heading": "แจ้งเหตุฉุกเฉิน",
+          "overflow": []
+        },
+        {
+          "width": 768,
+          "scroll": 768,
+          "heading": "แจ้งเหตุฉุกเฉิน",
+          "overflow": []
+        },
+        {
+          "width": 1440,
+          "scroll": 1440,
+          "heading": "แจ้งเหตุฉุกเฉิน",
+          "overflow": []
+        }
+      ],
+      "errors": [],
+      "accessibility": {
+        "contrast": [],
+        "unnamed": [],
+        "smallTargets": []
+      },
+      "text": "JangDi\nผู้ดูแลระบบ\nธใ\nแจ้งเหตุฉุกเฉิน\n\nรับและจัดการสัญญาณ SOS จาก Worker\n\nRefresh\nภาพรวมเหตุฉุกเฉิน\n\n1\n\nทั้งหมด\n\n0\n\nดำเนินการแล้ว\n\n0\n\nรอดำเนินการ\n\nAll\nPending\nComplete\nมินท์ พร้อมช่วย — ช่วยทำความสะอาดห้องพักช่วงบ่าย\nComplete\n⌄"
+    }
+  ],
+  "unknown": [],
+  "errors": [],
+  "mutations": []
+}

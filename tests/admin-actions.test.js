@@ -127,7 +127,7 @@ test('post approval and rejection use page dialogs and send the intended action'
     resetApi({get:async()=>({data:{jobs:[post],total:1,counts:{pending_review:1},totalPages:1}}),post:async()=>({data:{}})});
     const view=await mount(Posts);
     try{
-      fire(find(view.root,'button',action==='approve'?'Approve':'Reject'),'click');await flush();
+      fire(find(view.root,'button',action==='approve'?'อนุมัติ':'ปฏิเสธ'),'click');await flush();
       const dialog=walk(view.root).find(node=>node.props.role==='dialog');assert.ok(dialog);
       if(action==='reject')await input(find(dialog,'textarea'),'เหตุผลปฏิเสธประกาศทดสอบ');
       fire(find(dialog,'form'),'submit');await flush();
@@ -141,7 +141,7 @@ test('user moderation asks for a reason in-page and targets the selected account
   resetApi({get:async()=>({data:[user]}),post:async()=>{user={...user,accountStatus:'suspended'};return {data:{user}};}});
   const view=await mount(Users);
   try{
-    fire(find(view.root,'li','ผู้ใช้ทดสอบ'),'click');await flush();fire(find(view.root,'button','Suspend'),'click');await flush();await confirm(view.root,'ตรวจสอบแล้วต้องระงับบัญชี');
+    fire(find(view.root,'li','ผู้ใช้ทดสอบ'),'click');await flush();fire(find(view.root,'button','ระงับบัญชี'),'click');await flush();await confirm(view.root,'ตรวจสอบแล้วต้องระงับบัญชี');
     const posted=calls.find(c=>c.method==='post');assert.equal(posted.url,'/admin/users/user1/suspend');assert.deepEqual(posted.args[0],{action:'suspend',reason:'ตรวจสอบแล้วต้องระงับบัญชี'});
   }finally{view.unmount();}
 });

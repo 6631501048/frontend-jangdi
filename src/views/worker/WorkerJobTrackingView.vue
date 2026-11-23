@@ -347,13 +347,13 @@ function goToReview() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page -->
     <header class="topbar">
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="goBack">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">Job Details</h1>
+      <h1 class="title">รายละเอียดงาน</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
@@ -380,30 +380,30 @@ function goToReview() {
         <!-- รายละเอียด -->
         <dl class="detail-list">
           <div class="detail-row">
-            <dt>Details</dt>
+            <dt>รายละเอียด</dt>
             <dd>{{ job.details }}</dd>
           </div>
           <div class="detail-row">
-            <dt>Time</dt>
+            <dt>ช่วงเวลา</dt>
             <dd>{{ job.duration }}</dd>
           </div>
           <div class="detail-row">
-            <dt>Price</dt>
-            <dd>{{ job.price }} Baht</dd>
+            <dt>ค่าจ้าง</dt>
+            <dd>{{ job.price }} บาท</dd>
           </div>
           <div class="detail-row">
-            <dt>Service fee</dt>
-            <dd>{{ job.serviceFee }} Baht</dd>
+            <dt>ค่าบริการ</dt>
+            <dd>{{ job.serviceFee }} บาท</dd>
           </div>
           <div class="detail-row total">
-            <dt>Total</dt>
-            <dd>{{ total }} Baht</dd>
+            <dt>ยอดรวม</dt>
+            <dd>{{ total }} บาท</dd>
           </div>
         </dl>
 
         <div class="route-row">
           <div class="route-col">
-            <p class="route-label"><svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>From</p>
+            <p class="route-label"><svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>จุดรับ</p>
             <p class="route-value">{{ job.from }}</p>
           </div>
           <div class="route-col">
@@ -413,21 +413,21 @@ function goToReview() {
         </div>
 
         <div class="notes-row">
-          <p class="notes-label">Additional Notes (Optional)</p>
+          <p class="notes-label">หมายเหตุเพิ่มเติม (ไม่บังคับ)</p>
           <p class="notes-value">{{ job.notes }}</p>
         </div>
 
         <!-- ===== In Progress: ติดต่อ + Timeline + SOS + ปุ่มอัปเดตสถานะ ===== -->
         <template v-if="job.status === 'in-progress'">
           <div class="contact-block">
-            <p class="block-title">Contact</p>
+            <p class="block-title">ข้อมูลติดต่อ</p>
             <p class="block-hint">You can contact this hirer only during the job is in progress.</p>
             <div class="contact-buttons">
               <button class="contact-btn phone-contact" :disabled="job.hirerPhone === '-'" @click="callHirer">
                 <svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3.1-8.7A2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.7a2 2 0 01-.5 2.1L8 9.7a16 16 0 006 6l1.2-1.2a2 2 0 012.1-.5c.9.3 1.8.5 2.7.6a2 2 0 011.7 2z" /></svg>
                 <span>
                   <strong>{{ job.hirerPhone }}</strong>
-                  <small>Phone call</small>
+                  <small>โทรศัพท์</small>
                 </span>
               </button>
               <a v-if="job.hirerLine !== '-'" class="contact-btn line-contact" :href="`https://line.me/R/ti/p/~${encodeURIComponent(job.hirerLine)}`" target="_blank" rel="noopener noreferrer">
@@ -439,7 +439,7 @@ function goToReview() {
               </a>
               <div v-else class="contact-btn line-contact unavailable">
                 <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M8 10h8M8 14h5" /></svg>
-                <span><strong>LINE ID unavailable</strong><small>Not provided in profile</small></span>
+                <span><strong>ยังไม่มี LINE ID</strong><small>ยังไม่ได้ระบุในโปรไฟล์</small></span>
               </div>
             </div>
           </div>
@@ -457,15 +457,11 @@ function goToReview() {
 
             <div class="sos-box">
               <p class="sos-title">
-                <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg>
-                SOS Emergency
-              </p>
+                <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg> แจ้งเหตุฉุกเฉิน </p>
               <p class="sos-desc">If you're in an emergency or dangerous situation, tap the red button below to get immediate support and coordination assistance.</p>
               <p v-if="sosMessage" role="status" class="sos-desc">{{ sosMessage }}</p>
               <button class="btn-sos" :disabled="sosSending || sosLocating" @click="sendSOS">
-                <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg>
-                Tap to Send SOS
-              </button>
+                <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg> กดเพื่อแจ้งเหตุฉุกเฉิน </button>
             </div>
           </div>
 
@@ -512,19 +508,19 @@ function goToReview() {
         <!-- ===== Cancelled: รายละเอียดการยกเลิก ===== -->
         <template v-else-if="job.status === 'cancelled'">
           <div class="cancel-block">
-            <p class="block-title">Cancellation Details</p>
+            <p class="block-title">รายละเอียดการยกเลิก</p>
             <dl class="detail-list">
               <div class="detail-row">
-                <dt>Cancelled By</dt>
+                <dt>ผู้ยกเลิก</dt>
                 <dd>{{ job.cancellation?.by || "Hirer" }}</dd>
               </div>
               <div class="detail-row">
-                <dt>Reason</dt>
+                <dt>เหตุผล</dt>
                 <dd>{{ job.cancellation?.reason || "Not specified" }}</dd>
               </div>
             </dl>
           </div>
-          <button class="btn-primary" @click="backToMyJobs">Back to My Job</button>
+          <button class="btn-primary" @click="backToMyJobs">กลับไปงานของฉัน</button>
         </template>
 
         <!-- ===== Completed: ให้รีวิวผู้ว่าจ้าง (SRS 3.5.15 / FR-REV-01–02) ===== -->
@@ -538,12 +534,12 @@ function goToReview() {
             </a>
             <div v-else-if="submittedProofError" class="error-msg" role="alert">{{ submittedProofError }} <button type="button" class="proof-secondary" @click="retrySubmittedProof">ลองอีกครั้ง</button></div>
           </section>
-          <p class="completion-note">Completed<span v-if="job.completionConfirmedAt"> — confirmed on {{ formatStatusTime(job.completionConfirmedAt) }}</span></p>
+          <p class="completion-note">เสร็จสิ้น<span v-if="job.completionConfirmedAt"> — confirmed on {{ formatStatusTime(job.completionConfirmedAt) }}</span></p>
           <ReportUserForm :reported-user="hirerProfile" :job-id="job.id" />
-          <button v-if="!reviewDone" class="btn-primary" @click="goToReview">Review Hirer</button>
+          <button v-if="!reviewDone" class="btn-primary" @click="goToReview">รีวิวผู้ว่าจ้าง</button>
           <p v-else class="review-done" role="status">รีวิวงานนี้แล้ว</p>
           <button v-if="reviewDone" class="btn-home" @click="goHome">กลับหน้าโฮม</button>
-          <button class="btn-outline" @click="backToMyJobs">Back to My Jobs</button>
+          <button class="btn-outline" @click="backToMyJobs">กลับไปงานของฉัน</button>
         </template>
       </div>
     </main>
@@ -552,77 +548,77 @@ function goToReview() {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; }
-.card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.card { background: var(--jd-surface); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 
 /* ---------- หัวข้องาน ---------- */
-.job-head { display: flex; gap: 10px; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid #f2f2f2; margin-bottom: 12px; }
+.job-head { display: flex; gap: 10px; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--jd-subtle); margin-bottom: 12px; }
 .job-avatar {
-  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ddd;
-  display: flex; align-items: center; justify-content: center; color: #555;
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--jd-input-border);
+  display: flex; align-items: center; justify-content: center; color: var(--jd-muted);
 }
 .job-head-body { flex: 1; min-width: 0; }
-.hirer-name { margin: 0; font-size: 12px; color: #999; }
-.job-title { margin: 2px 0; font-size: 14px; font-weight: 700; color: #111; }
-.job-desc { margin: 0; font-size: 11px; color: #999; }
-.status-tag { flex-shrink: 0; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.hirer-name { margin: 0; font-size: 0.875rem; color: var(--jd-muted); }
+.job-title { margin: 2px 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.job-desc { margin: 0; font-size: 0.875rem; color: var(--jd-muted); }
+.status-tag { flex-shrink: 0; font-size: 0.875rem; font-weight: 700; white-space: nowrap; }
 .status-tag.purple { color: #6d5bd0; }
-.status-tag.green { color: #1a9c4a; }
+.status-tag.green { color: var(--jd-success); }
 .status-tag.red { color: #e11d48; }
 
 /* ---------- รายละเอียด ---------- */
 .detail-list { margin: 0; display: flex; flex-direction: column; }
 .detail-row { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; }
-.detail-row dt { font-size: 12px; color: #999; }
-.detail-row dd { margin: 0; font-size: 13px; color: #111; font-weight: 600; }
-.detail-row.total { border-top: 1px solid #f2f2f2; margin-top: 2px; padding-top: 10px; }
-.detail-row.total dt, .detail-row.total dd { font-weight: 700; color: #111; }
+.detail-row dt { font-size: 0.875rem; color: var(--jd-muted); }
+.detail-row dd { margin: 0; font-size: 0.875rem; color: var(--jd-ink); font-weight: 600; }
+.detail-row.total { border-top: 1px solid var(--jd-subtle); margin-top: 2px; padding-top: 10px; }
+.detail-row.total dt, .detail-row.total dd { font-weight: 700; color: var(--jd-ink); }
 
-.route-row { display: flex; gap: 16px; padding: 12px 0; border-top: 1px solid #f2f2f2; }
+.route-row { display: flex; gap: 16px; padding: 12px 0; border-top: 1px solid var(--jd-subtle); }
 .route-col { flex: 1; min-width: 0; }
-.route-label { margin: 0; display: flex; align-items: center; gap: 4px; font-size: 11px; color: #999; }
+.route-label { margin: 0; display: flex; align-items: center; gap: 4px; font-size: 0.875rem; color: var(--jd-muted); }
 .route-label .pin { width: 13px; height: 13px; }
-.route-value { margin: 2px 0 0; font-size: 13px; font-weight: 600; color: #111; }
+.route-value { margin: 2px 0 0; font-size: 0.875rem; font-weight: 600; color: var(--jd-ink); }
 
-.notes-row { padding: 12px 0; border-top: 1px solid #f2f2f2; }
-.notes-label { margin: 0; font-size: 11px; color: #999; }
-.notes-value { margin: 2px 0 0; font-size: 13px; color: #333; }
+.notes-row { padding: 12px 0; border-top: 1px solid var(--jd-subtle); }
+.notes-label { margin: 0; font-size: 0.875rem; color: var(--jd-muted); }
+.notes-value { margin: 2px 0 0; font-size: 0.875rem; color: var(--jd-ink); }
 
 /* ---------- ติดต่อ ---------- */
-.contact-block { padding-top: 12px; border-top: 1px solid #f2f2f2; }
-.block-title { margin: 0 0 2px; font-size: 13px; font-weight: 700; color: #111; }
-.block-hint { margin: 0 0 10px; font-size: 11px; color: #999; }
+.contact-block { padding-top: 12px; border-top: 1px solid var(--jd-subtle); }
+.block-title { margin: 0 0 2px; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.block-hint { margin: 0 0 10px; font-size: 0.875rem; color: var(--jd-muted); }
 .contact-buttons { display: flex; gap: 10px; }
 .contact-btn {
   flex: 1; display: flex; align-items: center; gap: 8px; min-height: 52px;
-  border: 1px solid #ddd; border-radius: 10px; background: #fff; padding: 8px 10px; cursor: pointer;
+  border: 1px solid var(--jd-input-border); border-radius: 10px; background: var(--jd-surface); padding: 8px 10px; cursor: pointer;
 }
 .contact-btn.phone-contact { border-color: #bfdbfe; background: #eff6ff; }
-.contact-btn.line-contact { border-color: #06c755; background: #30d274; text-decoration: none; }
+.contact-btn.line-contact { border-color: var(--jd-success); background: #30d274; text-decoration: none; }
 .contact-btn svg { flex-shrink: 0; color: #334155; }
 .contact-btn span { display: flex; flex-direction: column; text-align: left; min-width: 0; }
-.contact-btn strong { font-size: 11.5px; color: #111; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.contact-btn small { font-size: 10.5px; color: #475569; }
-.contact-btn.line-contact strong, .contact-btn.line-contact small, .contact-btn.line-contact svg { color: #fff; }
-.contact-btn.unavailable { background: #f8fafc; border-color: #e2e8f0; cursor: default; }
-.contact-btn.line-contact.unavailable { border-color: #06c755; background: #06c755; }
+.contact-btn strong { font-size: 0.875rem; color: var(--jd-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contact-btn small { font-size: 0.875rem; color: #475569; }
+.contact-btn.line-contact strong, .contact-btn.line-contact small, .contact-btn.line-contact svg { color: var(--jd-surface); }
+.contact-btn.unavailable { background: var(--jd-canvas); border-color: #e2e8f0; cursor: default; }
+.contact-btn.line-contact.unavailable { border-color: var(--jd-success); background: #06c755; }
 
 /* ---------- Timeline + SOS ---------- */
 .status-sos-row { display: flex; gap: 12px; margin-top: 16px; }
@@ -631,48 +627,48 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .timeline li:not(:last-child)::before {
   content: ""; position: absolute; left: 5px; top: 14px; bottom: -6px; width: 1px; background: #e5d9b0;
 }
-.timeline .dot { width: 11px; height: 11px; border-radius: 50%; background: #fff; border: 2px solid #ddd; flex-shrink: 0; margin-top: 2px; }
-.timeline li.done .dot, .timeline li.current .dot { background: #ffc93c; border-color: #ffc93c; }
-.step-label { margin: 0; font-size: 11.5px; color: #999; }
-.timeline li.done .step-label, .timeline li.current .step-label { color: #b8860b; font-weight: 700; }
-.step-time { margin: 1px 0 0; font-size: 9.5px; color: #bbb; }
+.timeline .dot { width: 11px; height: 11px; border-radius: 50%; background: var(--jd-surface); border: 2px solid var(--jd-input-border); flex-shrink: 0; margin-top: 2px; }
+.timeline li.done .dot, .timeline li.current .dot { background: var(--jd-accent); border-color: var(--jd-warning); }
+.step-label { margin: 0; font-size: 0.875rem; color: var(--jd-muted); }
+.timeline li.done .step-label, .timeline li.current .step-label { color: var(--jd-warning); font-weight: 700; }
+.step-time { margin: 1px 0 0; font-size: 0.875rem; color: #bbb; }
 
 .sos-box { flex: 1; min-width: 0; border: 1px solid #f3c9c9; background: #fff6f6; border-radius: 10px; padding: 10px; }
-.sos-title { margin: 0 0 4px; display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #e11d48; }
+.sos-title { margin: 0 0 4px; display: flex; align-items: center; gap: 4px; font-size: 0.875rem; font-weight: 700; color: #e11d48; }
 .sos-title svg { width: 15px; height: 15px; }
-.sos-desc { margin: 0 0 8px; font-size: 10px; line-height: 1.4; color: #b91c1c; }
+.sos-desc { margin: 0 0 8px; font-size: 0.875rem; line-height: 1.4; color: #b91c1c; }
 .btn-sos {
-  width: 100%; min-height: 38px; border: none; border-radius: 8px; background: #e11d48; color: #fff;
-  font-size: 11.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+  width: 100%; min-height: 44px; border: none; border-radius: 8px; background: #e11d48; color: var(--jd-surface);
+  font-size: 0.875rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
 }
 .btn-sos svg { width: 14px; height: 14px; }
 
 /* ---------- ยกเลิก ---------- */
-.cancel-block { padding-top: 12px; border-top: 1px solid #f2f2f2; }
+.cancel-block { padding-top: 12px; border-top: 1px solid var(--jd-subtle); }
 
 /* ---------- ปุ่มหลัก ---------- */
 .btn-primary {
   width: 100%; min-height: 46px; margin-top: 16px; border: none; border-radius: 10px;
-  background: #ffc93c; color: #111; font-size: 14px; font-weight: 700; cursor: pointer;
+  background: var(--jd-accent); color: var(--jd-ink); font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .hidden-input { display: none; }
-.error-msg { margin: 8px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
-.page-message { padding: 30px 12px; text-align: center; color: #777; }
-.completion-note { font-size: 12px; color: #16803c; margin: 14px 0; }
-.review-done { text-align: center; color: #555; font-size: 13px; }
-.btn-outline { display: block; margin-top: 10px; border: 1px solid #ddd; background: white; border-radius: 8px; padding: 12px; width: 100%; cursor: pointer; }
-.btn-home { display: block; margin-top: 10px; border: 0; background: #ffc93c; color: #111; border-radius: 8px; padding: 12px; width: 100%; font-weight: 700; cursor: pointer; }
-.pending-confirmation { margin: 12px 0 0; font-size: 12px; color: #92400e; line-height: 1.45; }
+.error-msg { margin: 8px 0 0; font-size: 0.875rem; color: #e11d48; text-align: center; }
+.page-message { padding: 30px 12px; text-align: center; color: var(--jd-muted); }
+.completion-note { font-size: 0.875rem; color: #16803c; margin: 14px 0; }
+.review-done { text-align: center; color: var(--jd-muted); font-size: 0.875rem; }
+.btn-outline { display: block; margin-top: 10px; border: 1px solid var(--jd-input-border); background: white; border-radius: 8px; padding: 12px; width: 100%; cursor: pointer; }
+.btn-home { display: block; margin-top: 10px; border: 0; background: var(--jd-accent); color: var(--jd-ink); border-radius: 8px; padding: 12px; width: 100%; font-weight: 700; cursor: pointer; }
+.pending-confirmation { margin: 12px 0 0; font-size: 0.875rem; color: #92400e; line-height: 1.45; }
 </style>
 
 <style scoped>
-.proof-panel { margin: 16px 0; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fafafa; }
-.proof-heading { font-size: 15px; font-weight: 700; margin: 0 0 10px; }
-.proof-photo { display: block; max-width: 100%; width: auto; max-height: 320px; object-fit: contain; border-radius: 8px; background: #fff; }
-.proof-caption { display: block; font-size: 12px; color: #555; margin: 8px 0; }
+.proof-panel { margin: 16px 0; border: 1px solid var(--jd-line); border-radius: 12px; padding: 14px; background: var(--jd-canvas); }
+.proof-heading { font-size: 0.9375rem; font-weight: 700; margin: 0 0 10px; }
+.proof-photo { display: block; max-width: 100%; width: auto; max-height: 320px; object-fit: contain; border-radius: 8px; background: var(--jd-surface); }
+.proof-caption { display: block; font-size: 0.875rem; color: var(--jd-muted); margin: 8px 0; }
 .proof-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.proof-secondary { background: #fff; border: 1px solid #ccc; color: #222; border-radius: 8px; padding: 9px 12px; cursor: pointer; }
+.proof-secondary { background: var(--jd-surface); border: 1px solid var(--jd-input-border); color: var(--jd-ink); border-radius: 8px; padding: 9px 12px; cursor: pointer; }
 .proof-primary { background: #facc15; color: #171717; border: none; font-weight: 700; border-radius: 8px; padding: 9px 12px; cursor: pointer; }
 .proof-primary:disabled, .proof-secondary:disabled { opacity: .5; cursor: not-allowed; }
 </style>

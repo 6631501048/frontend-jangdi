@@ -1,0 +1,46 @@
+{
+  "fixtureData": true,
+  "checks": [
+    "desktop-popover",
+    "desktop Escape, focus return and focus-out dismissal",
+    "hirer notification opens existing payment route and marks only the selected item",
+    "read-all failure recovery, success and shared unread badge",
+    "mobile-sheet",
+    "mobile-sheet",
+    "tablet-popover",
+    "mobile focus trap, Escape, scroll unlock and focus return",
+    "open panel switches between desktop and mobile without leaving background locked",
+    "view all, unread filter and read-all share the same state",
+    "empty-sheet",
+    "empty state, failed load and retry",
+    "worker notification opens the existing tracking route",
+    "99+ badge retains the accessible unread count",
+    "incoming socket notification updates unread count without opening the panel",
+    "incoming socket notification appears in an already open preview",
+    "worker feed count32: outlined bell, attached badge and opening at 320/390/1440px",
+    "hirer feed count32: outlined bell, attached badge and opening at 320/390/1440px"
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/notification-0/read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/read-all"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/read-all"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/read-all"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/notification-0/read"
+    }
+  ]
+}

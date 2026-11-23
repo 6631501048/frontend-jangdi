@@ -1,9 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import api from "../services/api";
+import { useDialogFocus } from "../composables/useDialogFocus";
 
 const props = defineProps({ role: { type: String, required: true }, jobId: { type: String, required: true } });
 const emit = defineEmits(["close", "reviewed"]);
+const panel = ref(null);
+const { onKeydown } = useDialogFocus(() => true, panel, () => emit('close'));
 const isHirer = computed(() => props.role === "hirer");
 const loading = ref(true), submitting = ref(false), error = ref("");
 const personName = ref("");
@@ -72,7 +75,7 @@ onMounted(load);
 
 <template>
   <div class="overlay" @click.self="emit('close')">
-    <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="review-title">
+    <section ref="panel" class="dialog" role="dialog" aria-modal="true" aria-labelledby="review-title" tabindex="-1" @keydown="onKeydown">
       <button class="close" type="button" aria-label="ปิด" @click="emit('close')">×</button>
       <h2 id="review-title">{{ isHirer ? 'รีวิวผู้รับจ้าง' : 'รีวิวผู้ว่าจ้าง' }}</h2>
       <p v-if="loading" class="message" role="status">กำลังโหลดข้อมูล…</p>
@@ -88,7 +91,7 @@ onMounted(load);
         <div class="tags">
           <button v-for="tag in tags" :key="tag" type="button" :class="{ selected: selectedTags.includes(tag) }" @click="toggleTag(tag)">{{ tag }}</button>
         </div>
-        <textarea v-model="comment" rows="3" placeholder="เขียนความคิดเห็นเพิ่มเติม (ไม่บังคับ)"></textarea>
+        <textarea aria-label="เขียนความคิดเห็นเพิ่มเติม (ไม่บังคับ)" v-model="comment" rows="3" placeholder="เขียนความคิดเห็นเพิ่มเติม (ไม่บังคับ)"></textarea>
         <p v-if="error" class="error" role="alert">{{ error }}</p>
         <button class="action" type="button" :disabled="rating < 1 || submitting" @click="submit">{{ submitting ? 'กำลังส่งรีวิว…' : 'ส่งรีวิว' }}</button>
       </template>
@@ -102,18 +105,18 @@ onMounted(load);
 
 <style scoped>
 .overlay { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 16px; background: rgb(15 23 42 / 55%); }
-.dialog { position: relative; width: min(100%, 440px); max-height: min(90vh, 720px); overflow-y: auto; padding: 24px; border-radius: 16px; background: #fff; box-shadow: 0 20px 60px rgb(0 0 0 / 25%); }
-h2 { margin: 0 36px 8px 0; font-size: 18px; text-align: center; }
-.close { position: absolute; top: 10px; right: 12px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: #f3f4f6; font-size: 24px; cursor: pointer; }
-.person,.message { margin: 8px 0 12px; color: #555; text-align: center; }
+.dialog { position: relative; width: min(100%, 440px); max-height: min(90vh, 720px); overflow-y: auto; padding: 24px; border-radius: 16px; background: var(--jd-surface); box-shadow: 0 20px 60px rgb(0 0 0 / 25%); }
+h2 { margin: 0 36px 8px 0; font-size: 1.125rem; text-align: center; }
+.close { position: absolute; top: 10px; right: 12px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--jd-subtle); font-size: 1.5rem; cursor: pointer; }
+.person,.message { margin: 8px 0 12px; color: var(--jd-muted); text-align: center; }
 .stars { display: flex; justify-content: center; gap: 4px; margin: 8px 0 16px; }
-.stars button { border: 0; background: transparent; color: #d1d5db; font-size: 34px; cursor: pointer; }
-.stars button.selected { color: #ffc93c; }
+.stars button { border: 0; background: transparent; color: var(--jd-input-border); font-size: 2.125rem; cursor: pointer; }
+.stars button.selected { color: var(--jd-warning); }
 .tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 14px; }
-.tags button { padding: 8px 12px; border: 1px solid #ddd; border-radius: 999px; background: #fff; cursor: pointer; }
-.tags button.selected { border-color: #ffc93c; background: #fff8df; }
-textarea { display: block; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #ddd; border-radius: 10px; resize: vertical; font: inherit; }
-.action { display: block; min-width: 160px; min-height: 44px; margin: 16px auto 0; padding: 0 20px; border: 0; border-radius: 10px; background: #ffc93c; color: #111; font: inherit; font-weight: 700; cursor: pointer; }
+.tags button { padding: 8px 12px; border: 1px solid var(--jd-input-border); border-radius: 999px; background: var(--jd-surface); cursor: pointer; }
+.tags button.selected { border-color: var(--jd-warning); background: #fff8df; }
+textarea { display: block; width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--jd-input-border); border-radius: 10px; resize: vertical; font: inherit; }
+.action { display: block; min-width: 160px; min-height: 44px; margin: 16px auto 0; padding: 0 20px; border: 0; border-radius: 10px; background: var(--jd-accent); color: var(--jd-ink); font: inherit; font-weight: 700; cursor: pointer; }
 .action:disabled { opacity: .55; cursor: default; }
 .error { color: #b42318; text-align: center; }
 </style>

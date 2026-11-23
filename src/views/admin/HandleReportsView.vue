@@ -105,9 +105,9 @@ onMounted(loadReports);
 
 <template>
   <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
-  <section class="reports">
+  <section class="reports jd-page">
     <div class="header-row">
-      <p class="section-title">Handle Report</p>
+      <h1 class="section-title">รายงานผู้ใช้</h1>
 
       <button
         class="refresh-btn"
@@ -122,7 +122,7 @@ onMounted(loadReports);
       <div class="stat-pill">
         <span class="icon blue">📁</span>
         <div>
-          <p class="stat-label">Total Reports</p>
+          <p class="stat-label">รายงานทั้งหมด</p>
           <p class="stat-value">
             {{ totalReports }}
           </p>
@@ -132,7 +132,7 @@ onMounted(loadReports);
       <div class="stat-pill">
         <span class="icon yellow">⏳</span>
         <div>
-          <p class="stat-label">Pending Reports</p>
+          <p class="stat-label">รอพิจารณา</p>
           <p class="stat-value">
             {{ pendingReports }}
           </p>
@@ -142,7 +142,7 @@ onMounted(loadReports);
       <div class="stat-pill">
         <span class="icon green">✅</span>
         <div>
-          <p class="stat-label">Resolved</p>
+          <p class="stat-label">ดำเนินการแล้ว</p>
           <p class="stat-value">
             {{ resolvedReports }}
           </p>
@@ -152,7 +152,7 @@ onMounted(loadReports);
 
     <div class="card">
       <div class="card-header">
-        <p class="card-title">All Reports</p>
+        <p class="card-title">รายงานทั้งหมด</p>
 
         <select
           v-model="statusFilter"
@@ -342,13 +342,13 @@ onMounted(loadReports);
 
 .stat-label {
   margin: 0;
-  font-size: 11px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
 .stat-value {
   margin: 2px 0 0;
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 800;
 }
 
@@ -369,7 +369,7 @@ onMounted(loadReports);
 .card-title {
   font-weight: 700;
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .range-select {
@@ -424,18 +424,18 @@ onMounted(loadReports);
 }
 
 .report-title {
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
 .report-meta {
-  font-size: 11px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
   margin-top: 2px;
 }
 
 .status-text {
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -461,7 +461,7 @@ onMounted(loadReports);
 
 .report-detail {
   padding: 0 0 14px 40px;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 .report-detail p {
@@ -470,7 +470,7 @@ onMounted(loadReports);
 
 .small-detail {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: 0.875rem;
 }
 
 .action-row {
@@ -481,7 +481,7 @@ onMounted(loadReports);
 
 .action-btn {
   flex: 1;
-  min-height: 38px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   font-weight: 700;

@@ -46,7 +46,7 @@ onMounted(loadDashboard);
 </script>
 
 <template>
-  <section class="dashboard">
+  <section class="dashboard jd-page">
     <div class="page-header">
       <div>
         <h1>ภาพรวมระบบ</h1>
@@ -128,13 +128,13 @@ onMounted(loadDashboard);
 }
 
 h1 {
-  font-size: 20px;
+  font-size: 1.25rem;
   margin: 4px 0;
 }
 
 .page-description {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
@@ -167,18 +167,18 @@ h1 {
 
 .stat-label {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 .stat-value {
   margin: 6px 0 2px;
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 800;
 }
 
 .stat-sub {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   opacity: 0.75;
 }
 
@@ -188,7 +188,7 @@ h1 {
 }
 
 .fill-muted {
-  background: #8b8f98;
+  background: var(--jd-muted);
   color: white;
 }
 
@@ -209,7 +209,7 @@ h1 {
 .card-title {
   font-weight: 700;
   margin: 0 0 10px;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .finance-heading {
@@ -224,15 +224,15 @@ h1 {
   flex: 0 0 auto;
   border-radius: 999px;
   padding: 4px 8px;
-  background: #fff4cf;
-  color: #805d00;
-  font-size: 10px;
+  background: var(--jd-accent-soft);
+  color: var(--jd-warning);
+  font-size: 0.875rem;
   font-weight: 700;
 }
 .finance-disclaimer {
   margin: 6px 0 8px;
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: 0.875rem;
 }
 
 .chart-placeholder {
@@ -248,7 +248,7 @@ h1 {
 }
 
 .chart-placeholder small {
-  font-size: 11px;
+  font-size: 0.875rem;
 }
 
 .finance-list {
@@ -260,7 +260,7 @@ h1 {
   justify-content: space-between;
   padding: 8px 0;
   border-bottom: 1px solid var(--color-border);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .finance-row:last-child {
@@ -290,7 +290,7 @@ h1 {
 
 .empty {
   color: var(--color-text-muted);
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 @media (max-width: 600px) {

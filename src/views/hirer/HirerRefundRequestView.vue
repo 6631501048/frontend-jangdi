@@ -33,7 +33,7 @@ async function submit(){
 }
 </script>
 <template>
-  <main class="refund"><AppHeader title="ขอคืนเงินสำหรับงานนี้" /><section class="content">
+  <main class="refund jd-page"><AppHeader title="ขอคืนเงินสำหรับงานนี้" /><section class="content">
     <p class="notice">หากไม่ยอมรับงาน ให้ขอคืนเงินก่อนยืนยันรับงาน ผู้ดูแลจะตรวจสอบและตัดสินใจ ส่วนการให้ดาวและรีวิวทำได้หลังยืนยันรับงานแล้ว</p>
     <p v-if="loading" role="status">กำลังโหลด…</p>
     <div v-if="job && payment" class="job-card"><h2 class="title">{{job.title}}</h2><p class="sub">{{job.description}}</p><div class="row"><span>ยอดชำระรวมค่าบริการ</span><strong>฿ {{money(payment.totalDue)}}</strong></div><div class="row"><span>สถานะ</span><strong>{{paymentStatus(payment.status)}}</strong></div></div>
@@ -41,8 +41,8 @@ async function submit(){
     <p v-if="payment?.refundNotes" class="notice">เหตุผลผู้ดูแล: {{payment.refundNotes}}</p>
     <p v-if="payment?.refundStatus === 'pending'" class="notice" role="status">{{payment.refundMethod === 'stripe' ? 'รายการเดิมกำลังรอยืนยันการคืนเงินผ่าน Stripe' : 'ผู้ดูแลอนุมัติแล้ว รอแอดมินโอนคืนและแนบหลักฐาน'}}</p>
     <form v-if="payment?.status === 'held' && !successMsg" @submit.prevent="submit">
-      <label class="field-label" for="refund-reason">เหตุผลที่ขอคืนเงิน (10–1,000 ตัวอักษร)</label><textarea id="refund-reason" v-model="reason" minlength="10" maxlength="1000" required rows="5" placeholder="อธิบายปัญหาหรือส่วนที่ไม่ได้รับตามข้อตกลง" :disabled="submitting"></textarea>
-      <label class="field-label" for="refund-evidence">รูปหลักฐานประกอบ (ไม่บังคับ)</label><input id="refund-evidence" type="file" accept="image/jpeg,image/png,image/webp" multiple :disabled="submitting" @change="chooseFiles" /><p class="sub">สูงสุด 3 ภาพ ภาพละไม่เกิน 2 MB</p><div class="previews"><img v-for="(url,index) in previews" :key="url" :src="url" :alt="`หลักฐานภาพที่ ${index+1}`" /></div>
+      <label class="field-label" for="refund-reason">เหตุผลที่ขอคืนเงิน (10–1,000 ตัวอักษร)</label><textarea aria-label="เหตุผลที่ขอคืนเงิน (10–1,000 ตัวอักษร)" id="refund-reason" v-model="reason" minlength="10" maxlength="1000" required rows="5" placeholder="อธิบายปัญหาหรือส่วนที่ไม่ได้รับตามข้อตกลง" :disabled="submitting"></textarea>
+      <label class="field-label" for="refund-evidence">รูปหลักฐานประกอบ (ไม่บังคับ)</label><input aria-label="รูปหลักฐานประกอบ (ไม่บังคับ)" id="refund-evidence" type="file" accept="image/jpeg,image/png,image/webp" multiple :disabled="submitting" @change="chooseFiles" /><p class="sub">สูงสุด 3 ภาพ ภาพละไม่เกิน 2 MB</p><div class="previews"><img v-for="(url,index) in previews" :key="url" :src="url" :alt="`หลักฐานภาพที่ ${index+1}`" /></div>
       <p class="notice">หากอนุมัติ จะคืนเต็มยอดรวมค่าบริการ ฿ {{money(payment.totalDue)}} โดยไม่หักค่า gateway จากผู้ว่าจ้าง ขณะนี้เป็นโหมดทดสอบ ไม่มีการคืนเงินจริง</p>
       <div class="actions"><button type="submit" class="btn danger" :disabled="!canSubmit">{{submitting ? 'กำลังส่ง…' : 'ส่งคำขอคืนเงินให้ผู้ดูแล'}}</button></div>
     </form>
@@ -53,31 +53,31 @@ async function submit(){
 <style scoped>
 .refund { padding-bottom: 32px; }
 .content { padding: 16px; }
-.job-card { border: 1px solid #eee; border-radius: 12px; padding: 14px; margin-bottom: 20px; }
-.title { font-weight: 700; font-size: 14px; }
-.sub { font-size: 12px; color: #888; margin: 2px 0 10px; }
-.row { display: flex; justify-content: space-between; font-size: 13px; padding: 6px 0; border-top: 1px solid #f5f5f5; }
+.job-card { border: 1px solid var(--jd-line); border-radius: 12px; padding: 14px; margin-bottom: 20px; }
+.title { font-weight: 700; font-size: 0.875rem; }
+.sub { font-size: 0.875rem; color: var(--jd-muted); margin: 2px 0 10px; }
+.row { display: flex; justify-content: space-between; font-size: 0.875rem; padding: 6px 0; border-top: 1px solid var(--jd-subtle); }
 .flow { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 12px 0 24px; }
 .node {
-  border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px 16px; text-align: center;
-  min-width: 100px; font-size: 11px; color: #888;
+  border: 1px solid var(--jd-line); border-radius: 12px; padding: 12px 16px; text-align: center;
+  min-width: 100px; font-size: 0.875rem; color: var(--jd-muted);
 }
-.node.active { border-color: #fbbf24; background: #fffbeb; color: #92400e; }
-.icon { font-size: 20px; margin-bottom: 4px; }
+.node.active { border-color: var(--jd-warning); background: #fffbeb; color: #92400e; }
+.icon { font-size: 1.25rem; margin-bottom: 4px; }
 .node-label small { color: inherit; }
-.arrow { font-size: 18px; color: #aaa; }
-.field-label { display: block; font-size: 13px; color: #555; margin-bottom: 6px; }
+.arrow { font-size: 1.125rem; color: var(--jd-muted); }
+.field-label { display: block; font-size: 0.875rem; color: var(--jd-muted); margin-bottom: 6px; }
 textarea {
-  width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #e5e7eb;
+  width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--jd-line);
   font-family: inherit; resize: vertical; margin-bottom: 20px;
 }
 .actions { display: flex; flex-direction: column; gap: 10px; }
-.btn { min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 14px; border: none; cursor: pointer; }
+.btn { min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 0.875rem; border: none; cursor: pointer; }
 .btn.danger { background: #ef4444; color: white; }
-.btn.outline { background: white; color: #555; border: 1px solid #e5e7eb; }
+.btn.outline { background: white; color: var(--jd-muted); border: 1px solid var(--jd-line); }
 </style>
 <style scoped>
-.notice { background:#fffbeb; border:1px solid #fde68a; padding:12px; border-radius:8px; font-size:13px; }
+.notice { background:#fffbeb; border:1px solid #fde68a; padding:12px; border-radius:8px; font-size: 0.875rem; }
 .notice.error { color:#b91c1c; background:#fef2f2; }
 .btn:disabled { opacity:0.45; cursor:not-allowed; }
 </style>

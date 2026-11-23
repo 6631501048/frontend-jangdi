@@ -1,4 +1,5 @@
 <script setup>
+import AuthShell from "../../components/AuthShell.vue";
 // FR-AUTH-05, FR-PROF-01/02: กรอกโปรไฟล์ให้ครบหลัง login ครั้งแรก
 import { ref } from "vue";
 import { useRouter } from "vue-router";
@@ -67,34 +68,22 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <main class="register-page">
+  <AuthShell>
     <h1>กรอกข้อมูลโปรไฟล์</h1>
     <p class="subtitle">กรอกให้ครบก่อนเริ่มใช้งาน JangDi</p>
 
     <form @submit.prevent="handleSubmit">
-      <input v-model="fullName" placeholder="ชื่อ-นามสกุล" required />
-      <input v-model="phone" placeholder="เบอร์โทรศัพท์" required />
-      <input v-model="lineId" placeholder="LINE ID (ไม่บังคับ)" />
+      <label>ชื่อ–นามสกุล<input v-model="fullName" autocomplete="name" placeholder="ชื่อและนามสกุลของคุณ" required /></label>
+      <label>เบอร์โทรศัพท์<input v-model="phone" type="tel" autocomplete="tel" placeholder="เบอร์ที่ติดต่อได้" required /></label>
+      <label>LINE ID (ไม่บังคับ)<input v-model="lineId" placeholder="สำหรับติดต่อเรื่องงาน" /></label>
 
       <button type="button" class="secondary" @click="requestLocation">
         📍 อนุญาตให้เข้าถึงตำแหน่ง (สำหรับแจ้งเตือนงานใกล้เคียง)
       </button>
       <p v-if="locationStatus" class="location-status">{{ locationStatus }}</p>
 
-      <p v-if="error" class="error">{{ error }}</p>
+      <p v-if="error" class="error" role="alert">{{ error }}</p>
       <button type="submit" :disabled="loading">{{ loading ? "กำลังบันทึก..." : "บันทึกและเริ่มใช้งาน" }}</button>
     </form>
-  </main>
+  </AuthShell>
 </template>
-
-<style scoped>
-.register-page { padding: 24px 16px; }
-.subtitle { color: #666; margin-bottom: 24px; }
-form { display: flex; flex-direction: column; gap: 12px; }
-input, button { padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; min-height: 44px; }
-button { background: #2563eb; color: white; border: none; cursor: pointer; }
-button.secondary { background: white; color: #2563eb; border: 1px solid #2563eb; }
-button:disabled { opacity: 0.6; cursor: not-allowed; }
-.location-status { font-size: 13px; color: #666; }
-.error { color: #dc2626; font-size: 14px; }
-</style>
