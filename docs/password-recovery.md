@@ -7,7 +7,7 @@
 ## Flow
 
 1. `/forgot-password` ส่ง `POST /api/auth/forgot-password` ด้วยอีเมลมหาวิทยาลัย
-2. ระบบส่งลิงก์ `/reset-password#token=...` ไปอีเมล อายุ 30 นาที ใช้ได้ครั้งเดียว ลิงก์ใหม่แทนลิงก์เก่า
+2. ระบบส่งลิงก์ `/reset-password#token=...` ไปอีเมล อายุ 15 นาที ใช้ได้ครั้งเดียว ลิงก์ใหม่แทนลิงก์เก่า
 3. หน้า reset อ่าน token แล้วนำออกจาก address bar ไม่ส่ง secret ผ่าน URL ของ HTTP request
 4. `POST /api/auth/reset-password` ใช้ token ตรวจ hash/expiry แล้วอัปเดตรหัสผ่านด้วย bcrypt และใช้ลิงก์แบบ atomic
 5. กลับหน้า login เพื่อเข้าบัญชีเดิม ทุก session เดิมใช้ไม่ได้หลังเปลี่ยนรหัสผ่าน โดย authVersion อยู่ใน JWT บัญชีเดิมที่ยังไม่มี field นี้ถือเป็น 0 ไม่ต้อง migrate ข้อมูล
@@ -48,6 +48,10 @@ Google รองรับ SMTP ที่ `smtp.gmail.com:587` ผ่าน START
 
 ชุด backend รวมผ่าน 175/184; 9 รายการที่ไม่ผ่านอยู่ใน payment-repair, selection-mock-flow, slip-finance, stripe-checkout และ stripe-http เกี่ยวกับค่าธรรมเนียม ทดสอบ 5 ไฟล์นี้ซ้ำโดยโหลด auth source ก่อนแก้ที่สำรองไว้ ได้ 9 รายการชื่อเดียวกันล้มเหลว จึงแยกเป็นปัญหาก่อนการแก้ auth ครั้งนี้ ไม่เปลี่ยนกฎค่าธรรมเนียมในงานนี้
 
-ขณะตรวจยังไม่มี SMTP credentials จึงยังขอลิงก์ส่งจริงไม่ได้ ต้องตั้งค่า Gmail ตามด้านบนและ restart backend ก่อน การทดสอบที่ผ่านใช้ mail transport และ Google token แบบจำลองตามขอบเขตที่ระบุ
+ปรับใช้รูปแบบ CCTV แล้ว: ลิงก์อายุ 15 นาทีและตั้งค่า backend ของ JangDi ให้ใช้บัญชีผู้ส่ง Gmail เดียวกับ IAM/CCTV โดยข้อมูลผู้ส่งอยู่ใน `backend/.env` เท่านั้น ไม่ได้คัดลอกรหัสลับไป frontend หรือเอกสาร การตรวจ SMTP connection/authentication ด้วย Nodemailer verify ผ่านกับ Gmail จริง ไม่ได้ส่งอีเมลหรือยืนยันการรับใน inbox
+
+หลังปรับ `.env` ให้หยุด backend ในเทอร์มินัลด้วย `Ctrl+C` แล้ว `npm start` ใหม่ เพื่อโหลดข้อมูลผู้ส่งและอายุลิงก์ล่าสุด ไม่เปิด backend เบื้องหลังเพิ่ม
+
+ผลหลังปรับ: auth API 12 tests ผ่าน (รวมตรวจอายุ token 15 นาทีตรงกับข้อความอีเมล), browser 6 กลุ่มรวม 12 หน้าจอผ่าน และ build ผ่าน คงรหัสผ่าน JangDi ขั้นต่ำ 8 ตัวอักษร รวมการตั้งรหัสครั้งแรกให้บัญชี Google เดิมได้
 
 รันทดสอบ backend ด้วย `node --test tests/auth-recovery.test.js` จาก backend; frontend ใช้ `npm test` และ `npm run build`; browser ใช้ `HIRER_PREVIEW_URL` ชี้ dev server แล้วรัน `node scripts/check-auth-recovery.cjs`

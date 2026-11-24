@@ -44,7 +44,7 @@ function handleLogout() {
     <header class="admin-topbar">
       <button type="button" class="menu-btn" aria-label="เปิดเมนูผู้ดูแลระบบ" @click="drawerOpen = true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg></button>
       <RouterLink to="/admin/dashboard" class="brand" aria-label="JangDi ภาพรวมระบบ"><JangDiMark /><span>JangDi</span><span class="admin-badge">ผู้ดูแลระบบ</span></RouterLink>
-      <RouterLink to="/profile" class="profile-btn" aria-label="ไปหน้าโปรไฟล์"><UserAvatar :src="auth.user?.avatarUrl" :name="auth.user?.fullName || auth.user?.email" label="รูปโปรไฟล์ของฉัน" /></RouterLink>
+      <RouterLink :to="{ name: 'admin-profile' }" class="profile-btn" aria-label="ไปหน้าโปรไฟล์ผู้ดูแลระบบ"><UserAvatar :src="auth.user?.avatarUrl" :name="auth.user?.fullName || auth.user?.email" label="รูปโปรไฟล์ของฉัน" /></RouterLink>
     </header>
     <Transition name="admin-fade"><div v-if="drawerOpen" class="scrim" @click="closeDrawer" /></Transition>
     <Transition name="admin-slide">

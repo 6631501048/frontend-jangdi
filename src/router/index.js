@@ -220,6 +220,7 @@ const routes = [
     meta: { requiresAuth: true, adminOnly: true },
     children: [
       { path: "", redirect: { name: "admin-dashboard" } },
+      { path: 'profile', name: 'admin-profile', component: () => import('../views/ProfileView.vue') },
       {
         path: "dashboard",
         name: "admin-dashboard",
@@ -276,8 +277,14 @@ router.beforeEach((to) => {
     return { name: "login" };
   }
 
+  if (auth.isLoggedIn && auth.user?.isAdmin) {
+    if (['profile', 'profile-ratings', 'profile-history'].includes(to.name)) return { name: 'admin-profile' };
+    if (to.meta.role || to.name === 'register') return { name: 'admin-dashboard' };
+  }
+
   if (
     auth.isLoggedIn &&
+    !auth.user?.isAdmin &&
     !auth.isProfileComplete &&
     !to.meta.authRecovery &&
     to.name !== "register" &&

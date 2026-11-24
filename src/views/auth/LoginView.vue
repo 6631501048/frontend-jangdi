@@ -24,13 +24,15 @@ const LAMDUAN_DOMAIN = "@lamduan.mfu.ac.th";
 // ไปหน้า dashboard ตามบทบาทของผู้ใช้ที่ล็อกอินเข้ามา (ใช้ร่วมกันทั้ง Google และ email/password)
 // หมายเหตุ: isProfileComplete อยู่ใน user object เสมอ (backend ส่ง { token, user }) ไม่ใช่ field แยก
 function redirectAfterLogin(user) {
+  if (user?.isAdmin) {
+    router.push({ name: 'admin-dashboard' });
+    return;
+  }
   if (!user?.isProfileComplete) {
     router.push({ name: "register" });
     return;
   }
-  if (user?.isAdmin) {
-    router.push({ name: "admin-dashboard" });
-  } else if (user?.currentRole === "worker") {
+  if (user?.currentRole === "worker") {
     router.push({ name: "worker-dashboard" });
   } else {
     router.push({ name: "hirer-dashboard" });

@@ -1,0 +1,27 @@
+{
+  "fixtureData": true,
+  "checks": [
+    "admin avatar opens /admin/profile with one admin header and account settings only",
+    "legacy profile/review/history routes stay in admin; incomplete profile and stored role never send admin into member pages",
+    "admin profile loads/retries and saves only name/phone while preserving admin identity and failed edits",
+    "profile drawer retains admin destinations and returns to admin jobs/profile without role switching",
+    "admin profile responsive/contrast/targets and password-dialog Escape at 320/390/768/1440px",
+    "admin login bypasses member registration even when isProfileComplete is false",
+    "hirer/worker retain member profile and cannot open admin profile; anonymous users require login"
+  ],
+  "errors": [],
+  "mutations": [
+    {
+      "method": "PATCH",
+      "path": "/api/users/preview-user"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/users/preview-user"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login"
+    }
+  ]
+}

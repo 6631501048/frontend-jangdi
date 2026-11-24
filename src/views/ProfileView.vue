@@ -4,8 +4,7 @@
 // FR-PROF-03: แสดงคะแนนความน่าเชื่อถือปัจจุบันของผู้ใช้
 // FR-REV-04: แสดงประวัติรีวิว เรียงล่าสุดก่อน
 //
-// หน้านี้ใช้ร่วมกันระหว่าง Hirer และ Worker (บัญชีเดียวสลับ role ได้ตาม FR-AUTH-06)
-// เนื้อหาในหน้าไม่มีอะไรเฉพาะ role ใดเลย จึงไม่ผูก route guard ด้วย meta.role (ดู router/index.js)
+// สมาชิกใช้ /profile; ผู้ดูแลใช้ /admin/profile ภายใน AdminLayout และแสดงเฉพาะข้อมูลบัญชี
 import { computed, onMounted, ref } from "vue";
 import api from "../services/api";
 import { resolveBackendAssetUrl } from "../services/backendAssets";
@@ -17,6 +16,7 @@ import { useDialogFocus } from "../composables/useDialogFocus";
 import { passwordValidationMessage } from '../services/passwordRecovery';
 
 const auth = useAuthStore();
+const isAdmin = computed(() => !!auth.user?.isAdmin);
 const loading = ref(true);
 const profileLoaded = ref(false);
 const drawerOpen = ref(false);
@@ -85,15 +85,18 @@ function startEditProfile() {
 async function saveProfile() {
   errorMsg.value = '';
   try {
-    const { data } = await api.patch(`/users/${auth.user._id}`, {
+    const changes = {
       fullName: profileDraft.fullName,
       phone: profileDraft.phoneNumber,
+    };
+    if (!isAdmin.value) Object.assign(changes, {
       lineId: profileDraft.line,
       facebook: profileDraft.facebook,
       instagram: profileDraft.instagram,
       bankAccount: profileDraft.bankAccount,
       shortDescription: profileDraft.shortDescription,
     });
+    const { data } = await api.patch(`/users/${auth.user._id}`, changes);
     auth.updateUser(data.user);
     applyUserToProfile(data.user);
     isEditingProfile.value = false;
@@ -228,8 +231,10 @@ async function loadProfile() {
     auth.updateUser(me);
     applyUserToProfile(me);
     profileLoaded.value = true;
-    await loadReviews();
-    await loadPosts();
+    if (!isAdmin.value) {
+      await loadReviews();
+      await loadPosts();
+    }
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "โหลดข้อมูลโปรไฟล์ไม่สำเร็จ";
   } finally {
@@ -240,13 +245,13 @@ onMounted(loadProfile);
 </script>
 
 <template>
-  <div class="page jd-page">
+  <div class="page jd-page" :class="{ 'admin-profile': isAdmin }">
     <!-- แถบด้านบน -->
-    <AppTopBar role-label="" :show-notifications="false" @menu="drawerOpen = true" />
-    <AppRoleDrawer v-model="drawerOpen" />
+    <AppTopBar v-if="!isAdmin" role-label="" :show-notifications="false" @menu="drawerOpen = true" />
+    <AppRoleDrawer v-if="!isAdmin" v-model="drawerOpen" />
 
-    <main class="content">
-      <h1 class="page-title">จัดการโปรไฟล์</h1>
+    <component :is="isAdmin ? 'section' : 'main'" class="content">
+      <h1 class="page-title">{{ isAdmin ? 'โปรไฟล์ผู้ดูแลระบบ' : 'จัดการโปรไฟล์' }}</h1>
       <p v-if="loading" class="profile-state" role="status">กำลังโหลดข้อมูลโปรไฟล์…</p>
       <p v-if="errorMsg" class="profile-state profile-error" role="alert">{{ errorMsg }} <button v-if="!loading && !isEditingProfile && !isEditingAddress" type="button" class="btn-outline" @click="loadProfile">ลองอีกครั้ง</button></p>
 
@@ -270,12 +275,12 @@ onMounted(loadProfile);
   <span v-else class="field-value">{{ profile.fullName }}</span>
 </div>
 
-<div class="field">
+<div v-if="!isAdmin" class="field">
   <span class="field-label">รหัสนักศึกษา</span>
   <span class="field-value">{{ profile.studentId || "-" }}</span>
 </div>
 
-<div class="field">
+<div v-if="!isAdmin" class="field">
   <span class="field-label">แนะนำตัว</span>
   <textarea aria-label="แนะนำตัว"
     v-if="isEditingProfile"
@@ -298,7 +303,7 @@ onMounted(loadProfile);
             <span class="field-label">อีเมล</span>
             <span class="field-value muted">{{ profile.email }}</span>
           </div>
-          <div class="field">
+          <div v-if="!isAdmin" class="field">
             <span class="field-label">Line</span>
             <input aria-label="Line" v-if="isEditingProfile" v-model="profileDraft.line" />
             <span v-else class="field-value">{{ profile.line }}</span>
@@ -307,12 +312,12 @@ onMounted(loadProfile);
             <span class="field-label">รหัสผ่าน</span>
             <span class="field-value">••••••••</span>
           </div>
-          <div class="field">
+          <div v-if="!isAdmin" class="field">
             <span class="field-label">Facebook</span>
             <input aria-label="Facebook" v-if="isEditingProfile" v-model="profileDraft.facebook" />
             <span v-else class="field-value">{{ profile.facebook }}</span>
           </div>
-          <div class="field">
+          <div v-if="!isAdmin" class="field">
             <span class="field-label">บัญชีธนาคาร</span>
             <template v-if="isEditingProfile">
               <input aria-label="ชื่อธนาคาร" v-model="profileDraft.bankAccount.bankName" placeholder="ชื่อธนาคาร" />
@@ -324,7 +329,7 @@ onMounted(loadProfile);
               {{ profile.bankAccount.accountNumber ? `(${profile.bankAccount.accountNumber})` : "" }}
             </span>
           </div>
-          <div class="field">
+          <div v-if="!isAdmin" class="field">
             <span class="field-label">Instagram</span>
             <input aria-label="Instagram" v-if="isEditingProfile" v-model="profileDraft.instagram" />
             <span v-else class="field-value">{{ profile.instagram }}</span>
@@ -344,7 +349,7 @@ onMounted(loadProfile);
       </section>
 
       <!-- ที่อยู่ -->
-      <section class="card">
+      <section v-if="!isAdmin" class="card">
         <h2 class="section-title">ข้อมูลที่อยู่</h2>
         <div class="field-stack">
           <div class="field">
@@ -373,7 +378,7 @@ onMounted(loadProfile);
       </section>
 
       <!-- คะแนนความน่าเชื่อถือ / รีวิว -->
-      <section class="card">
+      <section v-if="!isAdmin" class="card">
         <h2 class="section-title">คะแนนและรีวิว</h2>
         <div class="rating-summary">
           <span class="rating-score">{{ averageRating }}</span>
@@ -397,7 +402,7 @@ onMounted(loadProfile);
       </section>
 
       <!-- ประวัติโพสต์ (FR-PROF-04) -->
-      <section class="card">
+      <section v-if="!isAdmin" class="card">
         <h2 class="section-title">ประวัติประกาศ</h2>
         <p v-if="postsError" class="posts-empty">{{ postsError }}</p>
         <template v-else>
@@ -426,7 +431,7 @@ onMounted(loadProfile);
           <RouterLink to="/profile/history" class="show-more-btn">ดูประวัติทั้งหมด</RouterLink>
         </template>
       </section>
-    </main>
+    </component>
 
     <!-- Modal เปลี่ยนรหัสผ่าน -->
     <Transition name="fade">
@@ -457,6 +462,8 @@ onMounted(loadProfile);
 .profile-error { background:var(--jd-danger-soft); color:var(--jd-danger); overflow-wrap:anywhere; }
 .profile-error button { margin:8px; }
 .page { position: relative; min-height: 100vh; padding-bottom: 24px; background: var(--jd-canvas); }
+.page.admin-profile { min-height:0; padding-bottom:0; }
+.admin-profile .content { padding:0; }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 .topbar {

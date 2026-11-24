@@ -7,7 +7,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useAuthStore } from "../../stores/auth";
 import api from "../../services/api";
-import { belongsToAccount } from "../../services/feedVisibility";
+import { belongsToAccount, matchesFeedSearch } from "../../services/feedVisibility";
 import UserAvatar from "../../components/UserAvatar.vue";
 import AppTopBar from "../../components/AppTopBar.vue";
 import AppRoleDrawer from "../../components/AppRoleDrawer.vue";
@@ -33,6 +33,7 @@ const categories = [
   { id: "delivery", label: "จัดส่ง", icon: "🛵" },
   { id: "tutoring", label: "ติว/การศึกษา", icon: "📘" },
   { id: "writing", label: "เขียน/พิมพ์เอกสาร", icon: "✍️" },
+  { id: "errands", label: "งานจิปาถะ", icon: "🏃" },
   { id: "it", label: "IT/โปรแกรมมิ่ง", icon: "💻" },
 ];
 const activeCategory = ref("all");
@@ -50,6 +51,7 @@ function mapJob(job) {
     id: job._id,
     type: "hirer", // ประกาศงาน (Job) ของผู้ว่าจ้างรายอื่น — ดูได้แค่รายละเอียด
     category: job.category,
+    title: job.title,
     name: job.hirer?.fullName || "ผู้ว่าจ้าง",
     avatarUrl: job.hirer?.avatarUrl,
     postedAt: new Date(job.createdAt),
@@ -71,6 +73,7 @@ function mapServicePost(post, requests = []) {
     type: "worker", // Service Post ของผู้รับจ้าง — กด "Hiring" เพื่อส่ง Service Request ได้
     isMine: String(post.worker?._id || post.worker?.id || post.worker || "") === String(auth.user?._id || auth.user?.id || ""),
     category: post.category,
+    title: post.title,
     name: post.worker?.fullName || "ผู้รับจ้าง",
     avatarUrl: post.worker?.avatarUrl,
     postedAt: new Date(post.createdAt),
@@ -108,6 +111,7 @@ async function loadFeed({ background = false } = {}) {
       api.get("/service-posts/requests/my-as-hirer").catch(() => ({ data: [] })),
     ]);
     if (requestId !== feedRequestId) return;
+    errorMsg.value = '';
     const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data.jobs || [];
     const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
     const requests = Array.isArray(requestsResponse.data) ? requestsResponse.data : [];
@@ -146,8 +150,7 @@ const filteredPosts = computed(() => {
   return posts.value.filter((p) => {
     const matchesTab = activeTab.value === "all" || p.type === activeTab.value;
     const matchesCategory = activeCategory.value === "all" || p.category === activeCategory.value;
-    const matchesSearch =
-      !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
+    const matchesSearch = matchesFeedSearch(p, q);
     return matchesTab && matchesCategory && matchesSearch;
   });
 });

@@ -9,3 +9,10 @@ export function belongsToAccount(owner, account) {
     String(ownerId) !== "" && String(accountId) !== "" &&
     String(ownerId) === String(accountId);
 }
+
+export function matchesFeedSearch(post, query) {
+  const term = String(query || '').trim().toLocaleLowerCase('th');
+  return !term || [post.title, post.name, post.description].some(value =>
+    String(value || '').toLocaleLowerCase('th').includes(term),
+  );
+}

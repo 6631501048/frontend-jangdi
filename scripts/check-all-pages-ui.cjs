@@ -58,7 +58,7 @@ const routes = [
   ['worker','/worker/feed','worker-feed'],['worker','/worker/jobs','worker-jobs'],['worker','/worker/jobs?view=services','worker-services'],['worker','/worker/jobs/job-1','worker-job-detail'],['worker','/worker/jobs/job-1/tracking','tracking'],['worker','/worker/jobs/job-1/review','review-hirer'],
   ['worker','/worker/service-posts/new','post-service'],['worker','/worker/service-posts/service-1','worker-service-detail'],['worker','/worker/my-services/service-1','manage-service'],['worker','/worker/service-requests/request-1','request-detail'],['worker','/worker/payment','worker-payment'],['worker','/worker/payment/transactions','worker-transactions'],
   ['hirer','/profile','profile'],['hirer','/profile/ratings','ratings'],['hirer','/profile/history','history'],['hirer','/notifications','notifications'],
-  ['admin','/admin/dashboard','admin-dashboard'],['admin','/admin/jobs','admin-jobs'],['admin','/admin/users','admin-users'],['admin','/admin/posts','admin-posts'],['admin','/admin/payments','admin-payments'],['admin','/admin/reports','admin-reports'],['admin','/admin/sos','admin-sos'],
+  ['admin','/admin/dashboard','admin-dashboard'],['admin','/admin/jobs','admin-jobs'],['admin','/admin/users','admin-users'],['admin','/admin/posts','admin-posts'],['admin','/admin/payments','admin-payments'],['admin','/admin/reports','admin-reports'],['admin','/admin/sos','admin-sos'],['admin','/admin/profile','admin-profile'],
 ];
 module.exports={fixture,user,routes,setContext(role,route){currentRole=role;currentRoute=route;},setFailure(value){fail=value;}};
 if(require.main===module){

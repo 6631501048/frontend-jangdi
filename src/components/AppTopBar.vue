@@ -11,10 +11,10 @@ const emit = defineEmits(["menu"]);
 const auth = useAuthStore();
 const notificationBell = ref(null);
 const router = useRouter();
-const currentRoleLabel = computed(() => props.roleLabel || (auth.currentRole === "worker" ? "ผู้รับจ้าง" : "ผู้ว่าจ้าง"));
+const currentRoleLabel = computed(() => auth.user?.isAdmin ? 'ผู้ดูแลระบบ' : props.roleLabel || (auth.currentRole === "worker" ? "ผู้รับจ้าง" : "ผู้ว่าจ้าง"));
 function goToProfile() {
   notificationBell.value?.close(false);
-  router.push({ name: "profile" });
+  router.push({ name: auth.user?.isAdmin ? 'admin-profile' : 'profile' });
 }
 function openMenu() {
   notificationBell.value?.close(false);

@@ -7,7 +7,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "../../stores/auth";
 import api from "../../services/api";
-import { belongsToAccount } from "../../services/feedVisibility";
+import { belongsToAccount, matchesFeedSearch } from "../../services/feedVisibility";
 import UserAvatar from "../../components/UserAvatar.vue";
 import AppTopBar from "../../components/AppTopBar.vue";
 import AppRoleDrawer from "../../components/AppRoleDrawer.vue";
@@ -44,6 +44,7 @@ const posts = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
 let feedRequestId = 0;
+let feedRefreshTimer;
 
 function formatWindow(start, end) {
   if (!start && !end) return "";
@@ -57,6 +58,7 @@ function mapJob(job) {
     type: "hirer",
     status: job.status,
     category: job.category,
+    title: job.title,
     name: job.hirer?.fullName || "ผู้ว่าจ้าง",
     avatarUrl: job.hirer?.avatarUrl,
     postedAt: new Date(job.createdAt),
@@ -74,6 +76,7 @@ function mapServicePost(post) {
     type: "worker",
     status: post.status,
     category: post.category,
+    title: post.title,
     name: post.worker?.fullName || "ผู้รับจ้าง",
     avatarUrl: post.worker?.avatarUrl,
     postedAt: new Date(post.createdAt),
@@ -81,20 +84,26 @@ function mapServicePost(post) {
     price: Number(post.fee || 0),
     priceLabel: post.category === "delivery" ? "ค่าจ้าง/ออร์เดอร์" : "ค่าบริการ",
     window: formatWindow(post.availabilityStart, post.availabilityEnd) || "-",
-    eta: post.serviceRadiusMeters ? `รัศมี ${(post.serviceRadiusMeters / 1000).toFixed(1)} กม.` : "-",
+    eta: post.category === 'delivery'
+      ? post.serviceRadiusMeters ? `รัศมี ${(post.serviceRadiusMeters / 1000).toFixed(1)} กม.` : "-"
+      : post.locationLabel || "-",
   };
 }
 
-async function loadFeed() {
+async function loadFeed({ background = false } = {}) {
+  if (background && loading.value) return;
   const requestId = ++feedRequestId;
-  loading.value = true;
-  errorMsg.value = "";
+  if (!background) {
+    loading.value = true;
+    errorMsg.value = "";
+  }
   try {
     const [jobsResponse, servicePostsResponse] = await Promise.all([
       api.get("/jobs", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value, search: searchQuery.value.trim() || undefined } }),
       api.get("/service-posts", { params: { category: activeCategory.value === "all" ? undefined : activeCategory.value } }),
     ]);
     if (requestId !== feedRequestId) return;
+    errorMsg.value = '';
     const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data.jobs || [];
     const servicePosts = Array.isArray(servicePostsResponse.data) ? servicePostsResponse.data : servicePostsResponse.data.servicePosts || [];
     const openJobs = jobs.filter((job) => job.status === "waiting" && !belongsToAccount(job.hirer, auth.user));
@@ -107,13 +116,16 @@ async function loadFeed() {
     posts.value = [...openJobs.map(mapJob), ...availableServicePosts.map(mapServicePost)]
       .sort((a, b) => b.postedAt - a.postedAt);
   } catch (err) {
-    if (requestId === feedRequestId) errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
+    if (requestId === feedRequestId && !background) errorMsg.value = err.response?.data?.message || "โหลดฟีดประกาศไม่สำเร็จ";
   } finally {
-    if (requestId === feedRequestId) loading.value = false;
+    if (requestId === feedRequestId && !background) loading.value = false;
   }
 }
-onMounted(loadFeed);
-onUnmounted(() => { feedRequestId += 1; });
+onMounted(() => {
+  loadFeed();
+  feedRefreshTimer = window.setInterval(() => loadFeed({ background: true }), 10000);
+});
+onUnmounted(() => { feedRequestId += 1; window.clearInterval(feedRefreshTimer); });
 watch([activeCategory, searchQuery], loadFeed);
 watch([activeCategory, activeTab, searchQuery], () => { visiblePostCount.value = 10; });
 
@@ -122,8 +134,7 @@ const filteredPosts = computed(() => {
   return posts.value.filter((p) => {
     const matchesTab = activeTab.value === "all" || p.type === activeTab.value;
     const matchesCategory = activeCategory.value === "all" || p.category === activeCategory.value;
-    const matchesSearch =
-      !q || p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
+    const matchesSearch = matchesFeedSearch(p, q);
     return matchesTab && matchesCategory && matchesSearch;
   });
 });

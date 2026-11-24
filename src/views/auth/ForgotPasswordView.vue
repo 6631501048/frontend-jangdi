@@ -40,7 +40,7 @@ onBeforeUnmount(() => clearInterval(timer));
     <div v-if="submitted" class="recovery-notice" role="status">
       <strong>ตรวจสอบอีเมลของคุณ</strong>
       <p>หากอีเมลนี้มีบัญชี JangDi ที่ใช้งานได้ ระบบจะส่งลิงก์ให้ กรุณาตรวจสอบกล่องจดหมายและสแปม</p>
-      <p>ลิงก์มีอายุ 30 นาที ใช้ได้ครั้งเดียว เมื่อขอลิงก์ใหม่ให้ใช้ฉบับล่าสุด</p>
+      <p>ลิงก์มีอายุ 15 นาที ใช้ได้ครั้งเดียว เมื่อขอลิงก์ใหม่ให้ใช้ฉบับล่าสุด</p>
     </div>
     <form @submit.prevent="submit" :aria-busy="loading">
       <label>อีเมลมหาวิทยาลัย<input v-model="email" type="email" required autocomplete="email" placeholder="student_id@lamduan.mfu.ac.th" :disabled="loading" /></label>

@@ -2,7 +2,7 @@ import {readFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
-const {parse,compileScript}=require('@vue/compiler-sfc');
+const {parse,compileScript,compileTemplate}=require('@vue/compiler-sfc');
 const apiUrl=new URL('./helpers/adminApi.js',import.meta.url).href;
 const routerUrl=new URL('./helpers/adminRouter.js',import.meta.url).href;
 export async function resolve(specifier,context,nextResolve){
@@ -17,6 +17,11 @@ export async function resolve(specifier,context,nextResolve){
 export async function load(url,context,nextLoad){
   if(url.endsWith('.vue')){
     const source=await readFile(new URL(url),'utf8');const {descriptor}=parse(source,{filename:url});
+    if(!descriptor.script && !descriptor.scriptSetup){
+      const template=compileTemplate({source:descriptor.template?.content || '',filename:url,id:'test-component'});
+      if(template.errors.length)throw template.errors[0];
+      return {format:'module',source:template.code+'\nexport default {render};',shortCircuit:true};
+    }
     const script=compileScript(descriptor,{id:'test-component',inlineTemplate:true,templateOptions:{compilerOptions:{hoistStatic:false}}});
     return {format:'module',source:script.content,shortCircuit:true};
   }
