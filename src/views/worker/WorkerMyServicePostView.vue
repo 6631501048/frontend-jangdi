@@ -1,10 +1,12 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-SERV-03: ผู้รับจ้างปิด Service Post ด้วยตนเองได้ทุกเมื่อ ก่อนหมดเวลา
 // FR-SERV-05: เจ้าของประกาศดู ยอมรับ หรือปฏิเสธ Service Request แต่ละรายการ
 // FR-SERV-06: ปิดกั้น Service Request เพิ่มเติมเมื่อถึงจำนวนออร์เดอร์สูงสุด หรือถูกปิดไปแล้ว
 // FR-SERV-07: Service Request ที่ยอมรับแล้วจะถูกแปลงเป็นบันทึกงาน (Job) เชื่อมโยงกับ Service Post ต้นทาง
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useAuthStore } from "../../stores/auth";
 import api from "../../services/api";
 import { servicePostWorkflowStatus, requestWorkflowLabel } from "../../services/workflowStatus";
 import DecisionDialog from '../../components/AdminDecisionDialog.vue';
@@ -12,6 +14,7 @@ import { useAdminDecision } from '../../composables/useAdminDecision';
 const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
 
 const props = defineProps({ embedded: { type: Boolean, default: false } });
+const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
 const isManagementDetail = computed(() => Boolean(route.params.id));
@@ -192,6 +195,7 @@ async function performLoad({ background = false } = {}) {
       .filter((r) => r.servicePostId === String(chosen._id))
       .map((r) => ({
         id: r._id,
+        requesterAvatarUrl: r.hirer?.avatarUrl,
         requester: r.hirer?.fullName || "ผู้ว่าจ้าง",
         location: "-",
         postedAgo: timeAgo(r.createdAt),
@@ -368,9 +372,7 @@ function createNewPost() {
           :key="item._id"
           class="service-post-row"
         >
-          <span class="post-avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-          </span>
+          <span class="post-avatar"><UserAvatar :src="auth.user?.avatarUrl" :name="auth.user?.fullName" /></span>
           <span class="service-post-body">
             <strong>{{ item.title }}</strong>
             <small>฿{{ Number(item.fee || 0).toLocaleString("th-TH") }} · {{ servicePostTime(item) }}</small>
@@ -384,9 +386,7 @@ function createNewPost() {
       <!-- สรุปบริการ -->
       <div class="card post-card service-summary-card">
         <div class="post-head">
-          <span class="post-avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-          </span>
+          <span class="post-avatar"><UserAvatar :src="auth.user?.avatarUrl" :name="auth.user?.fullName" /></span>
           <div class="post-head-body">
             <div class="post-title-line"><p class="post-title">{{ post.title }}</p><span class="post-created">{{ servicePostAge(post.createdAt) }}</span></div>
             <p class="post-desc">{{ post.description }}</p>
@@ -450,9 +450,7 @@ function createNewPost() {
             <span>เลือกคำขอของ {{ req.requester }}</span>
           </label>
           <div class="request-head">
-            <span class="post-avatar small" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-            </span>
+            <span class="post-avatar small"><UserAvatar :src="req.requesterAvatarUrl" :name="req.requester" /></span>
             <div class="request-head-body">
               <p class="requester">{{ req.requester }}</p>
               <p class="requester-loc">{{ req.location }}</p>

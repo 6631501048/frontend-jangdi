@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // Admin review and lifecycle overview for Hirer jobs and Worker service posts.
 import { ref, computed, onMounted, watch } from "vue";
 import api from "../../services/api";
@@ -67,7 +68,7 @@ function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).joi
     <template v-else>
       <p class="count">พบ {{ total }} รายการ</p>
       <ul class="job-list"><li v-for="entry in entries" :key="entry._id" class="job-card">
-        <div class="avatar-circle">{{ initials(type==='jobs' ? entry.hirer?.fullName : entry.worker?.fullName) }}</div>
+        <span class="avatar-circle"><UserAvatar :src="type==='jobs' ? entry.hirer?.avatarUrl : entry.worker?.avatarUrl" :name="type==='jobs' ? entry.hirer?.fullName : entry.worker?.fullName" /></span>
         <div class="job-body">
           <div class="job-heading">
             <p class="job-name">{{ type==='jobs' ? (entry.hirer?.fullName || 'Hirer') : (entry.worker?.fullName || 'Worker') }}</p>

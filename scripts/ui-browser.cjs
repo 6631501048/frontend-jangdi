@@ -5,7 +5,7 @@ const path = require('node:path');
 const WebSocket = require('ws');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-async function launchBrowser(fixture) {
+async function launchBrowser(fixture, assetFixture) {
   const profile = mkdtempSync(path.join(tmpdir(), 'jangdi-pages-ui-'));
   const child = spawn(process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-background-networking', 'about:blank'], { windowsHide: true, stdio: 'ignore' });
   let target;
@@ -44,6 +44,8 @@ async function launchBrowser(fixture) {
     if (event.method === 'Fetch.requestPaused') (async () => {
       const { requestId, request } = event.params;
       const url = new URL(request.url);
+      const asset = assetFixture && await assetFixture(url, request);
+      if (asset) return send('Fetch.fulfillRequest', {requestId, responseCode:asset.status || 200, responseHeaders:[{name:'Content-Type',value:asset.contentType || 'image/png'}], body:asset.base64 || ''});
       if (url.pathname.startsWith('/socket.io/')) return send('Fetch.failRequest', { requestId, errorReason:'Aborted' });
       if (url.pathname.startsWith('/api/')) {
         if (request.method === 'OPTIONS') return fulfill(requestId, {body:{}});

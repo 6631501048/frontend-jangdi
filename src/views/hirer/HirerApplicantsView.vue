@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-MATCH-03: Hirer ดูผู้สมัครทั้งหมด (avatar, ชื่อ, credibility score, ระยะทาง)
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -94,7 +95,7 @@ function select(workerId) {
       <p v-if="loading" class="empty">Loading applicants...</p>
       <p v-else-if="errorMsg" class="empty error">{{ errorMsg }}</p>
       <div v-else v-for="a in applicants" :key="a.id" class="applicant-card">
-        <div class="avatar">👤</div>
+        <span class="avatar"><UserAvatar :src="a.avatarUrl" :name="a.name" /></span>
         <div class="info">
           <div class="name">{{ a.name }}</div>
           <div class="meta">⭐ {{ a.score }} ({{ a.reviewCount }} reviews) · {{ a.distanceKm === null ? "Distance unavailable" : `${a.distanceKm} km` }}</div>

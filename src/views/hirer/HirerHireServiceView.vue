@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-SERV-04: ผู้ว่าจ้างเรียกดู Service Post ที่ใช้งานอยู่ และส่ง Service Request พร้อมรายละเอียดคำสั่งซื้อ
 // FR-SERV-06: หน้านี้เช็คเบื้องต้นว่า Service Post ยังไม่เต็มจำนวนออร์เดอร์/ยังไม่ถูกปิด (เช็คจริงตอนเรียก API)
 // FR-SERV-07: เมื่อผู้รับจ้างยอมรับ Service Request นี้ ระบบจะแปลงเป็นบันทึกงาน (Job)
@@ -61,6 +62,7 @@ async function loadServicePost() {
     const { data } = await api.get(`/service-posts/${route.params.id}`);
     servicePost.value = {
       id: data._id,
+      workerAvatarUrl: data.worker?.avatarUrl,
       workerName: data.worker?.fullName || "ผู้รับจ้าง",
       postedAgo: timeAgo(data.createdAt),
       description: data.description,
@@ -181,9 +183,7 @@ function closeModal() {
       <template v-if="step === 1">
         <div class="card">
           <div class="post-head">
-            <span class="avatar" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-            </span>
+            <span class="avatar"><UserAvatar :src="servicePost.workerAvatarUrl" :name="servicePost.workerName" /></span>
             <div>
               <p class="worker-name">{{ servicePost.workerName }} <span class="posted-ago">{{ servicePost.postedAgo }}</span></p>
               <p class="post-desc">{{ servicePost.description }}</p>

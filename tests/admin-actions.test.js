@@ -141,7 +141,7 @@ test('user moderation asks for a reason in-page and targets the selected account
   resetApi({get:async()=>({data:[user]}),post:async()=>{user={...user,accountStatus:'suspended'};return {data:{user}};}});
   const view=await mount(Users);
   try{
-    fire(find(view.root,'li','ผู้ใช้ทดสอบ'),'click');await flush();fire(find(view.root,'button','ระงับบัญชี'),'click');await flush();await confirm(view.root,'ตรวจสอบแล้วต้องระงับบัญชี');
+    fire(walk(view.root).find(node=>node.props['aria-label']==='ดูรายละเอียดบัญชี ผู้ใช้ทดสอบ'),'click');await flush();fire(walk(view.root).find(node=>node.tag==='button'&&node.props.class?.includes('action-btn suspend')),'click');await flush();await confirm(view.root,'ตรวจสอบแล้วต้องระงับบัญชี');
     const posted=calls.find(c=>c.method==='post');assert.equal(posted.url,'/admin/users/user1/suspend');assert.deepEqual(posted.args[0],{action:'suspend',reason:'ตรวจสอบแล้วต้องระงับบัญชี'});
   }finally{view.unmount();}
 });

@@ -1,4 +1,5 @@
 ﻿<script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-BROWSE-01: ดูรายละเอียดประกาศงาน (Job) ของผู้ว่าจ้างรายอื่นในฟีด
 // หมายเหตุ: หน้านี้เป็นแบบอ่านอย่างเดียว ไม่มีปุ่ม "สมัคร" เพราะ FR-BROWSE-04 (สมัครงาน)
 //           เป็นสิทธิ์เฉพาะของผู้รับจ้างเท่านั้น ผู้ว่าจ้างดูได้แค่ข้อมูลประกาศ
@@ -37,6 +38,7 @@ async function loadJob() {
     const { data } = await api.get(`/jobs/${route.params.id}`);
     job.value = {
       id: data._id,
+      hirerAvatarUrl: data.hirer?.avatarUrl,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
       postedAgo: timeAgo(data.createdAt),
       description: data.description || "ไม่ได้ระบุรายละเอียด",
@@ -72,9 +74,7 @@ function goBack() {
     <main class="content">
       <div class="card">
         <div class="job-head">
-          <span class="avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-          </span>
+          <span class="avatar"><UserAvatar :src="job.hirerAvatarUrl" :name="job.hirerName" /></span>
           <div>
             <p class="hirer-name">{{ job.hirerName }} <span class="posted-ago">{{ job.postedAgo }}</span></p>
             <p class="job-desc">{{ job.description }}</p>

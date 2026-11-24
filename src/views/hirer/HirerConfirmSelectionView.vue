@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-MATCH-04, FR-PAY-01/02: ยืนยันเลือกช่าง + วางเงินเข้า escrow (Pending -> Held)
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -25,7 +26,7 @@ async function loadSelection() {
     try { const { data: terms } = await api.get('/payments/config'); paymentTerms.value = { ...paymentTerms.value, ...terms }; } catch { /* Use the shared defaults. */ }
     job.value = { ...jobData, id: jobData._id, serviceFee: jobData.deliveryFee || 0, total: Number(jobData.price || 0) + Number(jobData.deliveryFee || 0) };
     const match = applicants.find((item) => String(item.worker?._id || item.worker) === String(route.params.workerId));
-    worker.value = match ? { id: match.worker?._id || match.worker, name: match.worker?.fullName || "Worker", rating: match.worker?.credibilityScore ?? 0 } : null;
+    worker.value = match ? { id: match.worker?._id || match.worker, avatarUrl: match.worker?.avatarUrl, name: match.worker?.fullName || "Worker", rating: match.worker?.credibilityScore ?? 0 } : null;
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "Unable to load the selection.";
   }
@@ -57,7 +58,7 @@ async function confirmAndPay() {
     <section class="card">
       <p class="label">ผู้รับจ้างที่คุณเลือก</p>
       <div class="worker">
-        <div class="avatar">👤</div>
+        <span class="avatar"><UserAvatar :src="worker.avatarUrl" :name="worker.name" /></span>
         <div>
           <div class="name">{{ worker.name }}</div>
           <div class="rating">⭐ {{ worker.rating }}</div>

@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-REV-01: Hirer rates and reviews the selected Worker after a job is complete.
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -8,6 +9,7 @@ import AppHeader from "../../components/AppHeader.vue";
 const route = useRoute();
 const router = useRouter();
 const job = ref(null);
+const workerAvatarUrl = ref("");
 const workerName = ref("Worker");
 const loading = ref(true);
 const submitting = ref(false);
@@ -39,6 +41,7 @@ async function loadJob() {
     const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
     reviewStatus.value = review;
     job.value = data;
+    workerAvatarUrl.value = worker.avatarUrl || "";
     workerName.value = worker.fullName || "Worker";
   } catch (err) {
     errorMsg.value = err.response?.data?.message || err.message || "Unable to load job details.";
@@ -83,7 +86,7 @@ async function submit() {
         <button type="button" class="btn home" @click="goHome">กลับหน้าโฮม</button>
       </template>
       <template v-else>
-      <div class="avatar">👤</div>
+      <span class="avatar"><UserAvatar :src="workerAvatarUrl" :name="workerName" /></span>
       <div class="name">{{ workerName }}</div>
       <div class="role">ผู้รับจ้าง</div>
 

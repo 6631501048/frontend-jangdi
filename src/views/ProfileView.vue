@@ -33,13 +33,18 @@ function pickAvatar() {
 }
 async function onAvatarChange(e) {
   const file = e.target.files?.[0];
-  if (!file) return;
-
-  // แสดง preview ทันทีระหว่างอัปโหลด
-  const reader = new FileReader();
-  reader.onload = () => { avatarPreview.value = reader.result; avatarImageFailed.value = false; };
-  reader.readAsDataURL(file);
-
+  e.target.value = "";
+  if (!file || uploadingAvatar.value) return;
+  errorMsg.value = "";
+  if (!file.type.startsWith("image/")) {
+    errorMsg.value = "กรุณาเลือกไฟล์รูปภาพ";
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    errorMsg.value = "รูปโปรไฟล์ต้องมีขนาดไม่เกิน 5 MB";
+    return;
+  }
+  // Keep the saved avatar visible until the server confirms the upload.
   const formData = new FormData();
   formData.append("avatar", file);
 
@@ -228,7 +233,7 @@ function applyUserToProfile(user) {
     address: user.contactAddress?.address || "",
     phoneNumber: user.contactAddress?.phone || user.phone || "",
   };
-  if (user.avatarUrl) avatarPreview.value = resolveUploadUrl(user.avatarUrl);
+  avatarPreview.value = resolveUploadUrl(user.avatarUrl);
   avatarImageFailed.value = false;
 }
 

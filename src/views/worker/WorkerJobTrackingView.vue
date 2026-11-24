@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-TRACK-01: อัปเดตสถานะงานตามขั้นตอน (เริ่มงาน, กำลังดำเนินการ, ส่งหลักฐาน, เสร็จสิ้น)
 // FR-TRACK-02: ผู้ว่าจ้างเห็นการอัปเดตสถานะแบบเรียลไทม์ (ฝั่ง backend/WebSocket)
 // FR-TRACK-03: ต้องอัปโหลดรูปภาพหลักฐานเมื่อทำเครื่องหมายว่างานเสร็จแล้ว
@@ -383,9 +384,7 @@ function goToReview() {
         <JobPaymentStatus :payment="payment" role="worker" />
         <!-- หัวข้อ: ผู้ว่าจ้าง + ชื่องาน + สถานะ -->
         <div class="job-head">
-          <span class="job-avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-          </span>
+          <span class="job-avatar"><UserAvatar :src="hirerProfile?.avatarUrl" :name="job.hirerName" /></span>
           <div class="job-head-body">
             <p class="hirer-name">{{ job.hirerName }}</p>
             <p class="job-title">{{ job.title }}</p>

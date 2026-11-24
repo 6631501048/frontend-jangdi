@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // MVP-02: Service Request details are the Hirer's persisted orderData (legacy text is still supported).
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -32,6 +33,7 @@ async function loadRequest({ background = false } = {}) {
     } catch { /* Keep the estimate at the configured defaults. */ }
     request.value = {
       id: data._id,
+      requesterAvatarUrl: data.hirer?.avatarUrl,
       requester: data.hirer?.fullName || "ผู้ว่าจ้าง",
       serviceTitle: post.title || "-",
       category: post.category || "",
@@ -95,7 +97,7 @@ async function respond(action) {
       <template v-else-if="request">
         <div class="card">
           <div class="requester-head">
-            <span class="avatar" aria-hidden="true">👤</span>
+            <span class="avatar"><UserAvatar :src="request.requesterAvatarUrl" :name="request.requester" /></span>
             <div><p class="requester-name">{{ request.requester }}</p><p class="requester-loc">{{ request.serviceTitle }}</p></div>
           </div>
           <p class="section-title">รายละเอียดคำขอจาก Hirer</p>

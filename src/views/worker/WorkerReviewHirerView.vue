@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // SRS 3.5.15 / FR-REV-01–02: หลังงานเสร็จสิ้น ผู้รับจ้างให้คะแนน + รีวิวผู้ว่าจ้าง
 // ระบบรีวิวสองทาง (reciprocal) ช่วยรักษาความรับผิดชอบของทั้งสองฝั่งบนแพลตฟอร์ม
 import { computed, onMounted, ref } from "vue";
@@ -111,10 +112,7 @@ function goHome() {
       <p v-else-if="!canReview">{{ errorMsg || 'ยังไม่สามารถรีวิวงานนี้ได้' }}</p>
       <div v-if="!loading && canReview" class="card">
         <div class="profile-block">
-          <span class="avatar" aria-hidden="true">
-            <img v-if="hirer.avatarUrl" :src="hirer.avatarUrl" alt="" />
-            <svg v-else viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-          </span>
+          <span class="avatar"><UserAvatar :src="hirer.avatarUrl" :name="hirer.name" /></span>
           <p class="hirer-name">{{ hirer.name }}</p>
           <p class="hirer-role">ผู้ว่าจ้าง</p>
         </div>

@@ -1,4 +1,5 @@
 ﻿<script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-JOB-01/08, FR-TRACK-02/03/04, FR-SOS-01, FR-JOB-07: รายละเอียดงานของ Hirer ปรับเนื้อหาตามสถานะ
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -230,7 +231,7 @@ async function confirmCompletion() {
       <div v-else-if="mockPayment?.status === 'refunded'" class="mock-banner" role="status"><strong>คืนเงินแล้ว (โหมดทดสอบ)</strong><p>จำนวน {{Number(mockPayment.refundAmount || 0).toLocaleString('th-TH')}} บาท</p><p>เหตุผลผู้ดูแล: {{mockPayment.refundNotes || '—'}}</p></div>
       <div class="head">
         <div class="who">
-          <div class="avatar">👤</div>
+          <span class="avatar"><UserAvatar :src="job.hirer?.avatarUrl" :name="job.hirer?.fullName" /></span>
           <div>
             <div class="title">{{ job.title }}</div>
             <div class="sub">{{ job.description }}</div>

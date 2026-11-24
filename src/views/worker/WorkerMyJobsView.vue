@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-BROWSE-07: ดูสถานะใบสมัครที่ส่งไปแล้วของตนเอง (แท็บ Waiting = คิว JOB_WAITING)
 // FR-TRACK-01/06: ดูงานที่กำลังดำเนินการ/เสร็จสิ้น/ยกเลิก และถืองานพร้อมกันได้อย่างน้อย 2 งาน
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
@@ -119,9 +120,7 @@ function openJob(job) {
           :class="{ clickable: true }"
           @click="openJob(job)"
         >
-          <span class="job-avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-          </span>
+          <span class="job-avatar"><UserAvatar :src="job.hirerAvatarUrl" :name="job.hirerName" /></span>
           <div class="job-body">
             <p v-if="job.hirerName" class="job-hirer">{{ job.hirerName }}</p>
             <p class="job-title">{{ job.title }}</p>

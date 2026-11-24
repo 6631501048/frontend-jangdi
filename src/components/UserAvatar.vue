@@ -6,7 +6,7 @@ const props = defineProps({ src: { type: String, default: "" }, name: { type: St
 const failed = ref(false);
 watch(() => props.src, () => { failed.value = false; });
 const imageUrl = computed(() => resolveBackendAssetUrl(props.src));
-const initials = computed(() => props.name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "👤");
+const initials = computed(() => String(props.name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "👤");
 </script>
 
 <template>

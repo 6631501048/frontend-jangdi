@@ -1,4 +1,5 @@
 ﻿<script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-BROWSE-03: ดูรายละเอียดงานแบบเต็ม (คำอธิบาย ราคา ตำแหน่งที่ตั้ง ระยะเวลา หมายเหตุ) ก่อนสมัคร
 // FR-BROWSE-04: สมัครงาน โดยเพิ่มใบสมัครเข้าสู่คิวรอของงานนั้น (JOB_WAITING)
 // FR-BROWSE-05: อนุญาตให้สมัครหลายงานพร้อมกันได้
@@ -46,6 +47,7 @@ async function loadJob() {
     }
     job.value = {
       id: data._id,
+      hirerAvatarUrl: data.hirer?.avatarUrl,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
       title: data.title || "ไม่มีชื่อประกาศ",
       backendStatus: data.status,
@@ -119,9 +121,7 @@ function goBack() {
       <div v-if="!loading && job.title" class="card">
         <!-- หัวข้อ: ผู้ว่าจ้าง + ชื่องาน + คำอธิบาย -->
         <div class="job-head">
-          <span class="job-avatar" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-          </span>
+          <span class="job-avatar"><UserAvatar :src="job.hirerAvatarUrl" :name="job.hirerName" /></span>
           <div>
             <p class="hirer-name">{{ job.hirerName }}</p>
             <p class="job-title">{{ job.title }}</p>

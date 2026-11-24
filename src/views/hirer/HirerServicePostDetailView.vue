@@ -1,4 +1,5 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
@@ -59,7 +60,7 @@ onMounted(async () => {
         </template>
         <template v-else>
           <section class="card worker-summary">
-            <div class="worker-avatar" aria-hidden="true">{{ (post.worker?.fullName || "W").slice(0, 1).toUpperCase() }}</div>
+            <span class="worker-avatar"><UserAvatar :src="post.worker?.avatarUrl" :name="post.worker?.fullName" /></span>
             <div><p class="worker">{{ post.worker?.fullName || "ผู้รับจ้าง" }}</p><h2>{{ post.title || "บริการ" }}</h2><p class="description">{{ post.description || "-" }}</p></div>
           </section>
           <section class="card worker-details">
