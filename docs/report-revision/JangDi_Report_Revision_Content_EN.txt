@@ -1,0 +1,528 @@
+﻿JangDi: Report Revision Content
+
+English replacement and additional content for the five-chapter project report
+
+Editorial copy — 25 November 2026. Use this content to revise Proposal_jangDi (34).pdf, following the structure of the supplied approved Project_Proposal.pdf. This is a revision pack, not a completed final report. Blue bracketed notes are editing instructions and must be removed before submission.
+
+Retain verified project-specific material from the original report where it remains accurate. Replace outdated descriptions, diagrams, screenshots, and data dictionaries. Section numbering below follows the approved example; renumber the original Chapter 3 accordingly. References are supplied at the end of this pack and must be reconciled with the report’s existing bibliography.
+
+Revision map
+Location | Action | Content supplied
+Abstract | Replace | Implementation-based abstract without invented evaluation findings
+Chapter 1 | Revise | Background, objectives, current scope, methodology, plan notes, deliverables, and technology
+Chapter 2 | Revise selected content | Updated theory/research summaries, comparison discussion, and implementation technologies
+Chapter 3 | Update and reorganize | Actors, workflows, sitemap, UI descriptions, architecture, and MongoDB design
+Chapter 4 | Add | Implementation checklist, prepared functional cases, and screenshot demonstration text
+Chapter 5 | Replace / renumber | Conclusion, development problems, and future work
+Front matter / references | Update | Regenerate lists and reconcile citations after all insertions
+
+ABSTRACT — REPLACEMENT
+
+JangDi is a web-based micro-task platform developed for the Mae Fah Luang University student community. The project organizes short, local service tasks through a shared workflow for hirers, workers, and administrators. Hirers can publish jobs and select applicants, while workers can advertise services and accept service requests. Both entry points lead to a common process for assignment, payment-state tracking, completion evidence, and confirmation. The application uses Vue 3 for the client, Node.js and Express for the server, and MongoDB for persistence. Authentication supports the designated university email domain, and a member can switch between hirer and worker activities within one account. Location-based notifications use stored coordinates and a configurable proximity radius. Administrative functions support post approval, user management, reports, SOS submissions, payment review, and tester feedback. Public profiles are separated from restricted contact and bank information. Stripe test mode and prototype payment records support development and testing without establishing a live financial settlement service. The report describes the implemented design and provides a structure for documenting functional verification. Results from a formal evaluation with actual testers remain to be added.
+
+[After testing, replace the last two sentences with a concise summary of the actual evaluation procedure and supported findings. Do not reuse the preliminary requirements survey as evidence of application usability.]
+
+CHAPTER 1 — INTRODUCTION
+
+1.1 Background and Rationale
+
+Students may need assistance with short tasks such as collecting items, delivering documents, and providing local services. Within the JangDi project context, the central problem is coordinating a request with an available participant and maintaining a clear record of the agreement. The application is designed to make the task description, selected worker, payment status, and completion status available within a shared workflow.
+
+A posting channel alone does not determine how applicants are selected, when work is ready to begin, or what happens when a participant requests a cancellation or refund. JangDi addresses these coordination requirements through explicit job states, role-based actions, and administrative review. Its intended community uses the designated Mae Fah Luang University email domain, and one member account supports both requesting and providing services.
+
+The project provides two ways to initiate work. A hirer can publish a job and choose a worker from the applicants. Alternatively, a worker can advertise a service, receive a request, and decide whether to accept it. These paths share the later job workflow so that payment records, completion evidence, reviews, and exceptional cases can be associated with the same work record. The intended benefits motivate the design; their extent must be established through evaluation rather than assumed from implementation.
+
+[Retain the original requirements-survey paragraph only if its questionnaire and response data can be checked. Identify it as preliminary requirements gathering, not evaluation of the finished system. Retain the original citation where applicable.]
+
+1.2 Objectives
+
+1.2.1 To develop a campus-oriented web application supporting hirer, worker, and administrator activities.
+
+1.2.2 To integrate hirer-created jobs and worker-created service requests into a common workflow for assignment, payment-state tracking, completion evidence, and confirmation.
+
+1.2.3 To provide institutional email authentication, location-based notifications, restricted profile disclosure, and administrative tools for managing platform activities.
+
+1.2.4 To prepare and conduct functional verification of the implemented workflows and document subsequent feedback from actual testers.
+
+1.3 Scope
+
+1.3.1 Member Authentication and Profiles
+
+The system supports registration and sign-in using the designated @lamduan.mfu.ac.th email domain. Google sign-in and password-based access refer to a shared account when they use the same normalized email address. Email verification and password recovery support account access. New-member onboarding collects profile, contact, and bank-account fields. During prototype testing, the interface permits explicitly identified dummy bank information; these entries are not verified bank accounts.
+
+Members can upload an avatar, maintain profile information, and switch between hirer and worker interfaces. Other users can open an appropriate read-only profile. Public fields are separated from private information, and contact email is available only to the owner, administrators, and authorized job counterparts after selection, including completed work. Email-domain access does not independently verify current student enrollment through university records.
+
+1.3.2 Hirer Functions
+
+Hirers can create job posts, provide the required task information, and optionally add supplementary notes. Submitted posts are subject to content checks and administrator review. Hirers can inspect applicants, select a worker, initiate the available prototype payment process, follow progress, inspect submitted completion evidence, and confirm completion. They can also request advertised services, submit applicable refund requests, review their work history, and provide job-related feedback.
+
+1.3.3 Worker Functions
+
+Workers can browse available jobs, inspect task details and permitted profile information, and apply for suitable work. They can advertise services with availability periods and capacity settings, and accept or decline incoming service requests. Accepted requests create linked jobs. Workers can follow assigned work, start work when the payment conditions are satisfied, submit completion evidence, inspect transaction records, and review the hirer where permitted.
+
+1.3.4 Administrator Functions
+
+Administrators can review job and service posts, manage user-account status, inspect reports, and handle SOS records. Financial administration includes inspection of payment records, payout evidence, and refund requests within the prototype workflow. Administrators can also inspect tester comments and distinguish new comments from those already read. Administrative access is enforced by server-side authorization.
+
+1.3.5 System Boundaries
+
+The prototype uses location coordinates for proximity-related features and a configurable nearby-notification radius, with a default of approximately two kilometers. Stored coordinates are not continuous GPS tracking. The intended campus context must be distinguished from a technically enforced geographic boundary; the current report must not claim an implemented campus-wide five-kilometer geofence without evidence of that restriction.
+
+Payments use Stripe test mode or the supported demonstration/evidence-based workflow. Application states such as held, payout_pending, and released describe prototype records and do not establish live bank settlement or a licensed escrow service. Notification timing, usability improvements, security effectiveness, and financial outcomes are not quantified without measured evidence. The current implementation does not include history-based AI matching or an interactive Google Maps pin-selection interface.
+
+1.4 Methodology
+
+The project work is organized into requirements review, system analysis, design, implementation, and verification. Requirements review identifies the activities of hirers, workers, and administrators. Analysis defines role permissions and the relationship between job, service-request, and payment states. Design specifies the interface structure, application architecture, and data models. Implementation integrates the client, server, database, identity service, and test-payment provider. Verification examines the implemented behavior against defined cases; user evaluation is documented separately when it has been conducted.
+
+[Retain any course-required Senior Project 1 / Senior Project 2 milestones, but correct duplicate or outdated items. Add actual project dates rather than deriving them from the approved example.]
+
+1.5 Plan
+
+[Update Table 1.1 using the team’s actual project schedule. Include requirements review, implementation revisions, preparation of functional cases, execution of tests, collection of tester feedback, and final document revision. Dates and completion percentages have intentionally not been invented.]
+
+1.6 Expected Results
+
+The intended deliverables are a web application for the defined campus service workflows, supporting client and server components, persistent application records, and project documentation. Functional verification records and feedback from actual testers will provide evidence of the implemented behavior and inform subsequent improvements. These deliverables do not by themselves establish increased income, reduced coordination time, or improved trust.
+
+1.7 Place and Equipment
+
+The development context is the Mae Fah Luang University student community. The software stack includes Vue 3, Vue Router, Pinia, and Axios on the client; Node.js, Express, and Mongoose on the server; and MongoDB for data storage. Socket.IO supports event-based notifications. Google Identity Services supports Google sign-in, configured email delivery supports verification and password recovery, and Stripe test mode supports checkout development. Browser location permission supplies coordinates for location-related functions.
+
+[Retain hardware and development-location details only after checking them against the team’s actual equipment. Do not copy hardware specifications, version numbers, or deployment arrangements from another project.]
+
+CHAPTER 2 — LITERATURE REVIEW: REVISED CONTENT
+
+[Use the following material to update the corresponding subsections. Existing relevant literature can remain, provided each citation is checked and each statement matches the source. Reference numbers in this pack must be reconciled with the original report.]
+
+2.1 Related Theory
+
+Two-sided platform theory considers services that facilitate interaction between different participant groups [1]. JangDi applies this perspective to hirers and workers, whose activities are different but depend on shared task information. The design separates their available actions while allowing a member to participate on either side through one account. This is a design rationale rather than evidence of market growth or network effects.
+
+A workflow model represents work as states and permitted transitions. JangDi distinguishes post approval, applications, assignment, work execution, completion confirmation, and exceptional outcomes. Payment processing is represented separately because financial review and task execution do not always advance together. This separation helps the application determine which actions are appropriate for the current record.
+
+The design also separates public identity information from information needed only by the parties performing a job. Ratings, completion evidence, and administrative reports provide records associated with platform activities. These mechanisms are intended to support accountability; their effectiveness in reducing misconduct remains an evaluation question.
+
+2.2 Related Research
+
+Horton and Chilton examine labor supply and monetary incentives in paid crowdsourcing [2]. Their work concerns online tasks and cannot directly establish student behavior in local service work. For JangDi, it supports considering compensation and task requirements as explicit information while recognizing that physical location and practical coordination introduce additional design requirements.
+
+Ba and Pavlou examine trust-building technology and buyer behavior in electronic markets [3]. Their findings motivate attention to feedback and transaction context. JangDi’s job-linked reviews and completion records are implementation choices informed by that concern. The project does not infer that the same measured effects automatically apply to its users.
+
+2.3 Related Work — Replacement Closing Discussion
+
+The comparison of related systems should focus on the requirements relevant to this project: task publication, applicant selection, service advertising, work status, payment-state visibility, and administrative review. JangDi combines two task-initiation paths with a shared job record and role-specific actions. The purpose of this comparison is to explain the project’s design choices, not to claim that the prototype is superior to every general-purpose communication channel or commercial service platform.
+
+[Retain the original descriptions of LINE/Facebook groups and other named platforms only after checking the sources. Recheck any feature or fee comparison before submission. Do not describe an unverified absence of a competitor feature as a fact.]
+
+2.4 Related Technology
+
+Updated technology description
+Technology | Use in JangDi
+Vue 3 / Vue Router / Pinia | Component-based interface, route navigation, and client-side state [4]
+Node.js / Express | HTTP API and application rules implemented on the server
+MongoDB / Mongoose | Document storage, schema validation, references, and geospatial indexing
+Google Identity Services | Server verification of Google identity tokens and permitted email domain [5]
+Stripe test mode | Simulated checkout and payment-state integration [6], [7]
+MongoDB $nearSphere | Nearby-coordinate queries used by the notification service [8]
+Socket.IO | Event-based communication with connected clients [9]
+Configured email delivery | Email verification and password-recovery messages
+
+The location implementation uses browser-provided coordinates and MongoDB geospatial queries. Google Maps JavaScript map rendering and continuous GPS tracking should not be listed as completed components. Likewise, the payment implementation is a test integration with application records rather than a live virtual-wallet service. Distinguishing implemented technology from proposed extensions keeps the design chapter consistent with the delivered prototype.
+
+CHAPTER 3 — ANALYSIS AND DESIGN
+
+[The numbering in this chapter follows the approved example: 3.3 Use Case Diagram, 3.4 Activity Diagram, 3.5 Sitemap, 3.6 UI Design, and 3.7 Database Design. Move and renumber the original material rather than retaining conflicting subsection numbers.]
+
+3.1 Existing System
+
+The project’s baseline problem concerns task requests coordinated outside a dedicated shared workflow. A request, an agreement, and later completion communication may be maintained separately, making the current state difficult to inspect from one place. The original requirements investigation should provide the evidence for this problem description. The report does not treat informal channels as technically incapable of every function; it identifies the coordination needs that motivated a dedicated application.
+
+3.2 New System
+
+The proposed-and-implemented system provides a common account model with hirer and worker activities and a separate administrator role. Hirer-created jobs use an application-and-selection process. Worker-created service advertisements use requests that are accepted or declined by the worker. Accepted requests produce linked jobs, after which both paths share payment-state checks, work execution, completion evidence, and confirmation.
+
+The browser communicates with the Express API for authenticated actions and record retrieval. Server-side rules control access and state changes, and Mongoose models persist records in MongoDB. External identity, email, and test-payment services support specific operations. Socket.IO supplements stored notifications for connected clients. A redirect URL or a client-side button state is not treated as an authoritative payment or permission decision.
+
+[Insert an updated architecture diagram: Hirer/Worker/Admin browser → Vue client → Express API → MongoDB. Show Google identity, email delivery, and Stripe test mode as external services, and Socket.IO as the event channel. Do not include a completed Google Maps or AI subsystem.]
+
+3.3 Use Case Diagram
+
+Actors and principal use cases
+Actor | Use cases
+Member | Register; verify email; sign in; recover password; complete profile; upload avatar; switch role; inspect permitted profiles; read notifications; submit tester feedback
+Hirer | Create job; inspect applicants; select worker; request advertised service; initiate payment; inspect completion evidence; confirm completion; request refund; submit review/report
+Worker | Browse/apply for jobs; publish service; respond to service requests; start eligible work; submit completion evidence; inspect transactions; submit review/report/SOS
+Administrator | Review posts; manage users; inspect reports/SOS; review payments/refunds; record applicable payout evidence; inspect tester comments
+
+The use case diagram should distinguish authenticated member activities from role-specific activities. A member may switch between hirer and worker interfaces, while administrator privileges are controlled separately. External Google identity and Stripe test services should be shown as supporting actors only where they participate in the corresponding use case. Viewing a profile must not imply unrestricted access to the user’s contact or bank information.
+
+[Replace the existing use case figures with diagrams matching the table above. Confirm each actor-to-use-case link against the final scope; do not mark every administrator action as available to ordinary members.]
+
+3.4 Activity Diagrams — Workflow Descriptions
+
+3.4.1 Authentication and Onboarding
+
+The user selects password sign-in or Google sign-in. For Google access, the server verifies the identity token and the permitted email domain. The system retrieves or creates the corresponding email-based member record and checks account eligibility. A new member completes the required profile fields before entering the main role interface. Invalid credentials, an unsupported email domain, or a suspended account lead to an error state rather than successful access.
+
+[Insert the updated activity diagram for this workflow, including relevant decision and failure branches.]
+
+3.4.2 Password Recovery
+
+The user submits an email address through the recovery page. For an eligible account, the server creates a time-limited reset token and attempts to email a reset link. The public response does not reveal whether a particular account exists. The user opens the link and submits a new password. The server checks the token and expiry, consumes the token, and stores the new password hash. Expired, invalid, or previously used links cannot authorize another password change. Successful page submission must not be treated as proof that the email was delivered.
+
+[Insert the updated activity diagram for this workflow, including relevant decision and failure branches.]
+
+3.4.3 Hirer Job Publication and Worker Selection
+
+The hirer enters the required task information and may leave supplementary notes empty. The system validates the input and applies content checks. A qualifying submission enters administrative review. Approval makes the job available for applications; rejection records the applicable reason. Workers submit applications, and the hirer selects an applicant. The selected worker is associated with the job before the payment and work stages proceed.
+
+[Insert the updated activity diagram for this workflow, including relevant decision and failure branches.]
+
+3.4.4 Worker Service Advertisement and Request
+
+The worker enters the service information, availability period, location, and permitted capacity. The service post undergoes administrative review before becoming active. A hirer submits a request, which the worker may accept or decline. Acceptance must respect current availability and capacity and produces a linked job. Closure, expiry, capacity limits, and rejection follow the corresponding exceptional branches.
+
+[Insert the updated activity diagram for this workflow, including relevant decision and failure branches.]
+
+3.4.5 Payment and Return Navigation
+
+The hirer opens payment for the relevant job. The server prepares the checkout information and records the job-payment association. The user proceeds to Stripe test checkout and may return after success or cancellation. Signed webhook handling and server-side session verification determine the payment record. The return page retrieves server state and provides a clear destination to the job or role home page, including when useful internal browser history is absent.
+
+[Insert the updated activity diagram for this workflow, including relevant decision and failure branches.]
+
+3.4.6 Work Execution and Completion
+
+The assigned worker requests to start work. The server checks the assignment, current job state, and payment eligibility. The worker performs the task and submits completion evidence, moving the job to the confirmation stage. The hirer inspects the evidence and confirms completion where appropriate. Subsequent payout review remains a separate financial operation. Rejected transitions produce an error rather than advancing the record.
+
+[Insert the updated activity diagram for this workflow, including relevant decision and failure branches.]
+
+3.4.7 Refund Review
+
+The hirer submits an applicable refund request with a reason and supporting information. The request enters administrative review. The administrator inspects the relevant job and payment records and approves or rejects the request. An approved decision proceeds through the configured test-provider or evidence-based refund process. The interface distinguishes a requested refund from a completed refund, and a rejected request preserves the applicable workflow state.
+
+[Insert the updated activity diagram for this workflow, including relevant decision and failure branches.]
+
+3.4.8 Notifications
+
+A supported application event creates a notification record for its intended recipient. The system attempts delivery to an authenticated connected client and records delivery information. Persisted records remain available for later retrieval, and pending deliveries can be retried. The user opens the notification and can follow the permitted destination. Nearby-job notifications depend on stored coordinates and the configured search radius; an exact delivery-time guarantee has not been measured.
+
+[Insert the updated activity diagram for this workflow, including relevant decision and failure branches.]
+
+3.4.9 Administrative Review and Tester Feedback
+
+An authenticated member submits a general comment, bug report, or suggestion through the tester-feedback page. The server associates the comment with the authenticated author and stores it separately from job reviews. An administrator opens the feedback list, filters records, and marks a comment as read. Attempts by ordinary members to list other users’ tester comments are denied by the API.
+
+[Insert the updated activity diagram for this workflow, including relevant decision and failure branches.]
+
+3.5 Sitemap
+
+Logical sitemap
+Area | Pages / groups
+Authentication | Login; registration; email verification; forgotten password; password reset
+Shared member pages | Own profile; permitted public profile; ratings/history; notifications; tester feedback
+Hirer | Home/discovery; create job; own jobs; applicants/selection; job detail; advertised-service request; payment/return; refund; transactions; reviews
+Worker | Feed; job detail; own jobs/tracking; create/manage service posts; service-request detail; payment records; transactions; reviews
+Administrator | Home/system overview; user management; post management; financial review; reports; SOS; tester feedback; administrator profile via avatar
+
+The sitemap distinguishes navigation structure from authorization. Related pages may share components, but access is determined by authentication, the current member role, administrator status, and record-specific permissions. Administrator profile access remains within the administrative layout and does not require a separate side-navigation profile tab.
+
+3.6 UI Design
+
+The interface uses Thai text, warm colors, visible status labels, and consistent primary actions. Form fields distinguish required core information from optional supplementary notes. Confirmation dialogs use application wording and provide clear choices. The layouts support narrow viewports and keyboard focus, while explicit loading, empty, success, and error messages explain the current operation.
+
+The hirer interface emphasizes finding a service or creating a task and then managing applicants and existing work. The worker interface emphasizes available work, service advertisements, and assigned tasks. Discovery lists exclude the current user’s own posts. Administrative interfaces focus on review and management activities, with tools appropriate to each record type. Current screenshots should replace the original interface designs where the implemented layout differs.
+
+Navigation around external checkout requires an explicit return destination in addition to ordinary browser history. Return pages show the server-confirmed payment state and provide a route to the relevant job or home page. Profile and payment-related screens must show information appropriate to the viewer and must not expose private bank or unrelated contact data in public views.
+
+[Insert current screenshots grouped by role. Mask names, email addresses, bank details, tokens, and other identifying information. These design descriptions do not establish a measured accessibility or usability result.]
+
+3.7 Database Design
+
+3.7.1 Logical Document Relationships
+
+The implementation uses MongoDB documents represented by Mongoose schemas. ObjectId fields reference related records, while selected structures such as bank information and request details are embedded. These references are application-level relationships rather than SQL foreign-key constraints. The updated diagram should therefore identify document references, embedded objects, unique indexes, and geospatial indexes without describing the database as relational SQL storage.
+
+Current logical data-model overview
+Model | Purpose
+User | Identity, profile, role, account status, embedded contact/bank information, and stored location
+Job | Hirer-created or request-derived work, assignment, status, completion evidence, and confirmation
+JobWaiting | Worker application linked to a job; unique job-worker combination
+ServicePost | Worker advertisement, availability, location, capacity, and post status
+ServiceRequest | Hirer request linked to a service post and, after acceptance, its resulting job
+Payment | Job-linked payment record, configured amounts, provider identifiers, review and refund evidence
+Feedback | Job-related rating from one participant to the other
+Notification | Recipient, event type, related entity, read state, and delivery information
+Report | User report, optional job context, administrative status, and resolution
+Sos | Job-linked worker SOS record, optional location, and administrative resolution
+JobLog | Job status transition, actor, note, and creation time
+TesterFeedback | Application-testing comment, category, page context, and read status
+
+A User can create many Jobs and ServicePosts. A Job can receive multiple JobWaiting applications and references its selected worker separately. A ServicePost can receive many ServiceRequests. An accepted ServiceRequest can be associated with one resulting Job, and a partial unique index prevents multiple Jobs from referencing the same non-null origin request. A Payment references one Job through a unique job field. Feedback references the job, author, and recipient, with a unique job-direction combination. Notifications, reports, SOS records, and logs retain the relevant actor and record relationships.
+
+3.7.2 Data Dictionary
+
+The accompanying data dictionary is extracted from the current Mongoose schemas without querying user data. It uses MongoDB/Mongoose types such as ObjectId, String, Number, Boolean, Date, Buffer, Array, and embedded objects. Required fields, allowed values, references, defaults, and schema-level exclusion flags are recorded where available. A field marked select:false is excluded from ordinary model selection by default; this flag alone is not a complete API authorization policy.
+
+[Use Data_Dictionary_Current_Models.csv and Model_Indexes_Current.txt to replace the outdated SQL-style data dictionary. The CSV contains all schema paths, including embedded paths and Mongoose-managed fields. Add plain-language field descriptions where needed and reconcile collection names with the final report. Do not copy sample values from live accounts.]
+
+Selected dictionary corrections
+Path / concept | Correct description
+User.bankAccount | Embedded object with bankName, accountNumber, and accountHolderName; not a public profile field
+User.lastKnownLocation | GeoJSON Point with coordinate order [longitude, latitude] and a 2dsphere index
+Job.notes | Optional String; core Job.description remains required
+Job.selectedWorker | ObjectId reference to User; separate from the application list
+Job.originServiceRequest | Optional ObjectId reference to ServiceRequest with a partial unique index
+Job.completionProofData | Buffer excluded from ordinary selection; accessed through a protected evidence workflow
+ServicePost.maxSimultaneousOrders | Number with schema bounds 1–3; distinguish this setting from every other concurrency rule
+ServiceRequest.resultingJob | Optional ObjectId reference to Job
+Payment.status | Financial state; not identical to Job.status
+Feedback versus TesterFeedback | Participant job rating versus application-testing comment; separate models
+
+CHAPTER 4 — RESULTS: ADDITIONAL CHAPTER
+
+This chapter separates implementation coverage, functional verification, and interface demonstration. Implementation coverage is based on inspection of the current client, server, and data models. It does not mean that every scenario has passed testing. Functional outcomes must be entered from recorded test execution, and findings from actual participants must be reported separately when available.
+
+4.1 Scope Completion Checklist
+
+Table 4.1 identifies implemented features that can be traced to the current source code. The implementation column records the presence of the relevant code path. Verification status is left pending until the specified behavior is exercised and evidence is retained. Test-payment functions remain explicitly scoped to the prototype environment.
+
+Table 4.1 Scope Completion Checklist
+ID | Role | Scope / Function | Implementation | Verification
+S01 | Member | Institutional registration, email verification, password and Google access | Code present; prototype scope | Not recorded in this draft
+S02 | Member | Password recovery with an expiring reset link | Code present; prototype scope | Not recorded in this draft
+S03 | Member | Profile completion, avatar upload, and hirer/worker role switching | Code present; prototype scope | Not recorded in this draft
+S04 | Member | Public profile with restricted contact disclosure | Code present; prototype scope | Not recorded in this draft
+S05 | Hirer | Create a job with optional supplementary notes | Code present; prototype scope | Not recorded in this draft
+S06 | Administrator | Review and approve or reject job/service posts | Code present; prototype scope | Not recorded in this draft
+S07 | Member | Browse published listings while excluding own posts | Code present; prototype scope | Not recorded in this draft
+S08 | Worker / Hirer | Apply for jobs and select a worker | Code present; prototype scope | Not recorded in this draft
+S09 | Worker | Create and manage a service advertisement | Code present; prototype scope | Not recorded in this draft
+S10 | Hirer / Worker | Submit and accept or decline a service request | Code present; prototype scope | Not recorded in this draft
+S11 | System | Link accepted requests to the common job workflow | Code present; prototype scope | Not recorded in this draft
+S12 | Hirer / System | Stripe test checkout and server-confirmed payment state | Code present; prototype scope | Not recorded in this draft
+S13 | Worker / Hirer | Start eligible work, submit evidence, and confirm completion | Code present; prototype scope | Not recorded in this draft
+S14 | Administrator | Review payout records and supporting evidence | Code present; prototype scope | Not recorded in this draft
+S15 | Hirer / Administrator | Request and review a refund in the supported prototype mode | Code present; prototype scope | Not recorded in this draft
+S16 | Member | Job-related ratings and reviews | Code present; prototype scope | Not recorded in this draft
+S17 | System / Member | Persisted notifications and nearby-coordinate matching | Code present; prototype scope | Not recorded in this draft
+S18 | Administrator | User management, reports, and SOS records | Code present; prototype scope | Not recorded in this draft
+S19 | Member / Administrator | Submit and inspect tester feedback | Code present; prototype scope | Not recorded in this draft
+S20 | Member | Role-appropriate navigation and external-checkout return destinations | Code present; prototype scope | Not recorded in this draft
+
+4.2 Functional Test Cases
+
+The following cases are prepared to verify core functions and failure paths. Preconditions, expected behavior, and evidence requirements are specified in advance. Actual results and execution status have not been populated in this draft. A case should be marked Pass only after the observed behavior has been compared with the expected outcome on the identified application version and test environment.
+
+Authentication and access-control cases should include signed-out users, ordinary members, authorized job counterparts, and administrators. Workflow cases should include rejected or repeated actions, and payment cases should include cancellation and delayed server confirmation. Temporary browser state alone is insufficient evidence for a persistent change; the relevant server record should also be checked where applicable.
+
+[Insert selected completed test-case tables or readable excerpts here after execution. Keep the complete evidence in a separately accessible appendix or shared file. Do not copy the approved example’s “all Pass” statement into JangDi without matching records.]
+
+T01 — Email/password login
+
+Precondition: Verified active test account.
+
+Procedure: Submit correct and incorrect credentials.
+
+Expected result: Correct credentials grant access; incorrect credentials are rejected.
+
+[Actual result / status / execution date / evidence: not yet recorded.]
+
+T02 — Google account association
+
+Precondition: Test account and matching Google email.
+
+Procedure: Sign in with Google using the same normalized email.
+
+Expected result: The same member record is used; no separate duplicate account is created.
+
+[Actual result / status / execution date / evidence: not yet recorded.]
+
+T03 — Email-domain restriction
+
+Precondition: Unsupported email account.
+
+Procedure: Attempt registration and Google access.
+
+Expected result: Unsupported institutional domain is rejected.
+
+[Actual result / status / execution date / evidence: not yet recorded.]
+
+T04 — Recovery link
+
+Precondition: Eligible account and working test mail delivery.
+
+Procedure: Request reset; open link; set a new password.
+
+Expected result: Password changes only with a valid link; the old password no longer works.
+
+[Actual result / status / execution date / evidence: not yet recorded.]
+
+T05 — Invalid / reused reset link
+
+Precondition: Expired, altered, or consumed token.
+
+Procedure: Attempt a password reset with each token.
+
+Expected result: Each invalid reset is rejected without another password change.
+
+[Actual result / status / execution date / evidence: not yet recorded.]
+
+T06 — New-member onboarding
+
+Precondition: New incomplete test account.
+
+Procedure: Submit missing bank fields, then complete dummy testing data.
+
+Expected result: Required fields are enforced; the test-data note is visible.
+
+[Actual result / status / execution date / evidence: not yet recorded.]
+
+[The companion Functional_Test_Cases.csv contains all 26 prepared cases, with editable fields for actual results, execution status, device/browser, application version, execution date, and evidence reference.]
+
+4.3 User Interface and Use Case Demonstration
+
+The figures in this section should show the application version used for verification. Each figure should identify the role, the relevant workflow stage, and the main action available on the page. Test-account information should be anonymized, and financial screenshots should be labeled as prototype or Stripe test-mode examples. Screenshots demonstrate visible interface behavior; they do not establish a usability score or universal test success.
+
+Figure 4.3.1 — Member Login and Password Recovery
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.1 illustrates member login and password recovery. The login interface provides password and Google sign-in and a password-recovery entry point. The recovery page requests an email address without exposing whether a specific account exists. The screenshot should show the available actions and explanatory message, without revealing reset tokens or real email content.
+
+Figure 4.3.2 — Hirer Home and Discovery
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.2 illustrates hirer home and discovery. The hirer home page presents available services and job-related actions. Search and filtering support discovery, while the create-job action opens the task-publication workflow. Listings created by the current member are excluded from discovery and remain available through the appropriate management pages.
+
+Figure 4.3.3 — Job Publication and Administrative Review
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.3 illustrates job publication and administrative review. The publication form distinguishes required task information from optional supplementary notes. After submission, the post enters the applicable review stage. Show the submitted state and corresponding administrator review view to demonstrate the difference between creating a record and publishing an approved listing.
+
+Figure 4.3.4 — Worker Applications and Hirer Selection
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.4 illustrates worker applications and hirer selection. The applicants page allows the hirer to inspect workers associated with the selected job and choose one applicant. The job record retains the selected worker. A permitted profile link allows inspection of profile information without implying unrestricted disclosure of contact or bank details.
+
+Figure 4.3.5 — Worker Feed and Service Management
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.5 illustrates worker feed and service management. The worker feed presents available work and a route to creating or managing service advertisements. Existing-work pages are separate from discovery. Service management shows the advertisement’s availability, capacity, and status so that the worker can distinguish an active advertisement from closed or expired work.
+
+Figure 4.3.6 — Service Requests and Accepted Work
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.6 illustrates service requests and accepted work. The service-request detail presents the hirer’s request and the worker’s available response. Acceptance produces a linked job and moves the interaction into the shared execution workflow. Show the request and resulting job with anonymized identifiers to make the relationship visible.
+
+Figure 4.3.7 — Stripe Test Checkout and Payment Return
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.7 illustrates stripe test checkout and payment return. The checkout example uses Stripe test mode. On returning to JangDi, the application displays the payment state retrieved from the server and provides a route back to the related work. The figure must not imply that a return URL alone confirms payment or that the example demonstrates a live transfer.
+
+Figure 4.3.8 — Completion Evidence and Confirmation
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.8 illustrates completion evidence and confirmation. The worker submits completion evidence for the assigned job. The hirer’s view presents the permitted evidence and confirmation action. The relevant screenshots should show the difference between evidence submitted, confirmation pending, and confirmed work, using test content and the corresponding stored states.
+
+Figure 4.3.9 — Refund Request and Administrative Financial Review
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.9 illustrates refund request and administrative financial review. The refund form collects the applicable reason and supporting information and permits removal of selected evidence before submission. The administrative view distinguishes a pending request from an approved, rejected, or completed refund operation. The example should be labeled with the prototype payment mode.
+
+Figure 4.3.10 — Profiles and Restricted Contact Information
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.10 illustrates profiles and restricted contact information. The profile view displays the member’s uploaded avatar and permitted identity or review information. Compare an unrelated viewer with an authorized job counterpart to demonstrate the intended contact-disclosure boundary. Mask actual email addresses, phone numbers, and bank information.
+
+Figure 4.3.11 — Administrator Management Pages
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.11 illustrates administrator management pages. The administrator interface provides management areas for users, posts, finances, reports, and SOS records. The screenshot should show the administrative navigation and a representative record-management view. Profile access through the avatar should remain in the administrative layout.
+
+Figure 4.3.12 — Tester Feedback and Administrative Review
+
+[Insert current anonymized screenshot(s).]
+
+Figure 4.3.12 illustrates tester feedback and administrative review. The member feedback page accepts a general comment, bug report, or suggestion. The administrator feedback page lists stored comments and supports read-state management. These comments are distinct from job-participant reviews and are not presented as a completed quantitative usability evaluation.
+
+[Results from actual testers remain reserved. If the supervisor requires a separate user-evaluation subsection, add it after 4.3 and report the actual protocol, participants, measures, findings, and limitations. Do not infer this requirement solely from the example.]
+
+CHAPTER 5 — CONCLUSION
+
+5.1 Conclusion
+
+This project developed JangDi, a university-oriented micro-task web application with hirer, worker, and administrator roles. The implementation supports hirer-created jobs with applicant selection and worker-created service advertisements with incoming requests. Accepted service requests connect to the same job process used for assigned hirer-created work. Payment-state tracking, completion evidence, and confirmation provide records for the later stages of that process.
+
+The supporting implementation includes institutional email authentication, password recovery, role switching, profile images, restricted contact disclosure, persisted notifications, and administrative management tools. Tester comments are maintained separately from job reviews. The system uses Vue 3, Node.js and Express, MongoDB, and supporting identity, notification, email, and test-payment integrations.
+
+The current payment workflow remains a prototype using Stripe test mode and applicable demonstration records. Functional verification must be documented with recorded outcomes, and conclusions about user experience depend on evaluation with actual participants. The presence of the implemented features does not by itself establish increased income, improved trust, or reduced task-completion time.
+
+[After completing Chapter 4, add a short paragraph stating exactly which tested objectives were met, which issues remain, and the supported findings from testers. Avoid “all requirements were fulfilled” unless the scope checklist and evidence support it.]
+
+5.2 Problems and Limitations
+
+The design requires consistency between two ways of initiating work and the shared records used afterward. An accepted service request must remain associated with the correct job, while capacity and availability conditions can change. The report should discuss the actual problems and fixes observed during development rather than treating the two workflows as independent features.
+
+Navigation to an external payment provider introduces cases where a return page has limited or unhelpful internal browser history. Payment confirmation can also arrive through server events separately from the browser return. The interface and server therefore require consistent state retrieval and explicit return destinations. Prototype payment records must remain distinguishable from live settlement.
+
+Profile information must be presented consistently across the owner’s view, other members’ views, and administrator views. Contact disclosure depends on the viewer’s relationship to the job, while bank information must remain outside public profile responses. Notification usefulness also depends on location availability, connection state, and stored coordinates. An outdated stored location does not establish a user’s current physical position.
+
+The current documentation has no completed formal user-evaluation dataset. Consequently, the report cannot yet quantify usability, trust, notification latency, or production reliability. Dummy bank information, test payments, and temporary test access further limit what can be inferred about a production deployment.
+
+[Confirm which development problems the team actually encountered and add dated records or issue references where available. Do not describe every potential limitation as an observed incident.]
+
+5.3 Future Work
+
+The first priority is to execute the prepared functional cases and conduct the agreed evaluation with actual participants. Findings should guide improvements to forms, status explanations, navigation, and error recovery. Further technical work may include more precise location selection, assessment of notification delivery and location freshness, and additional safeguards for operational review.
+
+A production payment service would require a separate decision about settlement, payout responsibilities, provider configuration, and applicable operating requirements. Dummy testing information would need to be separated from verified operational data. Expansion to other communities would also require revisiting identity, privacy, and moderation policies. History-based recommendations or continuous location tracking should remain proposed extensions unless they are implemented and evaluated with an appropriate data and privacy design.
+
+REFERENCES — RECONCILE WITH ORIGINAL REPORT
+
+[These references support the replacement passages in this pack. Merge them with the original bibliography, remove unused entries, and renumber all in-text citations consistently throughout the final report.]
+
+[1] J.-C. Rochet and J. Tirole, “Platform competition in two-sided markets,” Journal of the European Economic Association, vol. 1, no. 4, pp. 990–1029, 2003, doi: 10.1162/154247603322493212.
+
+[2] J. J. Horton and L. B. Chilton, “The labor economics of paid crowdsourcing,” in Proc. 11th ACM Conference on Electronic Commerce (EC ’10), 2010, pp. 209–218. [Online]. Available: https://www.cs.columbia.edu/~chilton/web/my_publications/HortonLaborEconomicsEC2010.pdf
+
+[3] S. Ba and P. A. Pavlou, “Evidence of the effect of trust building technology in electronic markets: Price premiums and buyer behavior,” MIS Quarterly, vol. 26, no. 3, pp. 243–268, 2002, doi: 10.2307/4132332.
+
+[4] Vue.js, “Introduction.” Accessed: Nov. 24, 2026. [Online]. Available: https://vuejs.org/guide/introduction.html
+
+[5] Google, “Verify the Google ID token on your server side.” Accessed: Nov. 24, 2026. [Online]. Available: https://developers.google.com/identity/gsi/web/guides/verify-google-id-token
+
+[6] Stripe, “Testing.” Accessed: Nov. 24, 2026. [Online]. Available: https://docs.stripe.com/testing
+
+[7] Stripe, “Fulfill orders.” Accessed: Nov. 24, 2026. [Online]. Available: https://docs.stripe.com/checkout/fulfillment
+
+[8] MongoDB, “$nearSphere.” Accessed: Nov. 24, 2026. [Online]. Available: https://www.mongodb.com/docs/manual/reference/operator/query/nearsphere/
+
+[9] Socket.IO, “Introduction.” Accessed: Nov. 24, 2026. [Online]. Available: https://socket.io/docs/v4/
+
+EDITORIAL INSERTION CHECKLIST — REMOVE FROM FINAL REPORT
+
+Keep the original title pages, author information, and acknowledgment only after checking names, affiliations, dates, and required signatures. Do not copy another project’s committee or approval details.
+
+Replace the abstract; update Chapters 1–3 selectively; insert Results as Chapter 4; move and revise the conclusion as Chapter 5.
+
+Regenerate the table of contents, list of tables, and list of figures after the revisions. Remove unrelated Kinect/Processing entries and the stray CONTENTS heading from the conclusion pages.
+
+Replace outdated interface figures and diagrams. Distinguish an intended design from a screenshot or verified implementation result.
+
+Replace SQL-style VARCHAR/PK/FK claims with actual document types, ObjectId references, embedded objects, and indexes. Use the companion schema export as the starting point.
+
+Retain the requirements survey only with its source records and a clear explanation of its purpose. It does not substitute for testing the current application.
+
+Record application version, environment, payment mode, browser/device, execution date, and evidence for functional results. Keep actual tester comments anonymized.
+
+Reconcile references and figure/table numbering across the complete report. Remove every blue bracketed placeholder and this editorial checklist before submission.

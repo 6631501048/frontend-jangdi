@@ -1,0 +1,137 @@
+﻿JangDi: A Micro-Task Platform for University Students
+
+Korawan Kongkerd, Chanidapa Wongsena, and Thanawit Bunphom
+
+Computer Engineering, School of Information Technology
+
+Mae Fah Luang University, Chiang Rai, Thailand
+
+[Insert and verify author email addresses before submission.]
+
+Abstract—JangDi is a web-based micro-task platform developed for the Mae Fah Luang University student community. The project addresses the coordination of short, local tasks through a shared workflow for hirers, workers, and administrators. It supports two entry points: hirers publish jobs and select applicants, while workers advertise services and respond to service requests. Both paths lead to a common job lifecycle covering assignment, payment status, completion evidence, and confirmation. The implementation combines a Vue-based client, a Node.js and Express application server, and a MongoDB database. Institutional email authentication limits account registration to the designated university email domain. Location-based notifications use stored coordinates, while administrative tools support post moderation, reports, refund review, and tester feedback. Stripe test mode is integrated to exercise checkout and payment-state handling without processing real payments. Public profile information is separated from restricted contact and financial information. This paper describes the implemented architecture and workflows; empirical evaluation of usability and task performance remains to be reported.
+
+Keywords—micro-task platform, campus services, peer-to-peer services, web application, location-based notifications
+
+I. INTRODUCTION
+
+Short tasks such as collecting items, delivering documents, and providing practical assistance offer a useful setting for student-to-student services. For this project, the main design problem is coordinating the people requesting assistance with those willing to provide it. A task description alone does not establish who has accepted the work, whether payment has been acknowledged, or how completion should be confirmed. JangDi organizes these steps within a campus-oriented web application.
+
+The intended community is students using the designated Mae Fah Luang University email domain. A member may act as a hirer or a worker within the same account. This arrangement reflects the possibility that a student may request assistance on one occasion and offer a service on another. Administrators have a separate operational role for reviewing posts, handling reports, and overseeing payment-related records.
+
+The project aims to provide a coherent workflow from discovery to completion, rather than treating task publication, service advertising, and payment records as separate activities. Its engineering contribution is the integration of two ways to initiate work into a shared job lifecycle, together with location-based notifications, restricted contact disclosure, and administrative review. These are implementation contributions; improvements in trust, income, convenience, or usability require evidence from subsequent evaluation.
+
+The remainder of this paper discusses the conceptual background, describes the implemented architecture and workflows, reserves sections for evaluation and results, and identifies limitations and future work. The scope is a working prototype. The payment integration uses a test environment, and the application does not independently verify current university enrollment through a registrar system.
+
+II. BACKGROUND AND RELATED WORK
+
+A. Two-Sided Platform Coordination
+
+Rochet and Tirole describe platforms that facilitate interactions between two groups of participants [1]. This perspective informs JangDi’s separation of hirer and worker activities. In the present design, both groups need clear information about the task and its current state. The application therefore presents role-specific actions while retaining shared accounts and job records. No claim about market growth or network effects is inferred from the prototype implementation.
+
+B. Short Tasks and Paid Participation
+
+Horton and Chilton examine labor supply and monetary incentives in paid crowdsourcing [2]. Their study concerns online work and does not directly establish how students behave when performing local, physical tasks. For JangDi, it provides background for treating compensation and task requirements as explicit information. The campus setting additionally requires location and practical coordination, which motivates storing task locations and notifying nearby accounts.
+
+C. Trust and Transaction Records
+
+Ba and Pavlou examine trust-building technology and buyer behavior in electronic markets [3]. This work motivates considering feedback and transaction context when designing participant interactions. JangDi implements job-linked reviews, completion evidence, and administrative reporting as mechanisms intended to support accountability. Their presence does not demonstrate that fraud is prevented or that users perceive greater trust; those outcomes remain questions for evaluation.
+
+The project combines these ideas within a university-oriented service workflow. Its distinction is the combination of hirer-created jobs and worker-created service advertisements with a common downstream process. The discussion concerns the design of this prototype and does not establish superiority over commercial platforms or informal communication channels.
+
+III. SYSTEM DESIGN AND IMPLEMENTATION
+
+A. Actors and Functional Scope
+
+JangDi defines three operational roles. Hirers create job posts, inspect applicants, select a worker, initiate payment, and confirm completion. Workers discover available work, apply for jobs, publish service advertisements, respond to incoming requests, and submit completion evidence. Administrators review posts and user reports, inspect payment and refund records, respond to SOS reports, and manage tester comments. Member role switching changes the available interface without creating a second account.
+
+The principal data entities include users, jobs, applications, service posts, service requests, payments, reviews, notifications, and reports. A service request and its resulting job remain linked so that the initial agreement can be associated with the later work record. Payment and job states are stored separately because financial processing and task execution do not advance through identical steps.
+
+B. Application Architecture
+
+The client is implemented with Vue 3, using components for reusable interface elements and views for role-specific pages. Vue’s component and reactive rendering model supports this organization [4]. Vue Router manages navigation, Pinia stores client state, and Axios communicates with the application’s HTTP API. The server uses Node.js and Express, while Mongoose models represent application data in MongoDB.
+
+The architecture separates presentation, application decisions, and persistence. The browser collects input and displays the actions available for the current state. Server controllers enforce authentication, ownership, and permitted transitions before updating records. External integrations provide Google authentication, Stripe test checkout, and email delivery. Socket.IO connects authenticated clients to event-based notifications, while persisted notification records support later retrieval.
+
+The server remains the authority for access control and transaction state. Hiding a button in the client is not treated as authorization. Likewise, a browser redirect from an external service is not sufficient evidence that an operation succeeded. The client retrieves the relevant server record when displaying the resulting job or payment state.
+
+C. Authentication, Onboarding, and Profile Privacy
+
+Registration is restricted to the configured university email domain. Google sign-in is verified on the server, including token audience, verified-email status, and the permitted email domain, following the requirements described in Google’s identity documentation [5]. An existing account is associated with the same normalized email address so that password and Google sign-in refer to the same member record. Password-based access and an email-based password recovery flow are also supported.
+
+New-member onboarding collects profile and contact information together with bank-account fields used by the prototype’s financial workflow. The testing interface permits dummy bank information and labels this explicitly. These entries must therefore not be interpreted as verified bank ownership or as evidence of production payout readiness. Institutional email access similarly establishes control of the email account rather than independent proof of current enrollment.
+
+Profiles expose basic identity information, an uploaded avatar, a description, and review information where available. Financial details and other private account fields are excluded from public profile responses. Contact email is restricted to the account owner, administrators, and authorized job counterparts after worker selection, including counterparts from completed work. Profile links in job details provide a read-only view appropriate to the viewer’s permissions.
+
+D. Two Entry Points to a Shared Job Lifecycle
+
+In the hirer-initiated path, a member provides the core job information and may add optional supplementary notes. A post passes through content checks and administrative review before becoming available for applications. Interested workers apply, and the hirer chooses an applicant. Selection is an explicit hirer decision; the system does not automatically assign the earliest applicant or use a learned model to select a worker.
+
+In the worker-initiated path, a member advertises a service with its availability and configured request capacity. A hirer submits a service request, and the worker accepts or rejects it. An accepted request creates a linked job, allowing the subsequent work to use the same execution and payment workflow as a hirer-created job. Capacity and availability constrain further requests to the service advertisement.
+
+The shared lifecycle distinguishes administrative review, open applications, assignment, work in progress, completion awaiting confirmation, and completed or cancelled work. The interface uses these states to present the next applicable action. Payment eligibility is checked before work can begin. Completion evidence is submitted through an authenticated endpoint, and the hirer subsequently confirms the work. Exceptional cases, including cancellation and refund review, follow their own checks rather than being treated as ordinary completion.
+
+E. Payment and Refund Handling in Test Mode
+
+JangDi integrates Stripe Checkout in test mode to exercise the payment workflow. Stripe distinguishes simulated test payments from live processing [6]. The application server prepares checkout information, calculates configured payment terms, and records the associated job and payment identifiers. The client then opens the external checkout flow and returns to a page that can retrieve the current server-side payment state.
+
+Payment confirmation uses server-side verification, including signed webhook handling and checkout-session reconciliation. This follows Stripe’s guidance that fulfillment should rely on reliable server-side payment confirmation rather than on the success page alone [7]. A successful-looking return URL therefore does not independently mark the job as paid.
+
+The prototype records stages such as a payment being held in the application workflow, a payout awaiting administrative action, and a payout recorded as released. These labels describe application records in the testing workflow. They do not establish a regulated escrow service, a live custodial wallet, or an automatic transfer into a worker’s bank account. Administrative payout evidence and refund review form part of the prototype’s operational process.
+
+A hirer can submit a refund request with supporting information. Administrators review the request and process the applicable test-payment or evidence-based workflow. Keeping refund requests distinct from completed refunds allows the interface to show that a request has been received without incorrectly reporting that money has already been returned. Production financial operation would require a separate deployment, settlement, and compliance assessment.
+
+F. Location-Based Discovery and Notifications
+
+The client can request the browser’s location permission and submit coordinates for location-related features. The server searches stored coordinates using MongoDB geospatial queries. MongoDB’s $nearSphere operator supports proximity-based queries over indexed location data [8]. The notification service uses a configurable matching distance with a default radius of approximately two kilometers and excludes the job creator from the nearby-recipient search.
+
+This mechanism supports proximity-based notification rather than personalized ranking based on work history. Its usefulness depends on location permission and the presence and freshness of stored coordinates. The prototype does not provide continuous GPS tracking or an implemented interactive Google Maps pin-selection interface.
+
+Notification records are stored so that members can retrieve them even when an immediate connection is unavailable. Socket.IO provides event-based communication with connected clients [9], while application logic handles pending deliveries and retries. Configured email delivery supplements selected notifications. These mechanisms do not establish a measured delivery deadline; notification latency and delivery behavior should be evaluated separately.
+
+G. Administration, Reviews, and Tester Feedback
+
+Administrative tools support post approval, user management, report inspection, payment review, and refund handling. SOS submissions provide a way to report an urgent issue to administrators within the platform. This feature is an application reporting channel; the implementation does not establish an emergency-dispatch service or a guaranteed human response time.
+
+Job-related ratings and reviews are separate from reports of problematic behavior. Tester feedback is also stored separately from worker reviews, allowing participants to submit comments about the application through the side navigation. Administrators can inspect these comments and track their review status. Such comments can inform later improvements, but their existence alone is not a structured usability study or a quantitative evaluation result.
+
+H. Interface and Navigation Design
+
+The interface uses Thai text, warm visual colors, explicit status labels, and role-specific primary actions. Shared components provide consistent forms, buttons, dialogs, and navigation. Mobile layouts present essential information and actions within a narrower viewport, while keyboard focus styling supports navigation without a pointing device. These decisions express design intent and implemented interface behavior rather than demonstrated accessibility or usability outcomes.
+
+Back and forward navigation must account for both internal routes and the external checkout journey. Return pages therefore provide an explicit route to the relevant job or role home page, including a fallback when browser history does not contain a useful internal destination. The payment return interface consults server state so that revisiting a page does not by itself authorize a new transaction or alter payment status.
+
+IV. EVALUATION METHODOLOGY
+
+[Reserved. Insert the actual evaluation protocol after it has been agreed and carried out. Report participant recruitment and consent, participant roles, tasks, devices, recorded measures, study procedure, and analysis methods. Do not describe a planned procedure as a completed study.]
+
+V. RESULTS AND DISCUSSION
+
+[Reserved. Insert verified functional findings and results from actual testers. State the number of participants, the evidence supporting each measure, observed problems, and limitations. Do not substitute the proposal’s preliminary requirements survey for evaluation of the implemented application.]
+
+VI. CONCLUSION AND FUTURE WORK
+
+JangDi implements a university-oriented micro-task workflow with hirer, worker, and administrator roles. Hirer-created jobs and worker-created service advertisements converge on a shared process for assignment, payment-state tracking, completion evidence, and confirmation. Institutional email authentication, restricted profile disclosure, persistent notifications, and administrative review provide the main supporting mechanisms. The payment integration remains in Stripe test mode.
+
+The implementation establishes a prototype that can be used as the subject of a structured evaluation. It does not yet establish measured improvements in usability, trust, task completion, or student income. Future work should be informed by the deferred evaluation and may address more precise location selection, notification delivery assessment, production payment settlement, and broader operational safeguards. Any expansion beyond the current university email domain would require revisiting identity, moderation, and privacy policies.
+
+[After evaluation, revise the abstract and conclusion to include only findings supported by Section V.]
+
+REFERENCES
+
+[1] J.-C. Rochet and J. Tirole, “Platform competition in two-sided markets,” Journal of the European Economic Association, vol. 1, no. 4, pp. 990–1029, 2003, doi: 10.1162/154247603322493212.
+
+[2] J. J. Horton and L. B. Chilton, “The labor economics of paid crowdsourcing,” in Proc. 11th ACM Conference on Electronic Commerce (EC ’10), 2010, pp. 209–218. [Online]. Available: https://www.cs.columbia.edu/~chilton/web/my_publications/HortonLaborEconomicsEC2010.pdf
+
+[3] S. Ba and P. A. Pavlou, “Evidence of the effect of trust building technology in electronic markets: Price premiums and buyer behavior,” MIS Quarterly, vol. 26, no. 3, pp. 243–268, 2002, doi: 10.2307/4132332.
+
+[4] Vue.js, “Introduction.” Accessed: Nov. 24, 2026. [Online]. Available: https://vuejs.org/guide/introduction.html
+
+[5] Google, “Verify the Google ID token on your server side.” Accessed: Nov. 24, 2026. [Online]. Available: https://developers.google.com/identity/gsi/web/guides/verify-google-id-token
+
+[6] Stripe, “Testing.” Accessed: Nov. 24, 2026. [Online]. Available: https://docs.stripe.com/testing
+
+[7] Stripe, “Fulfill orders.” Accessed: Nov. 24, 2026. [Online]. Available: https://docs.stripe.com/checkout/fulfillment
+
+[8] MongoDB, “$nearSphere.” Accessed: Nov. 24, 2026. [Online]. Available: https://www.mongodb.com/docs/manual/reference/operator/query/nearsphere/
+
+[9] Socket.IO, “Introduction.” Accessed: Nov. 24, 2026. [Online]. Available: https://socket.io/docs/v4/

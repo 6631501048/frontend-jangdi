@@ -1,0 +1,252 @@
+﻿Schema index definitions — source inspection only; not verification of deployed indexes.
+
+{
+  "Feedback": [
+    [
+      {
+        "job": 1,
+        "direction": 1
+      },
+      {
+        "unique": true,
+        "background": true
+      }
+    ]
+  ],
+  "Job": [
+    [
+      {
+        "location": "2dsphere"
+      },
+      {
+        "background": true
+      }
+    ],
+    [
+      {
+        "status": 1,
+        "category": 1
+      },
+      {
+        "background": true
+      }
+    ],
+    [
+      {
+        "originServiceRequest": 1
+      },
+      {
+        "unique": true,
+        "partialFilterExpression": {
+          "originServiceRequest": {
+            "$type": "objectId"
+          }
+        },
+        "background": true
+      }
+    ]
+  ],
+  "JobLog": [
+    [
+      {
+        "job": 1,
+        "createdAt": 1
+      },
+      {
+        "background": true
+      }
+    ]
+  ],
+  "JobWaiting": [
+    [
+      {
+        "job": 1,
+        "worker": 1
+      },
+      {
+        "unique": true,
+        "background": true
+      }
+    ]
+  ],
+  "Notification": [
+    [
+      {
+        "user": 1,
+        "isRead": 1,
+        "createdAt": -1
+      },
+      {
+        "background": true
+      }
+    ],
+    [
+      {
+        "deliveryStatus": 1,
+        "createdAt": 1
+      },
+      {
+        "background": true
+      }
+    ]
+  ],
+  "Payment": [
+    [
+      {
+        "job": 1
+      },
+      {
+        "unique": true,
+        "background": true
+      }
+    ],
+    [
+      {
+        "stripeSessionId": 1
+      },
+      {
+        "background": true
+      }
+    ],
+    [
+      {
+        "inboundSlipHash": 1
+      },
+      {
+        "unique": true,
+        "partialFilterExpression": {
+          "inboundSlipHash": {
+            "$type": "string"
+          }
+        },
+        "background": true
+      }
+    ],
+    [
+      {
+        "payoutSlipHash": 1
+      },
+      {
+        "unique": true,
+        "partialFilterExpression": {
+          "payoutSlipHash": {
+            "$type": "string"
+          }
+        },
+        "background": true
+      }
+    ],
+    [
+      {
+        "refundSlipHash": 1
+      },
+      {
+        "unique": true,
+        "partialFilterExpression": {
+          "refundSlipHash": {
+            "$type": "string"
+          }
+        },
+        "background": true
+      }
+    ]
+  ],
+  "Report": [
+    [
+      {
+        "reporter": 1,
+        "reportedUser": 1,
+        "job": 1,
+        "status": 1,
+        "createdAt": -1
+      },
+      {
+        "background": true
+      }
+    ]
+  ],
+  "ServicePost": [
+    [
+      {
+        "location": "2dsphere"
+      },
+      {
+        "background": true
+      }
+    ],
+    [
+      {
+        "status": 1,
+        "availabilityEnd": 1
+      },
+      {
+        "background": true
+      }
+    ]
+  ],
+  "ServiceRequest": [],
+  "Sos": [
+    [
+      {
+        "location": "2dsphere"
+      },
+      {
+        "background": true
+      }
+    ],
+    [
+      {
+        "status": 1,
+        "createdAt": -1
+      },
+      {
+        "background": true
+      }
+    ],
+    [
+      {
+        "worker": 1,
+        "job": 1,
+        "status": 1
+      },
+      {
+        "unique": true,
+        "partialFilterExpression": {
+          "status": "active"
+        },
+        "background": true
+      }
+    ]
+  ],
+  "TesterFeedback": [
+    [
+      {
+        "status": 1,
+        "createdAt": -1
+      },
+      {
+        "background": true
+      }
+    ]
+  ],
+  "User": [
+    [
+      {
+        "email": 1
+      },
+      {
+        "unique": true,
+        "background": true
+      }
+    ],
+    [
+      {
+        "lastKnownLocation": "2dsphere"
+      },
+      {
+        "sparse": true,
+        "background": true
+      }
+    ]
+  ]
+}
