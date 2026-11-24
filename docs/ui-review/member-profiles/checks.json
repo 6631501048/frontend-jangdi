@@ -1,0 +1,21 @@
+{
+  "checks": [
+    "profile link/back: /hirer/my-jobs/job-1",
+    "profile link/back: /worker/jobs/job-1",
+    "profile link/back: /worker/jobs/job-1/tracking",
+    "profile link/back: /hirer/hire/service-1",
+    "profile link/back: /hirer/my-jobs/job-1/applicants",
+    "profile link/back: /hirer/service-posts/service-1",
+    "unrelated public profile",
+    "counterpart profile email without LINE",
+    "new member bank form",
+    "dummy bank onboarding, API failure retry and success"
+  ],
+  "widths": [
+    320,
+    390,
+    768,
+    1440
+  ],
+  "errors": []
+}

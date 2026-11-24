@@ -1,4 +1,7 @@
 <script setup>
+import UserProfileLink from "../../components/UserProfileLink.vue";
+import { useWizardSteps } from "../../composables/useWizardSteps";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 // FR-SERV-04: ผู้ว่าจ้างเรียกดู Service Post ที่ใช้งานอยู่ และส่ง Service Request พร้อมรายละเอียดคำสั่งซื้อ
 // FR-SERV-06: หน้านี้เช็คเบื้องต้นว่า Service Post ยังไม่เต็มจำนวนออร์เดอร์/ยังไม่ถูกปิด (เช็คจริงตอนเรียก API)
@@ -8,8 +11,11 @@ import { computed, nextTick, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
+const { goBack: navigateBack } = usePageNavigation();
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 const loadingPost = ref(true);
 const errorMsg = ref("");
@@ -25,7 +31,7 @@ function timeAgo(dateStr) {
 }
 
 const servicePost = ref({
-  id: route.params.id,
+  id: pageId,
   workerName: "",
   postedAgo: "-",
   description: "",
@@ -59,9 +65,10 @@ const payableTotal = computed(() => feeBreakdown.value.totalDue);
 async function loadServicePost() {
   loadingPost.value = true;
   try {
-    const { data } = await api.get(`/service-posts/${route.params.id}`);
+    const { data } = await api.get(`/service-posts/${pageId}`);
     servicePost.value = {
       id: data._id,
+      workerId: data.worker?._id || data.worker,
       workerAvatarUrl: data.worker?.avatarUrl,
       workerName: data.worker?.fullName || "ผู้รับจ้าง",
       postedAgo: timeAgo(data.createdAt),
@@ -89,7 +96,7 @@ async function loadServicePost() {
 onMounted(loadServicePost);
 
 /* ---------- ขั้นตอน: 1 กรอกรายละเอียด, 2 สรุปคำสั่งซื้อ, สำเร็จ ---------- */
-const step = ref(1);
+const step = useWizardSteps(2);
 const submitting = ref(false);
 const hired = ref(false);
 const showSuccessModal = ref(false);
@@ -122,7 +129,7 @@ function goToSummary() {
 }
 function back() {
   if (step.value === 2) step.value = 1;
-  else router.back();
+  else navigateBack();
 }
 
 async function confirmHiring() {
@@ -186,6 +193,7 @@ function closeModal() {
             <span class="avatar"><UserAvatar :src="servicePost.workerAvatarUrl" :name="servicePost.workerName" /></span>
             <div>
               <p class="worker-name">{{ servicePost.workerName }} <span class="posted-ago">{{ servicePost.postedAgo }}</span></p>
+<UserProfileLink :user-id="servicePost.workerId" label="ดูโปรไฟล์ผู้รับจ้าง" />
               <p class="post-desc">{{ servicePost.description }}</p>
             </div>
           </div>
@@ -247,7 +255,7 @@ function closeModal() {
         </div>
 
         <div class="actions">
-          <button class="btn-muted" @click="router.back()">ยกเลิก</button>
+          <button class="btn-muted" @click="navigateBack()">ยกเลิก</button>
           <button class="btn-primary" :disabled="!step1Valid" @click="goToSummary">ขอใช้บริการ</button>
         </div>
         <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>

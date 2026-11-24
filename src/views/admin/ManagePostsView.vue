@@ -1,4 +1,5 @@
 <script setup>
+import { useRoutePage } from "../../composables/useRoutePage";
 import { ref, computed, onMounted, watch } from "vue";
 import { useRoute } from "vue-router";
 import api from "../../services/api";
@@ -51,7 +52,7 @@ const groupsForType = computed(() => postType.value === "services" ? serviceStat
 const currentGroup = ref(groupsForType.value.find((group) => group.statuses.includes(currentStatus.value))?.key || "all");
 const search = ref("");
 const appliedSearch = ref("");
-const page = ref(1);
+const page = useRoutePage(() => loadPosts());
 const totalPages = ref(0);
 const total = ref(0);
 const loading = ref(false);
@@ -102,6 +103,8 @@ async function loadPosts() {
       data = { ...data, posts: matchingPosts, total: matchingPosts.length, totalPages: 1 };
     }
     if (requestId !== id) return;
+    const lastPage=Math.max(1,Number(data.totalPages)||1);
+    if(page.value>lastPage){page.value=lastPage;return loadPosts();}
     posts.value = isService ? (data.posts || []) : (data.jobs || []);
     if (!isService) counts.value = data.counts || {};
     total.value = data.total || 0;
@@ -130,7 +133,7 @@ watch(currentStatus, () => {
 });
 onMounted(loadPosts);
 function doSearch() { page.value = 1; appliedSearch.value = search.value.trim(); loadPosts(); }
-function changePage(delta) { page.value += delta; loadPosts(); }
+function changePage(delta) { const next=page.value+delta; if(loading.value || next<1 || next>Math.max(1,totalPages.value))return; page.value=next; loadPosts(); }
 async function loadServiceStatusCounts(id = requestId) {
   const serviceStatuses = [...serviceStatusKeys].filter((status) => status !== "all");
   const results = await Promise.all(serviceStatuses.map(async (status) => {
@@ -246,12 +249,12 @@ async function reject(post) {
         </li>
         <li v-if="!posts.length" class="empty">ไม่พบงานในสถานะหรือคำค้นนี้</li>
       </ul>
-      <div class="pager" v-if="totalPages > 1">
-        <button class="refresh-btn" :disabled="page <= 1 || loading" @click="changePage(-1)">ก่อนหน้า</button>
-        <span>หน้า {{ page }} / {{ totalPages }}</span>
-        <button class="refresh-btn" :disabled="page >= totalPages || loading" @click="changePage(1)">ถัดไป</button>
-      </div>
     </template>
+    <nav class="pager" v-if="totalPages > 1" aria-label="หน้ารายการจัดการประกาศ" :aria-busy="loading">
+      <button type="button" class="refresh-btn" :disabled="page <= 1 || loading" @click="changePage(-1)">ก่อนหน้า</button>
+      <span aria-live="polite">หน้า {{ page }} / {{ totalPages }}</span>
+      <button type="button" class="refresh-btn" :disabled="page >= totalPages || loading" @click="changePage(1)">ถัดไป</button>
+    </nav>
   </section>
 </template>
 <style scoped>

@@ -1,4 +1,5 @@
 <script setup>
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 // FR-MATCH-04, FR-PAY-01/02: ยืนยันเลือกช่าง + วางเงินเข้า escrow (Pending -> Held)
 import { computed, onMounted, ref } from "vue";
@@ -6,8 +7,12 @@ import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
 import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
+const { goBack: navigateBack } = usePageNavigation();
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
+const pageWorkerId = route.params.workerId;
 const router = useRouter();
 const job = ref(null);
 const worker = ref(null);
@@ -21,11 +26,11 @@ const transactionFee = computed(() => feeBreakdown.value.platformFeeAmount);
 async function loadSelection() {
   try {
     const [{ data: jobData }, { data: applicants }] = await Promise.all([
-      api.get(`/jobs/${route.params.id}`), api.get(`/jobs/${route.params.id}/applicants`),
+      api.get(`/jobs/${pageId}`), api.get(`/jobs/${pageId}/applicants`),
     ]);
     try { const { data: terms } = await api.get('/payments/config'); paymentTerms.value = { ...paymentTerms.value, ...terms }; } catch { /* Use the shared defaults. */ }
     job.value = { ...jobData, id: jobData._id, serviceFee: jobData.deliveryFee || 0, total: Number(jobData.price || 0) + Number(jobData.deliveryFee || 0) };
-    const match = applicants.find((item) => String(item.worker?._id || item.worker) === String(route.params.workerId));
+    const match = applicants.find((item) => String(item.worker?._id || item.worker) === String(pageWorkerId));
     worker.value = match ? { id: match.worker?._id || match.worker, avatarUrl: match.worker?.avatarUrl, name: match.worker?.fullName || "Worker", rating: match.worker?.credibilityScore ?? 0 } : null;
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "Unable to load the selection.";
@@ -34,15 +39,15 @@ async function loadSelection() {
 onMounted(loadSelection);
 
 function cancel() {
-  router.back();
+  navigateBack();
 }
 async function confirmAndPay() {
   if (!canConfirm.value || submitting.value) return;
   submitting.value = true;
   errorMsg.value = "";
   try {
-    const { data } = await api.post(`/jobs/${route.params.id}/select-worker`, { workerId: worker.value.id });
-    router.push({ name: "hirer-mock-payment", params: { id: route.params.id } });
+    const { data } = await api.post(`/jobs/${pageId}/select-worker`, { workerId: worker.value.id });
+    router.replace({ name: "hirer-mock-payment", params: { id: pageId } });
   } catch (err) {
     errorMsg.value = err.response?.data?.message || "Unable to select this worker.";
   } finally {

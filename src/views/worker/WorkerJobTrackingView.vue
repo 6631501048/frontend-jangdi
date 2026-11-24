@@ -1,4 +1,7 @@
 <script setup>
+import UserContactEmail from "../../components/UserContactEmail.vue";
+import UserProfileLink from "../../components/UserProfileLink.vue";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 // FR-TRACK-01: อัปเดตสถานะงานตามขั้นตอน (เริ่มงาน, กำลังดำเนินการ, ส่งหลักฐาน, เสร็จสิ้น)
 // FR-TRACK-02: ผู้ว่าจ้างเห็นการอัปเดตสถานะแบบเรียลไทม์ (ฝั่ง backend/WebSocket)
@@ -17,9 +20,12 @@ import JobReviewModal from '../../components/JobReviewModal.vue';
 import { effectiveJobStatus } from '../../services/workflowStatus';
 import DecisionDialog from '../../components/AdminDecisionDialog.vue';
 import { useAdminDecision } from '../../composables/useAdminDecision';
+const { goBack: navigateBack } = usePageNavigation();
 const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 
 const loading = ref(true);
@@ -39,7 +45,7 @@ function toUiStatus(backendStatus) {
 }
 
 const job = ref({
-  id: route.params.id,
+  id: pageId,
   hirerName: "",
   title: "",
   description: "",
@@ -83,10 +89,10 @@ async function loadJob() {
   if (!hasLoaded.value) loading.value = true;
   errorMsg.value = "";
   try {
-    const { data } = await api.get(`/jobs/${route.params.id}`);
+    const { data } = await api.get(`/jobs/${pageId}`);
     if (data.status === "completed" && !reviewStatusLoaded.value) {
       try {
-        const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+        const { data: review } = await api.get(`/jobs/${pageId}/review-status`);
         reviewDone.value = !!review.reviewed;
         reviewStatusLoaded.value = true;
       } catch { reviewDone.value = false; }
@@ -95,18 +101,18 @@ async function loadJob() {
     if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
       // The timeline endpoint also verifies that the current user belongs to this job.
       try {
-        const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
+        const { data: timeline } = await api.get(`/jobs/${pageId}/timeline`);
         events = timeline;
       } catch {
         // A timeline failure must not hide a successfully uploaded image.
       }
     }
-    try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); payment.value = pay; demoPaymentStatus.value = pay.status; }
+    try { const { data: pay } = await api.get(`/payments/${pageId}/mock`); payment.value = pay; demoPaymentStatus.value = pay.status; }
     catch { payment.value = null; demoPaymentStatus.value = null; }
     data.status = effectiveJobStatus(data.status, payment.value || data.paymentStatus);
     const hirerId = data.hirer?._id || data.hirer;
     let profile = data.hirer || {};
-    if (hirerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
+    if (hirerId && ["assigned", "in_progress", "awaiting_confirmation", "completed", "disputed", "cancelled"].includes(data.status)) {
       try {
         const { data: loadedProfile } = await api.get(`/users/${hirerId}`);
         profile = loadedProfile;
@@ -117,6 +123,7 @@ async function loadJob() {
     hirerProfile.value = profile;
     job.value = {
       id: data._id,
+      hirerId: data.hirer?._id || data.hirer,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
       title: data.title,
       description: data.description,
@@ -351,7 +358,7 @@ function callHirer() {
 }
 
 function goBack() {
-  router.back();
+  navigateBack();
 }
 function backToMyJobs() {
   router.push("/worker/jobs");
@@ -387,6 +394,7 @@ function goToReview() {
           <span class="job-avatar"><UserAvatar :src="hirerProfile?.avatarUrl" :name="job.hirerName" /></span>
           <div class="job-head-body">
             <p class="hirer-name">{{ job.hirerName }}</p>
+<UserProfileLink :user-id="job.hirerId" label="ดูโปรไฟล์ผู้ว่าจ้าง" />
             <p class="job-title">{{ job.title }}</p>
             <p class="job-desc">{{ job.description }}</p>
           </div>
@@ -394,6 +402,7 @@ function goToReview() {
         </div>
 
         <!-- รายละเอียด -->
+        <UserContactEmail :email="hirerProfile?.email" />
         <dl class="detail-list">
           <div class="detail-row">
             <dt>รายละเอียด</dt>
@@ -525,7 +534,8 @@ function goToReview() {
         <template v-else-if="job.status === 'cancelled'">
           <div class="cancel-block">
             <p class="block-title">รายละเอียดการยกเลิก</p>
-            <dl class="detail-list">
+            <UserContactEmail :email="hirerProfile?.email" />
+        <dl class="detail-list">
               <div class="detail-row">
                 <dt>ผู้ยกเลิก</dt>
                 <dd>{{ job.cancellation?.by || "Hirer" }}</dd>

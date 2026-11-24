@@ -21,14 +21,18 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401 && !error.config?.publicAuth && !error.config?.keepSessionOnUnauthorized) {
       const auth = useAuthStore();
-      auth.logout();
-      router.push({ name: "login" });
+      if (auth.isLoggedIn) {
+        const current = router.currentRoute.value;
+        const redirect = current.name !== 'login' ? current.fullPath : undefined;
+        auth.logout();
+        router.replace({ name: "login", ...(redirect ? {query:{redirect}} : {}) });
+      }
     }
     // บัญชีถูกระงับระหว่างใช้งาน -> เคลียร์ session แล้วพากลับหน้า login
     if (error.response?.status === 403 && error.response?.data?.code === "ACCOUNT_SUSPENDED") {
       const auth = useAuthStore();
       auth.logout();
-      router.push({ name: "login" });
+      router.replace({ name: "login" });
     }
     // backend ปฏิเสธเพราะยังไม่ยืนยันอีเมล -> พาไปหน้าส่งอีเมลยืนยันใหม่ (ยังคง reject ให้หน้าเดิมจัดการ loading ได้)
     if (
@@ -36,7 +40,7 @@ api.interceptors.response.use(
       error.response?.data?.code === "EMAIL_NOT_VERIFIED" &&
       router.currentRoute.value.name !== "verify-email-pending"
     ) {
-      router.push({ name: "verify-email-pending" });
+      router.replace({ name: "verify-email-pending" });
     }
     return Promise.reject(error);
   }

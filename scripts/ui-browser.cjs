@@ -22,7 +22,8 @@ async function launchBrowser(fixture, assetFixture) {
   await new Promise((resolve, reject) => { socket.once('open', resolve); socket.once('error', reject); });
   let seq = 0;
   let initScript;
-  const pending = new Map(), errors = [], unknown = [], mutations = [];
+  let navigationSequence=0;
+  const pending = new Map(), errors = [], unknown = [], mutations = [], cancelledRequests = [];
   const send = (method, params = {}) => new Promise((resolve, reject) => {
     const id = ++seq;
     const timeout = setTimeout(() => { pending.delete(id); reject(new Error(`CDP timeout: ${method}`)); }, 15000);
@@ -57,7 +58,12 @@ async function launchBrowser(fixture, assetFixture) {
       // Avoid making Google OAuth or map requests from a fixture session.
       if (/accounts\.google\.com|maps\.google|googleapis\.com\/maps/.test(url.hostname + url.pathname)) return send('Fetch.failRequest', { requestId, errorReason:'Aborted' });
       return send('Fetch.continueRequest', { requestId });
-    })().catch(error => errors.push(error.message));
+    })().catch(error => {
+      // Chrome invalidates paused requests when a navigation cancels them.
+      // Record these separately; runtime exceptions and other CDP failures remain failures.
+      if (error.message === 'Invalid InterceptionId.') cancelledRequests.push(error.message);
+      else errors.push(error.message);
+    });
   });
   await send('Page.enable');
   await send('Runtime.enable');
@@ -74,10 +80,13 @@ async function launchBrowser(fixture, assetFixture) {
   };
   async function navigate(route, session) {
     if (initScript) await send('Page.removeScriptToEvaluateOnNewDocument', {identifier:initScript});
-    const source = session ? `localStorage.setItem('jangdi_auth', ${JSON.stringify(JSON.stringify(session))})` : "localStorage.removeItem('jangdi_auth')";
+    const marker=`navigation-${++navigationSequence}`;
+    const storage = session ? `localStorage.setItem('jangdi_auth', ${JSON.stringify(JSON.stringify(session))})` : "localStorage.removeItem('jangdi_auth')";
+    const source = `window.__uiTestNavigation=${JSON.stringify(marker)};${storage}`;
     initScript = (await send('Page.addScriptToEvaluateOnNewDocument', {source})).identifier;
     await send('Page.navigate', {url:(process.env.HIRER_PREVIEW_URL || 'http://127.0.0.1:5175')+route});
-    await until('!!document.querySelector(".app-shell h1, .app-shell h2")');
+    // A slow tunnel can leave the previous document visible after Page.navigate resolves.
+    await until(`window.__uiTestNavigation===${JSON.stringify(marker)} && !!document.querySelector(".app-shell h1, .app-shell h2")`);
     await delay(250);
   }
   async function close() {
@@ -88,6 +97,6 @@ async function launchBrowser(fixture, assetFixture) {
       try { rmSync(profile, {recursive:true,force:true}); } catch {}
     }
   }
-  return {send,evaluate,until,navigate,close,errors,unknown,mutations,delay};
+  return {send,evaluate,until,navigate,close,errors,unknown,mutations,cancelledRequests,delay};
 }
 module.exports = {launchBrowser};

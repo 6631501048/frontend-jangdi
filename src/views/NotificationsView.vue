@@ -1,9 +1,11 @@
 ﻿<script setup>
+import { usePageNavigation } from "../composables/usePageNavigation";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useNotificationsStore } from "../stores/notifications";
 import { useNotificationActions } from '../composables/useNotificationActions';
 import NotificationList from '../components/NotificationList.vue';
+const { goBack: navigateBack } = usePageNavigation();
 
 const store = useNotificationsStore();
 const router = useRouter();
@@ -16,7 +18,7 @@ onMounted(() => { if (!store.loaded || store.error) store.refresh(); });
 <template>
   <main class="notifications-page jd-page">
     <header class="notifications-header">
-      <button class="back-button" aria-label="กลับ" @click="router.back()">
+      <button class="back-button" aria-label="กลับ" @click="navigateBack()">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 7 12l8 8" /></svg>
       </button>
       <h1>การแจ้งเตือน</h1>

@@ -1,6 +1,6 @@
 ﻿<script setup>
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import api from "../services/api";
 import { useAuthStore } from "../stores/auth";
 import JangDiMark from "./JangDiMark.vue";
@@ -10,6 +10,7 @@ const props = defineProps({ modelValue: { type: Boolean, default: false } });
 const emit = defineEmits(["update:modelValue"]);
 const auth = useAuthStore();
 const router = useRouter();
+const route = useRoute();
 const switching = ref(false);
 const switchError = ref('');
 const panel = ref(null);
@@ -36,7 +37,7 @@ async function switchRole() {
     const { data } = await api.patch("/auth/role", { role: nextRole });
     auth.updateUser(data.user);
     close();
-    router.push({ name: nextRole === "worker" ? "job-feed" : "hirer-dashboard" });
+    router.replace({ name: nextRole === "worker" ? "job-feed" : "hirer-dashboard" });
   } catch (error) {
     switchError.value = error.response?.data?.message || "สลับบทบาทไม่สำเร็จ กรุณาลองใหม่";
   } finally {
@@ -46,7 +47,7 @@ async function switchRole() {
 function logout() {
   auth.logout();
   close();
-  router.push({ name: "login" });
+  router.replace({ name: "login" });
 }
 </script>
 
@@ -60,6 +61,7 @@ function logout() {
       <p class="drawer-role">กำลังใช้งานในบทบาท <strong>{{ isWorker ? "ผู้รับจ้าง (Worker)" : "ผู้ว่าจ้าง (Hirer)" }}</strong></p>
       <nav class="drawer-links" aria-label="หน้าต่าง ๆ ของ JangDi">
         <RouterLink v-for="item in items" :key="item.to" :to="item.to" class="drawer-link" @click="close">{{ item.label }}</RouterLink>
+        <RouterLink :to="{name:'tester-feedback',query:{from:route.path}}" class="drawer-link" @click="close">ส่งความคิดเห็น</RouterLink>
         <button class="drawer-link" :disabled="switching" @click="switchRole">{{ switching ? "กำลังสลับบทบาท…" : isWorker ? "สลับเป็นผู้ว่าจ้าง (Hirer)" : "สลับเป็นผู้รับจ้าง (Worker)" }}</button>
       </nav>
       <p v-if="switchError" class="drawer-error" role="alert">{{ switchError }}</p>

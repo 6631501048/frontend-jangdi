@@ -1,20 +1,22 @@
 <script setup>
-import { useRouter } from "vue-router";
-
+import { getCurrentInstance } from "vue";
+import { usePageNavigation } from "../composables/usePageNavigation";
 const props = defineProps({
   title: { type: String, required: true },
+  backTo: { type: String, default: "" },
 });
-defineEmits(["back"]);
-
-const router = useRouter();
-function goBack() {
-  router.back();
+const emit = defineEmits(["back"]);
+const instance = getCurrentInstance();
+const { goBack } = usePageNavigation();
+function handleBack() {
+  if (instance.vnode.props?.onBack) emit("back");
+  else goBack(props.backTo || undefined, !!props.backTo);
 }
 </script>
 
 <template>
   <header class="app-header">
-    <button class="back-btn" aria-label="ย้อนกลับ" @click="$emit('back') || goBack()">‹</button>
+    <button type="button" class="back-btn" aria-label="ย้อนกลับ" @click="handleBack">‹</button>
     <h1>{{ title }}</h1>
     <span class="spacer" />
   </header>

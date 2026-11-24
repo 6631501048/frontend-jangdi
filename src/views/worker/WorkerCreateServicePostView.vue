@@ -1,10 +1,13 @@
 ﻿<script setup>
+import { useWizardSteps } from "../../composables/useWizardSteps";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 // FR-SERV-01: สร้าง Service Post โดยระบุหมวดหมู่ ชื่อ คำอธิบาย ค่าบริการ
 //             จำนวนออร์เดอร์สูงสุดที่รับพร้อมกันได้ ช่วงเวลาที่พร้อมให้บริการ และรัศมีการให้บริการ
 // FR-JOB-02 (รูปแบบเดียวกันฝั่งผู้รับจ้าง): นำทางผ่านขั้นตอน 3 ขั้นตอน (1) หมวดหมู่ (2) รายละเอียด (3) ตรวจสอบก่อนส่ง
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../../services/api";
+const { goBack: navigateBack } = usePageNavigation();
 
 const router = useRouter();
 
@@ -59,7 +62,7 @@ function timeLabelToDate(dateValue, label) {
 }
 
 /* ---------- สถานะฟอร์ม ---------- */
-const step = ref(1); // 1: หมวดหมู่, 2: รายละเอียด, 3: ตรวจสอบ
+const step = useWizardSteps(3); // 1: หมวดหมู่, 2: รายละเอียด, 3: ตรวจสอบ
 const submitting = ref(false);
 const submitted = ref(false);
 const errorMsg = ref("");
@@ -111,7 +114,7 @@ function next() {
 }
 function back() {
   if (step.value > 1) step.value--;
-  else router.back();
+  else navigateBack();
 }
 
 // ขอพิกัดปัจจุบันของผู้ใช้ (บังคับ เพราะ backend ต้องใช้ lat/lng สร้าง Service Post)

@@ -1,0 +1,17 @@
+{
+  "checks": [
+    "hirer feedback form",
+    "worker feedback form",
+    "admin feedback inbox",
+    "admin marks read and filters unread comments",
+    "optional extra notes",
+    "Hirer submits a job with blank extra notes"
+  ],
+  "widths": [
+    320,
+    390,
+    768,
+    1440
+  ],
+  "errors": []
+}

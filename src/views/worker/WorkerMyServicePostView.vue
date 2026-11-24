@@ -1,4 +1,5 @@
 <script setup>
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 // FR-SERV-03: ผู้รับจ้างปิด Service Post ด้วยตนเองได้ทุกเมื่อ ก่อนหมดเวลา
 // FR-SERV-05: เจ้าของประกาศดู ยอมรับ หรือปฏิเสธ Service Request แต่ละรายการ
@@ -11,13 +12,16 @@ import api from "../../services/api";
 import { servicePostWorkflowStatus, requestWorkflowLabel } from "../../services/workflowStatus";
 import DecisionDialog from '../../components/AdminDecisionDialog.vue';
 import { useAdminDecision } from '../../composables/useAdminDecision';
+const { goBack: navigateBack } = usePageNavigation();
 const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
 
 const props = defineProps({ embedded: { type: Boolean, default: false } });
 const auth = useAuthStore();
 const router = useRouter();
 const route = useRoute();
-const isManagementDetail = computed(() => Boolean(route.params.id));
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
+const isManagementDetail = computed(() => Boolean(pageId));
 const loading = ref(true);
 const errorMsg = ref("");
 const now = ref(Date.now());
@@ -55,7 +59,7 @@ function servicePostAge(dateStr) {
    (หรือโพสต์ล่าสุดถ้าไม่มี active เลย) มาแสดง */
 const post = ref(null);
 const servicePosts = ref([]);
-const chosenPostId = ref(String(route.params.id || ""));
+const chosenPostId = ref(String(pageId || ""));
 const servicePostFilter = ref("pending_review");
 const serviceRequestStatesByPost = ref({});
 const sortOrder = ref("latest");
@@ -339,7 +343,7 @@ function createNewPost() {
   <div class="page jd-page" :class="{ embedded: props.embedded }">
     <!-- แถบด้านบนแบบ sub-page -->
     <header v-if="!props.embedded" class="topbar">
-      <button class="icon-btn" aria-label="ย้อนกลับ" @click="router.back()">
+      <button class="icon-btn" aria-label="ย้อนกลับ" @click="navigateBack()">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
       <h1 class="title">{{ isManagementDetail ? "รายละเอียดบริการ" : "บริการของฉัน" }}</h1>

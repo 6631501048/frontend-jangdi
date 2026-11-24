@@ -1,4 +1,5 @@
 <script setup>
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import { computed, onMounted, onBeforeUnmount, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import api from '../../services/api';
@@ -6,7 +7,10 @@ import AppHeader from '../../components/AppHeader.vue';
 import PaymentSlipForm from '../../components/PaymentSlipForm.vue';
 import PaymentSlipImage from '../../components/PaymentSlipImage.vue';
 import { money,paymentStatus,dateTime } from '../../services/finance';
+const { goBack } = usePageNavigation();
 const route=useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const job=ref(null),payment=ref(null),config=ref(null),stripeStatus=ref(null),loading=ref(false),busy=ref(false),error=ref(''),success=ref('');
 const canSubmit=computed(()=>payment.value && ['pending','slip_rejected'].includes(payment.value.status) && ['demo','slip_demo'].includes(payment.value.paymentMode));
 const isStripe=computed(()=>payment.value?.paymentMode==='stripe_test');
@@ -25,12 +29,12 @@ async function load(quiet=false){
   inFlight=true;clearTimeout(refreshTimer);
   if(!quiet)loading.value=true;error.value='';
   try{
-    const [j,p,c,s]=await Promise.all([api.get(`/jobs/${route.params.id}`),api.get(`/payments/${route.params.id}/mock`),api.get('/payments/config'),api.get('/payments/stripe/status').catch(()=>({data:{ready:false}}))]);
+    const [j,p,c,s]=await Promise.all([api.get(`/jobs/${pageId}`),api.get(`/payments/${pageId}/mock`),api.get('/payments/config'),api.get('/payments/stripe/status').catch(()=>({data:{ready:false}}))]);
     if(disposed)return;
     job.value=j.data;payment.value=p.data;config.value=c.data;stripeStatus.value=s.data;
     if(needsSync()){
-      await api.post(`/payments/${route.params.id}/stripe/sync`);
-      const updated=await api.get(`/payments/${route.params.id}/mock`);
+      await api.post(`/payments/${pageId}/stripe/sync`);
+      const updated=await api.get(`/payments/${pageId}/mock`);
       if(!disposed)payment.value=updated.data;
     }
   }
@@ -39,8 +43,9 @@ async function load(quiet=false){
 }
 async function saved(message){success.value=message;await load();}
 async function checkout(){
+  if(busy.value || !stripeStatus.value?.ready)return;
   busy.value=true;error.value='';
-  try{const {data}=await api.post(`/payments/${route.params.id}/checkout`);const url=new URL(data.url);if(url.protocol!=='https:' || url.hostname!=='checkout.stripe.com')throw new Error('Invalid URL');window.location.assign(url.href);}
+  try{const {data}=await api.post(`/payments/${pageId}/checkout`);if(disposed)return;const url=new URL(data.url);if(url.protocol!=='https:' || url.hostname!=='checkout.stripe.com')throw new Error('Invalid URL');window.location.assign(url.href);}
   catch(err){error.value=err.response?.data?.message || 'เปิด Stripe ทดสอบไม่สำเร็จ';}
   finally{busy.value=false;}
 }
@@ -48,14 +53,19 @@ onMounted(()=>load());
 onBeforeUnmount(()=>{disposed=true;clearTimeout(refreshTimer);});
 </script>
 <template>
-  <main class="payment jd-page"><AppHeader title="ชำระเงินและติดตามสถานะ" /><div class="content">
+  <main class="payment jd-page"><AppHeader title="ชำระเงินและติดตามสถานะ" :back-to="`/hirer/my-jobs/${pageId}`" /><div class="content">
+    <nav class="payment-navigation" aria-label="ไปหน้าที่เกี่ยวข้องกับการชำระเงิน">
+      <button type="button" class="secondary" @click="goBack(`/hirer/my-jobs/${pageId}`, true)">รายละเอียดงาน</button>
+      <RouterLink class="secondary" replace :to="{name:'hirer-my-jobs'}">งานของฉัน</RouterLink>
+      <RouterLink class="secondary" replace to="/hirer">หน้าแรก</RouterLink>
+    </nav>
     <p class="notice">Stripe โหมดทดสอบ: hirer ชำระผ่านบัตรหรือ QR โดยไม่ต้องแนบสลิป เมื่อจบงาน admin จะบันทึกจ่ายพร้อมหลักฐานให้ worker ไม่มีการโอนเงินจริงในระบบทดสอบ</p>
     <p v-if="error" class="error" role="alert">{{error}}</p><p v-if="success" class="success" role="status">{{success}}</p>
     <p v-if="loading" role="status">กำลังโหลดข้อมูล…</p>
     <template v-else-if="job && payment && config">
       <section class="card"><h2>ขั้นตอนการชำระเงิน</h2><ol class="steps"><li v-for="(step,index) in steps" :key="step.title" :class="{done:step.done}"><span class="step-number">{{step.done?'✓':index+1}}</span><div><strong>{{step.title}}</strong><p class="hint">{{step.description}}</p></div></li></ol><div class="next-action" role="status"><strong>{{paymentStatus(payment.status,payment.paymentMode,!!payment.hasPayoutSlip)}}</strong><p>{{nextAction}}</p></div><p v-if="shouldRefresh()" class="hint">ตรวจสอบสถานะอัตโนมัติทุก 8 วินาทีขณะเปิดหน้านี้</p></section>
       <section class="card"><h2>{{job.title}}</h2><dl><div><dt>ค่าจ้างผู้รับจ้าง</dt><dd>฿ {{money(payment.amount)}}</dd></div><div><dt>ค่าบริการแพลตฟอร์มรวมค่าธรรมเนียมธุรกรรม</dt><dd>฿ {{money(payment.platformFeeAmount)}}</dd></div><div class="total"><dt>{{payment.paymentMode==='stripe_test'?'ยอดชำระผ่าน Stripe ทดสอบ':'ยอดโอนจำลอง'}}</dt><dd>฿ {{money(payment.totalDue)}}</dd></div><div><dt>สถานะ</dt><dd>{{paymentStatus(payment.status, payment.paymentMode, !!payment.hasPayoutSlip)}}</dd></div></dl></section>
-      <details v-if="canSubmit" class="card"><summary>ทางเลือก: ทดสอบรับเงินด้วยสลิปจำลอง</summary><h2>1. ตรวจสอบบัญชีทดสอบ</h2><p>{{config.bank.name}}</p><p>เลขบัญชี: <strong>{{config.bank.accountNumber}}</strong></p><p>ชื่อบัญชี: {{config.bank.accountName}}</p><p class="hint">เป็นข้อมูลตัวอย่างสำหรับจำลอง ไม่ใช่บัญชีรับเงินจริง</p><h2>2. แนบสลิปทดสอบ</h2><p class="hint">ตรวจยอด ฿ {{money(payment.totalDue)}} แล้วเลือกภาพสลิปตัวอย่าง ผู้ดูแลจะเป็นผู้ยืนยันรับเงิน</p><PaymentSlipForm :endpoint="`/payments/${route.params.id}/slips/inbound`" label="ยืนยันโอนจำลองและส่งสลิป" @saved="saved" /></details>
+      <details v-if="canSubmit" class="card"><summary>ทางเลือก: ทดสอบรับเงินด้วยสลิปจำลอง</summary><h2>1. ตรวจสอบบัญชีทดสอบ</h2><p>{{config.bank.name}}</p><p>เลขบัญชี: <strong>{{config.bank.accountNumber}}</strong></p><p>ชื่อบัญชี: {{config.bank.accountName}}</p><p class="hint">เป็นข้อมูลตัวอย่างสำหรับจำลอง ไม่ใช่บัญชีรับเงินจริง</p><h2>2. แนบสลิปทดสอบ</h2><p class="hint">ตรวจยอด ฿ {{money(payment.totalDue)}} แล้วเลือกภาพสลิปตัวอย่าง ผู้ดูแลจะเป็นผู้ยืนยันรับเงิน</p><PaymentSlipForm :endpoint="`/payments/${pageId}/slips/inbound`" label="ยืนยันโอนจำลองและส่งสลิป" @saved="saved" /></details>
       <section v-if="isStripe || payment.status==='pending'" class="card"><h2>ค่าธรรมเนียมธุรกรรมจำลอง (3.65% + ฿10)</h2><p>{{payment.mockGatewayFeePercent ?? config.mockStripeFeePercent ?? 3.65}}% ของยอดชำระรวม + ฿{{money(payment.mockGatewayFeeFixedAmount ?? config.mockStripeFixedFeeAmount ?? 10)}} = ฿ {{money(payment.mockGatewayFeeAmount ?? payment.gatewayFeeAmount ?? (Number(payment.totalDue) * Number(payment.mockGatewayFeePercent ?? config.mockStripeFeePercent ?? 3.65) / 100 + Number(payment.mockGatewayFeeFixedAmount ?? config.mockStripeFixedFeeAmount ?? 10)))}}</p><p class="hint">รวมอยู่ในค่าบริการแพลตฟอร์มแล้ว และหักเป็นต้นทุนจากรายได้แอป ไม่หักจากค่าจ้าง worker</p></section>
       <section v-if="payment.status==='refunded' && !payment.hasRefundSlip" class="card"><h2>คืนเงินแล้ว รอ admin แนบหลักฐาน</h2><p>{{payment.refundMethod==='stripe'?'Stripe ยืนยันคืนเงินแล้ว ไม่ต้องโอนคืนซ้ำ':'รายการเดิมบันทึกคืนเงินแล้ว'}} admin จะนำหลักฐานมาแนบในรายการนี้</p></section>
       <section v-if="payment.status==='awaiting_verification'" class="card"><h2>รอผู้ดูแลตรวจรับสลิป</h2><p>ส่งหลักฐานแล้ว ผู้รับจ้างจะเริ่มงานได้หลังผู้ดูแลอนุมัติ กดตรวจสอบสถานะเพื่อดูผลล่าสุด</p></section>
@@ -78,7 +88,7 @@ onBeforeUnmount(()=>{disposed=true;clearTimeout(refreshTimer);});
       <section v-if="payment.paymentMode==='stripe_test' && payment.status==='disputed' && payment.refundDecision==='approved'" class="card"><h2>สถานะคืนเงินผ่าน Stripe ทดสอบ</h2><p v-if="['failed','canceled'].includes(payment.refundStatus)" class="error">Stripe คืนเงินไม่สำเร็จ กรุณาติดต่อผู้ดูแลเพื่อตรวจสอบ</p><p v-else>อนุมัติคำขอแล้ว กำลังรอ Stripe ยืนยันการคืนเงิน ยังไม่บันทึกว่าคืนเงินสำเร็จ</p></section>
     </template>
     <button class="secondary" :disabled="loading || busy" @click="load()">ตรวจสอบสถานะล่าสุด</button>
-    <RouterLink class="primary" :to="{name:'hirer-job-detail',params:{id:route.params.id}}">กลับรายละเอียดงาน</RouterLink>
+    <button type="button" class="primary" @click="goBack(`/hirer/my-jobs/${pageId}`, true)">กลับรายละเอียดงาน</button>
   </div></main>
 </template>
-<style scoped>.steps{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.steps li{display:flex;gap:8px;align-items:flex-start}.steps .hint{margin:4px 0}.step-number{display:grid;place-items:center;flex-shrink:0;width:26px;height:26px;background:var(--jd-accent-soft);border-radius:50%;font-weight:700}.done .step-number{background:#dcfce7;color:#166534}.next-action{background:var(--jd-canvas);border-left:4px solid var(--jd-accent);padding:12px}.next-action p{margin:4px 0 0}@media(max-width:540px){.steps{grid-template-columns:1fr;gap:12px}}.payment{min-height:100vh;background:#f5f6f8}.content{padding:16px;display:grid;gap:14px;font-size: 0.875rem;line-height:1.7}.card{background:white;padding:16px;border-radius:12px;border:1px solid var(--jd-line)}h2{font-size: 0.9375rem;margin:0 0 10px}dl{margin:0}dl div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--jd-line)}dd{margin:0;text-align:right;font-weight:700}.total{font-size: 1rem}.notice{background:#fff3cd;color:#735200;padding:12px;border-radius:10px;margin:0}.hint{color:var(--jd-muted);font-size: 0.875rem}.error{color:#b42318}.success{color:#167044}.primary,.secondary{display:block;text-align:center;padding:12px;border-radius:9px;font:inherit;cursor:pointer;text-decoration:none}.primary{background:var(--jd-accent);color:#342600;font-weight:700}.secondary{border:1px solid var(--jd-input-border);background:white;color:#344054}button:disabled{opacity:.5}summary{font-weight:700;cursor:pointer}</style>
+<style scoped>.payment-navigation{display:flex;flex-wrap:wrap;gap:8px}.payment-navigation :is(a,button){flex:1;min-width:100px;min-height:44px;padding:10px 8px}.payment-navigation a:focus-visible{outline:3px solid var(--jd-brand);outline-offset:3px}.steps{list-style:none;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.steps li{display:flex;gap:8px;align-items:flex-start}.steps .hint{margin:4px 0}.step-number{display:grid;place-items:center;flex-shrink:0;width:26px;height:26px;background:var(--jd-accent-soft);border-radius:50%;font-weight:700}.done .step-number{background:#dcfce7;color:#166534}.next-action{background:var(--jd-canvas);border-left:4px solid var(--jd-accent);padding:12px}.next-action p{margin:4px 0 0}@media(max-width:540px){.steps{grid-template-columns:1fr;gap:12px}}.payment{min-height:100vh;background:#f5f6f8}.content{padding:16px;display:grid;gap:14px;font-size: 0.875rem;line-height:1.7}.card{background:white;padding:16px;border-radius:12px;border:1px solid var(--jd-line)}h2{font-size: 0.9375rem;margin:0 0 10px}dl{margin:0}dl div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--jd-line)}dd{margin:0;text-align:right;font-weight:700}.total{font-size: 1rem}.notice{background:#fff3cd;color:#735200;padding:12px;border-radius:10px;margin:0}.hint{color:var(--jd-muted);font-size: 0.875rem}.error{color:#b42318}.success{color:#167044}.primary,.secondary{display:block;text-align:center;padding:12px;border-radius:9px;font:inherit;cursor:pointer;text-decoration:none}.primary{background:var(--jd-accent);color:#342600;font-weight:700}.secondary{border:1px solid var(--jd-input-border);background:white;color:#344054}button:disabled{opacity:.5}summary{font-weight:700;cursor:pointer}</style>

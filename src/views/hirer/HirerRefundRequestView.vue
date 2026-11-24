@@ -8,6 +8,8 @@ import DecisionDialog from '../../components/AdminDecisionDialog.vue';
 import { useAdminDecision } from '../../composables/useAdminDecision';
 const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
 const route=useRoute(),router=useRouter();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const job=ref(null),payment=ref(null),reason=ref(''),files=ref([]),previews=ref([]);
 const loading=ref(true),submitting=ref(false),errorMsg=ref(''),successMsg=ref('');
 const confirming = ref(false), evidenceInput = ref(null), evidenceList = ref(null), chooseEvidenceButton = ref(null);
@@ -37,7 +39,7 @@ async function removeEvidence(index) {
 }
 let refreshTimer;
 async function loadStatus(){
-  try{const [j,p]=await Promise.all([api.get(`/jobs/${route.params.id}`),api.get(`/payments/${route.params.id}/mock`)]);job.value=j.data;payment.value=p.data;if(payment.value.status!=='disputed')successMsg.value='';}
+  try{const [j,p]=await Promise.all([api.get(`/jobs/${pageId}`),api.get(`/payments/${pageId}/mock`)]);job.value=j.data;payment.value=p.data;if(payment.value.status!=='disputed')successMsg.value='';}
   catch(err){errorMsg.value=err.response?.data?.message || 'โหลดข้อมูลงานไม่สำเร็จ';}
   finally{loading.value=false;}
 }
@@ -52,7 +54,7 @@ async function submit(){
   if(answer === null)return;
   if(!canSubmit.value) { errorMsg.value = 'สถานะรายการเปลี่ยนแปลงแล้ว กรุณาตรวจสอบก่อนส่งคำขอ'; return; }
   submitting.value=true;errorMsg.value='';
-  try{const body=new FormData();body.append('reason',reason.value.trim());files.value.forEach(file=>body.append('evidence',file));await api.post(`/payments/${route.params.id}/refund-request`,body);payment.value.status='disputed';successMsg.value='ส่งคำขอคืนเงินแล้ว รอผู้ดูแลตรวจสอบเหตุผลและหลักฐาน งานยังไม่ถูกยืนยันเสร็จ';}
+  try{const body=new FormData();body.append('reason',reason.value.trim());files.value.forEach(file=>body.append('evidence',file));await api.post(`/payments/${pageId}/refund-request`,body);payment.value.status='disputed';successMsg.value='ส่งคำขอคืนเงินแล้ว รอผู้ดูแลตรวจสอบเหตุผลและหลักฐาน งานยังไม่ถูกยืนยันเสร็จ';}
   catch(err){errorMsg.value=err.response?.data?.message || 'ส่งคำขอไม่สำเร็จ';}
   finally{submitting.value=false;}
 }
@@ -76,7 +78,7 @@ async function submit(){
       <div class="actions"><button type="submit" class="btn danger" :disabled="!canSubmit">{{submitting ? 'กำลังส่ง…' : 'ส่งคำขอคืนเงินให้ผู้ดูแล'}}</button></div>
     </form>
     <p v-else-if="payment && !successMsg" class="notice">{{['disputed','refund_pending'].includes(payment.status) ? 'คำขอนี้อยู่ระหว่างดำเนินการ ไม่สามารถส่งซ้ำได้' : payment.status==='refunded' ? 'ดำเนินการคืนเงินจำลองเรียบร้อยแล้ว' : 'ขอคืนเงินได้เฉพาะรายการที่ชำระแล้วและยังไม่ยืนยันรับงาน'}}</p>
-    <button class="btn outline back" @click="router.push({name:'hirer-job-detail',params:{id:route.params.id}})">กลับรายละเอียดงาน</button>
+    <button class="btn outline back" @click="router.push({name:'hirer-job-detail',params:{id:pageId}})">กลับรายละเอียดงาน</button>
   </section><DecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" /></main>
 </template>
 <style scoped>

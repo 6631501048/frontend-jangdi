@@ -1,4 +1,6 @@
 <script setup>
+import { useRouteChoice } from "../../composables/useRouteChoice";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 // FR-JOB-08: ดูงานที่ตนเองประกาศ จัดกลุ่มตามสถานะ
 // เป็นจุดเข้าสู่หน้า "เลือกผู้รับจ้าง" (FR-MATCH-03/04) สำหรับงานที่เปิดรับสมัครอยู่
 import { onMounted, onUnmounted, ref, watch } from "vue";
@@ -6,11 +8,11 @@ import { useRouter, useRoute } from "vue-router";
 import api from "../../services/api";
 import { workflowLabels } from "../../services/workflowStatus";
 import HirerServiceRequests from '../../components/HirerServiceRequests.vue';
+const { goBack: navigateBack } = usePageNavigation();
 
 const router = useRouter();
 const route = useRoute();
-const viewMode = ref(route.query.view === 'services' ? 'services' : 'jobs');
-watch(() => route.query.view, value => { viewMode.value = value === 'services' ? 'services' : 'jobs'; });
+const viewMode = useRouteChoice("view", ["jobs", "services"], "jobs");
 
 const tabs = [
   { value: "pending_review", label: "รอตรวจสอบ" },
@@ -21,7 +23,7 @@ const tabs = [
   { value: "cancelled", label: "ยกเลิก" },
   { value: "rejected", label: "ถูกปฏิเสธ" },
 ];
-const activeTab = ref("pending_review");
+const activeTab = useRouteChoice("status", tabs.map(tab => tab.value), "pending_review");
 const jobs = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
@@ -57,7 +59,7 @@ function openJob(job) {
 }
 
 function goBack() {
-  router.back();
+  navigateBack();
 }
 </script>
 

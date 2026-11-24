@@ -1,14 +1,15 @@
 <script setup>
+import { useRoutePage } from "../../composables/useRoutePage";
 import UserAvatar from "../../components/UserAvatar.vue";
 // Admin review and lifecycle overview for Hirer jobs and Worker service posts.
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
 import api from "../../services/api";
 const loading = ref(false);
 const errorMessage = ref("");
 const search = ref("");
 const type = ref("jobs");
 const status = ref("all");
-const page = ref(1);
+const page = useRoutePage(() => loadJobs());
 const total = ref(0);
 const totalPages = ref(1);
 const entries = ref([]);
@@ -26,6 +27,8 @@ async function loadJobs() {
     const endpoint = type.value === "jobs" ? "/admin/jobs" : "/admin/service-posts";
     const { data } = await api.get(endpoint, { params: { status: status.value, page: page.value, limit: 20, search: search.value.trim() } });
     if (n !== requestNo) return;
+    const lastPage=Math.max(1,Number(data.totalPages)||1);
+    if(page.value>lastPage){page.value=lastPage;return loadJobs();}
     entries.value = type.value === "jobs" ? data.jobs : data.posts;
     total.value = data.total;
     totalPages.value = data.totalPages || 1;
@@ -35,7 +38,7 @@ async function loadJobs() {
 }
 function changeType(next) { type.value = next; status.value = "all"; page.value = 1; loadJobs(); }
 function changeStatus() { page.value = 1; loadJobs(); }
-function changePage(next) { if (next < 1 || next > totalPages.value) return; page.value = next; loadJobs(); }
+function changePage(next) { if (loading.value || next < 1 || next > totalPages.value) return; page.value = next; loadJobs(); }
 async function moderateServicePost(entry, action) {
   if (moderating.value) return;
   moderating.value = entry._id;
@@ -52,6 +55,7 @@ async function moderateServicePost(entry, action) {
 let searchTimer;
 watch(search, () => { clearTimeout(searchTimer); searchTimer = setTimeout(() => { page.value=1;loadJobs(); }, 350); });
 onMounted(loadJobs);
+onBeforeUnmount(()=>{clearTimeout(searchTimer);requestNo++;});
 function formatDate(value) { return value ? new Date(value).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" }) : "-"; }
 function money(value) { return `฿${Number(value || 0).toLocaleString("th-TH")}`; }
 function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).join("").slice(0,2).toUpperCase(); }
@@ -91,8 +95,8 @@ function initials(name) { return String(name || "U").split(" ").map(s=>s[0]).joi
           </div>
         </div>
       </li><li v-if="!entries.length" class="empty">ไม่พบประกาศในเงื่อนไขที่เลือก</li></ul>
-      <div class="pagination"><button :disabled="page<=1" @click="changePage(page-1)">ก่อนหน้า</button><span>หน้า {{ page }} / {{ totalPages }}</span><button :disabled="page>=totalPages" @click="changePage(page+1)">ถัดไป</button></div>
     </template>
+    <nav class="pagination" aria-label="หน้ารายการประกาศ" :aria-busy="loading"><button type="button" :disabled="loading || page<=1" @click="changePage(page-1)">ก่อนหน้า</button><span aria-live="polite">หน้า {{ page }} / {{ totalPages }}</span><button type="button" :disabled="loading || page>=totalPages" @click="changePage(page+1)">ถัดไป</button></nav>
   </section>
 </template>
 

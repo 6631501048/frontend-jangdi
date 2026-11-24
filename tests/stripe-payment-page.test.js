@@ -99,3 +99,10 @@ test('pending and failed refunds do not display refund completion',async()=>{
     finally{view.unmount();}
   }
 });
+
+test('leaving the payment page while Checkout loads never redirects the user afterward',async()=>{
+ let finish,redirected;window.location={assign:value=>{redirected=value;}};
+ setup({post:()=>new Promise(resolve=>{finish=resolve})});const view=await mount(PaymentPage);
+ fire(find(view.root,'button','ชำระผ่าน Stripe ทดสอบ'),'click');await flush();view.unmount();
+ finish({data:{url:'https://checkout.stripe.com/c/pay/test'}});await flush();assert.equal(redirected,undefined);
+});

@@ -1,4 +1,6 @@
 <script setup>
+import { useRouteChoice } from "../../composables/useRouteChoice";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 // FR-BROWSE-07: ดูสถานะใบสมัครที่ส่งไปแล้วของตนเอง (แท็บ Waiting = คิว JOB_WAITING)
 // FR-TRACK-01/06: ดูงานที่กำลังดำเนินการ/เสร็จสิ้น/ยกเลิก และถืองานพร้อมกันได้อย่างน้อย 2 งาน
@@ -7,11 +9,11 @@ import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { workflowLabels } from "../../services/workflowStatus";
 import WorkerMyServicePostView from "./WorkerMyServicePostView.vue";
+const { goBack: navigateBack } = usePageNavigation();
 
 const router = useRouter();
 const route = useRoute();
-const viewMode = ref(route.query.view === "services" ? "services" : "jobs");
-watch(() => route.query.view, value => { viewMode.value = value === 'services' ? 'services' : 'jobs'; });
+const viewMode = useRouteChoice("view", ["jobs", "services"], "jobs");
 
 const tabs = [
   { value: "waiting", label: "รอผู้ว่าจ้างเลือก" },
@@ -20,7 +22,7 @@ const tabs = [
   { value: "completed", label: "เสร็จสิ้น" },
   { value: "cancelled", label: "ยกเลิก" },
 ];
-const activeTab = ref("waiting");
+const activeTab = useRouteChoice("status", tabs.map(tab => tab.value), "waiting");
 const loading = ref(true);
 const errorMsg = ref("");
 
@@ -84,7 +86,7 @@ function openJob(job) {
   <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page -->
     <header class="topbar">
-      <button class="icon-btn" aria-label="ย้อนกลับ" @click="router.back()">
+      <button class="icon-btn" aria-label="ย้อนกลับ" @click="navigateBack()">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
       <h1 class="title">งานของฉัน</h1>

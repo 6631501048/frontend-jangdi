@@ -1,10 +1,15 @@
 <script setup>
+import UserProfileLink from "../../components/UserProfileLink.vue";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+const { goBack: navigateBack } = usePageNavigation();
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 const isHirer = route.path.startsWith("/hirer/");
 const post = ref(null);
@@ -22,7 +27,7 @@ function serviceFeeLabel(post) {
 
 onMounted(async () => {
   try {
-    const { data } = await api.get(`/service-posts/${route.params.id}`);
+    const { data } = await api.get(`/service-posts/${pageId}`);
     post.value = data;
   } catch (err) {
     error.value = err.response?.data?.message || "โหลดรายละเอียดประกาศไม่สำเร็จ";
@@ -35,7 +40,7 @@ onMounted(async () => {
 <template>
   <div class="page jd-page">
     <header class="topbar">
-      <button class="back" aria-label="ย้อนกลับ" @click="router.back()">‹</button>
+      <button class="back" aria-label="ย้อนกลับ" @click="navigateBack()">‹</button>
       <h1>รายละเอียดบริการ</h1><span class="spacer"></span>
     </header>
     <main class="content">
@@ -44,7 +49,7 @@ onMounted(async () => {
       <template v-else-if="post">
         <template v-if="isHirer">
           <section class="card">
-            <p class="worker">{{ post.worker?.fullName || "ผู้รับจ้าง" }}</p>
+            <p class="worker">{{ post.worker?.fullName || "ผู้รับจ้าง" }}</p><UserProfileLink :user-id="post.worker?._id || post.worker" label="ดูโปรไฟล์ผู้รับจ้าง" />
             <h2>{{ post.title || "บริการจากผู้รับจ้าง" }}</h2>
             <p class="description">{{ post.description || "-" }}</p>
           </section>
@@ -61,7 +66,7 @@ onMounted(async () => {
         <template v-else>
           <section class="card worker-summary">
             <span class="worker-avatar"><UserAvatar :src="post.worker?.avatarUrl" :name="post.worker?.fullName" /></span>
-            <div><p class="worker">{{ post.worker?.fullName || "ผู้รับจ้าง" }}</p><h2>{{ post.title || "บริการ" }}</h2><p class="description">{{ post.description || "-" }}</p></div>
+            <div><p class="worker">{{ post.worker?.fullName || "ผู้รับจ้าง" }}</p><UserProfileLink :user-id="post.worker?._id || post.worker" label="ดูโปรไฟล์ผู้รับจ้าง" /><h2>{{ post.title || "บริการ" }}</h2><p class="description">{{ post.description || "-" }}</p></div>
           </section>
           <section class="card worker-details">
             <dl>

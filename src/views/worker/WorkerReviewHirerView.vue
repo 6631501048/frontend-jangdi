@@ -1,4 +1,5 @@
 <script setup>
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 // SRS 3.5.15 / FR-REV-01–02: หลังงานเสร็จสิ้น ผู้รับจ้างให้คะแนน + รีวิวผู้ว่าจ้าง
 // ระบบรีวิวสองทาง (reciprocal) ช่วยรักษาความรับผิดชอบของทั้งสองฝั่งบนแพลตฟอร์ม
@@ -6,11 +7,14 @@ import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { resolveBackendAssetUrl } from "../../services/backendAssets";
+const { goBack: navigateBack } = usePageNavigation();
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 
-const hirer = ref({ jobId: route.params.id, name: "", avatarUrl: null });
+const hirer = ref({ jobId: pageId, name: "", avatarUrl: null });
 const loading = ref(true);
 const errorMsg = ref("");
 const reviewed = ref(false);
@@ -23,8 +27,8 @@ function resolveAvatar(pathOrUrl) {
 async function loadJob() {
   loading.value = true;
   try {
-    const { data } = await api.get(`/jobs/${route.params.id}`);
-    const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+    const { data } = await api.get(`/jobs/${pageId}`);
+    const { data: review } = await api.get(`/jobs/${pageId}/review-status`);
     reviewed.value = review.reviewed;
     canReview.value = review.eligible && !review.reviewed;
     hirer.value = {
@@ -86,7 +90,7 @@ async function submitReview() {
 }
 
 function goBack() {
-  router.back();
+  navigateBack();
 }
 function goHome() {
   router.push("/worker");

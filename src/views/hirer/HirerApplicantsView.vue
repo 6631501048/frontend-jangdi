@@ -1,4 +1,5 @@
 <script setup>
+import UserProfileLink from "../../components/UserProfileLink.vue";
 import UserAvatar from "../../components/UserAvatar.vue";
 // FR-MATCH-03: Hirer ดูผู้สมัครทั้งหมด (avatar, ชื่อ, credibility score, ระยะทาง)
 import { computed, onMounted, ref } from "vue";
@@ -11,8 +12,10 @@ import { useAdminDecision } from '../../composables/useAdminDecision';
 const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
-const job = ref({ _id: route.params.id, status: "", applicants: [] });
+const job = ref({ _id: pageId, status: "", applicants: [] });
 const applicants = ref([]);
 const loading = ref(true);
 const errorMsg = ref("");
@@ -28,7 +31,7 @@ async function loadApplicants() {
   loading.value = true;
   try {
     const [{ data: jobData }, { data: applicantData }] = await Promise.all([
-      api.get(`/jobs/${route.params.id}`), api.get(`/jobs/${route.params.id}/applicants`),
+      api.get(`/jobs/${pageId}`), api.get(`/jobs/${pageId}/applicants`),
     ]);
     job.value = jobData;
     try { const { data: terms } = await api.get('/payments/config'); paymentTerms.value = { ...paymentTerms.value, ...terms }; } catch { /* Use the shared defaults. */ }
@@ -70,7 +73,7 @@ async function cancelExpiredJob() {
   }
 }
 function goToJobDetail() {
-  router.push({ name: "hirer-job-detail", params: { id: route.params.id } });
+  router.push({ name: "hirer-job-detail", params: { id: pageId } });
 }
 function select(workerId) {
   // FR-MATCH-04: เตรียมข้อมูลก่อนไปหน้ายืนยันเลือกช่าง + จ่ายเงิน
@@ -97,7 +100,7 @@ function select(workerId) {
       <div v-else v-for="a in applicants" :key="a.id" class="applicant-card">
         <span class="avatar"><UserAvatar :src="a.avatarUrl" :name="a.name" /></span>
         <div class="info">
-          <div class="name">{{ a.name }}</div>
+          <div class="name">{{ a.name }}</div><UserProfileLink :user-id="a.workerId" />
           <div class="meta">⭐ {{ a.score }} ({{ a.reviewCount }} reviews) · {{ a.distanceKm === null ? "Distance unavailable" : `${a.distanceKm} km` }}</div>
         </div>
         <button class="select-btn" :disabled="!canSelect" @click="select(a.workerId)">เลือกผู้รับจ้าง</button>

@@ -7,6 +7,8 @@ import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 const job = ref(null);
 const workerAvatarUrl = ref("");
@@ -33,12 +35,12 @@ async function loadJob() {
   loading.value = true;
   errorMsg.value = "";
   try {
-    const { data } = await api.get(`/jobs/${route.params.id}`);
+    const { data } = await api.get(`/jobs/${pageId}`);
     if (data.status !== "completed") throw new Error("You can review this worker after the job is completed.");
     const workerId = data.selectedWorker?._id || data.selectedWorker;
     if (!workerId) throw new Error("No worker is assigned to this job.");
     const { data: worker } = await api.get(`/users/${workerId}`);
-    const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+    const { data: review } = await api.get(`/jobs/${pageId}/review-status`);
     reviewStatus.value = review;
     job.value = data;
     workerAvatarUrl.value = worker.avatarUrl || "";

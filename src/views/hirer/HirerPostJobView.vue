@@ -1,4 +1,6 @@
 ﻿<script setup>
+import { useWizardSteps } from "../../composables/useWizardSteps";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 // FR-JOB-01: สร้างประกาศงาน โดยระบุหมวดหมู่ ชื่องาน คำอธิบาย ตำแหน่งที่ตั้ง ราคา และวันเวลาที่กำหนด
 // FR-JOB-02: นำทางการสร้างประกาศงานผ่าน 3 ขั้นตอน (1) หมวดหมู่ (2) รายละเอียด+ตำแหน่ง (3) ตรวจสอบก่อนส่ง
 //            (ในไฟล์นี้แบ่งเป็น step UI 1-2-3 เหมือนเดิม + หน้าจอผลลัพธ์ "Post Success" แยกต่างหาก)
@@ -7,6 +9,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../../services/api";
 import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
+const { goBack: navigateBack } = usePageNavigation();
 
 const router = useRouter();
 const feePercent = ref(null);
@@ -28,7 +31,7 @@ const categories = [
 ];
 
 /* ---------- สถานะฟอร์ม ---------- */
-const step = ref(1); // 1: หมวดหมู่, 2: รายละเอียด+ตำแหน่ง, 3: ตรวจสอบ
+const step = useWizardSteps(3); // 1: หมวดหมู่, 2: รายละเอียด+ตำแหน่ง, 3: ตรวจสอบ
 const submitting = ref(false);
 const submitted = ref(false);
 const errorMsg = ref("");
@@ -87,7 +90,6 @@ const step2Valid = computed(
     form.value.serviceFee !== "" &&
     Number(form.value.serviceFee) >= 40 &&
     form.value.scheduledAt && new Date(form.value.scheduledAt).getTime() > Date.now() &&
-    form.value.notes.trim() &&
     (!usesDurationHours.value || (Number(form.value.durationHours) > 0 && Number(form.value.durationHours) <= 24)) &&
     form.value.from.trim() &&
     (!isDelivery.value || form.value.to.trim())
@@ -103,7 +105,7 @@ function next() {
 }
 function back() {
   if (step.value > 1) step.value--;
-  else router.back();
+  else navigateBack();
 }
 
 function useCurrentLocation() {
@@ -302,8 +304,8 @@ function close() {
               <div class="input-suffix"><input :aria-label="isCleaning ? 'ใช้เวลาทำงานกี่ชั่วโมง' : 'สอนเป็นเวลากี่ชั่วโมง'" v-model.number="form.durationHours" type="number" :min="isCleaning ? 1 : 0.5" max="24" step="0.5" :placeholder="isCleaning ? 'เช่น 3' : 'เช่น 2'" /><span class="suffix">ชั่วโมง</span></div>
             </template>
 
-            <label class="field-label">รายละเอียดงานเพิ่มเติม (บังคับ)</label>
-            <textarea aria-label="รายละเอียดงานเพิ่มเติม (บังคับ)" v-model="form.notes" rows="3" required placeholder="ระบุรายละเอียดเพิ่มเติมที่ผู้รับจ้างจำเป็นต้องทราบ"></textarea>
+            <label class="field-label" for="job-extra-notes">รายละเอียดงานเพิ่มเติม (ไม่บังคับ)</label>
+            <textarea id="job-extra-notes" aria-label="รายละเอียดงานเพิ่มเติม (ไม่บังคับ)" v-model="form.notes" rows="3" placeholder="หากมีข้อมูลอื่นที่อยากแจ้งผู้รับจ้าง สามารถระบุเพิ่มเติมได้"></textarea>
           </section>
 
           <!-- ขั้นตอน 3: ตรวจสอบก่อนส่ง -->

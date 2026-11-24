@@ -1,4 +1,5 @@
 ﻿import { createRouter, createWebHistory } from "vue-router";
+import { preparePaymentReturnHistory, navigationScroll, homePath } from "../services/navigation";
 import { useAuthStore } from "../stores/auth";
 
 const routes = [
@@ -17,6 +18,7 @@ const routes = [
   },
 
   { path: "/notifications", name: "notifications", component: () => import("../views/NotificationsView.vue"), meta: { requiresAuth: true } },
+  { path: "/feedback", name: "tester-feedback", component: () => import("../views/FeedbackView.vue"), meta: { requiresAuth: true } },
 
   // Hirer (FR-JOB-*)
   {
@@ -192,6 +194,8 @@ const routes = [
     meta: { requiresAuth: true, role: "worker" },
   },
 
+  { path: "/users/:id", name: "user-profile", component: () => import("../views/UserProfileView.vue"), meta: { requiresAuth: true } },
+
   // Profile — ใช้ร่วมกันระหว่าง Hirer และ Worker (บัญชีเดียวสลับ role ได้ตาม FR-AUTH-06)
   // ไม่ผูก meta.role เพราะเนื้อหาในหน้าไม่มีอะไรเฉพาะ role ใดเลย (FR-PROF-01/02/03, FR-REV-04)
   {
@@ -221,6 +225,7 @@ const routes = [
     children: [
       { path: "", redirect: { name: "admin-dashboard" } },
       { path: 'profile', name: 'admin-profile', component: () => import('../views/ProfileView.vue') },
+      { path: 'tester-feedback', name: 'admin-tester-feedback', component: () => import('../views/admin/TesterFeedbackView.vue') },
       {
         path: "dashboard",
         name: "admin-dashboard",
@@ -258,10 +263,23 @@ const routes = [
       },
     ],
   },
+  { path: "/:pathMatch(.*)*", redirect: () => homePath(useAuthStore().user) },
 ];
 
+const history = createWebHistory();
+preparePaymentReturnHistory(history);
 const router = createRouter({
-  history: createWebHistory(),
+  history,
+  async scrollBehavior(to, from, savedPosition) {
+    if (savedPosition?.top > 0) {
+      const until = Date.now() + 1800;
+      while (document.documentElement.scrollHeight < savedPosition.top + window.innerHeight && Date.now() < until) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+        if (router.currentRoute.value.fullPath !== to.fullPath) return false;
+      }
+    }
+    return navigationScroll(to, from, savedPosition);
+  },
   routes,
 });
 
@@ -273,8 +291,11 @@ const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore();
 
+  if (to.name === 'login' && auth.isLoggedIn) {
+    return !auth.isProfileComplete && !auth.user?.isAdmin ? { name: 'register', replace: true } : { path: homePath(auth.user), replace: true };
+  }
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
-    return { name: "login" };
+    return { name: "login", query: { redirect: to.fullPath }, replace: true };
   }
 
   if (auth.isLoggedIn && auth.user?.isAdmin) {
@@ -294,7 +315,7 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.adminOnly && !auth.user?.isAdmin) {
-    return { name: "login" };
+    return { name: "login", replace: true };
   }
 
   if (to.meta.role && auth.currentRole !== to.meta.role) {

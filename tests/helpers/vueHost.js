@@ -18,15 +18,18 @@ class Node {
   dispatchEvent(event){event.target??=this;for(const handler of this.events[event.type] || [])handler(event);return true;}
   getRootNode(){return document;}
   focus(){document.activeElement=this;}
+  getBoundingClientRect(){return {top:0,left:0,right:100,bottom:44,width:100,height:44};}
   querySelectorAll(selector){return walk(this).filter(item=>selector.split(',').map(value=>value.trim()).includes(item.tag));}
   get options(){return this.children.filter(item=>item.tag==='option');}
   get value(){return this.tag==='option' && !this._inputValue?text(this):this._inputValue;}
   set value(value){this._inputValue=value;}
 }
+document.body=new Node('body');document.body.style.overflow='';document.body.offsetHeight=0;
 export function walk(node){return [node,...node.children.flatMap(walk)];}
 export function text(node){return node.text+node.children.map(text).join('');}
 function remove(node){if(node.parentNode){const siblings=node.parentNode.children;const index=siblings.indexOf(node);if(index>=0)siblings.splice(index,1);}node.parentNode=null;node.isConnected=false;}
 const renderer=createRenderer({
+  querySelector:selector=>selector==='body'?document.body:null,
   createElement:tag=>new Node(tag),createText:value=>new Node('#text',value),createComment:value=>new Node('#comment',value),
   setText(node,value){node.text=value;},setElementText(node,value){node.text=value;node.children=[];},
   parentNode:node=>node.parentNode,nextSibling(node){if(!node.parentNode)return null;const siblings=node.parentNode.children;return siblings[siblings.indexOf(node)+1] || null;},

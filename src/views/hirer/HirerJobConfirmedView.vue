@@ -7,6 +7,8 @@ import AppHeader from "../../components/AppHeader.vue";
 import {paymentStatus} from '../../services/finance';
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 const job = ref(null);
 const errorMsg = ref("");
@@ -14,8 +16,8 @@ const payment = ref(null);
 
 async function loadJob() {
   try {
-    const { data } = await api.get(`/jobs/${route.params.id}`);
-    try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); payment.value = pay; }
+    const { data } = await api.get(`/jobs/${pageId}`);
+    try { const { data: pay } = await api.get(`/payments/${pageId}/mock`); payment.value = pay; }
     catch { payment.value = null; }
     job.value = {
       ...data,
@@ -53,7 +55,7 @@ function goToMyJobs() {
         <div class="row"><span>ยอดชำระทั้งหมด (ทดสอบ)</span><strong>{{ Number(payment?.totalDue ?? job.total).toFixed(2) }} บาท</strong></div>
       </div>
 
-      <button class="btn primary" @click="router.push({ name: 'hirer-mock-payment', params: { id: route.params.id } })">ชำระเงิน / ติดตามหลักฐานจ่ายค่าจ้าง</button>
+      <button class="btn primary" @click="router.push({ name: 'hirer-mock-payment', params: { id: pageId } })">ชำระเงิน / ติดตามหลักฐานจ่ายค่าจ้าง</button>
       <button class="btn primary" @click="goToMyJobs">กลับงานของฉัน</button>
     </section>
   </main>

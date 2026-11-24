@@ -4,7 +4,8 @@
 // Email/password ใช้บัญชีเดียวกับ Google เมื่ออีเมลตรงกัน
 import AuthShell from "../../components/AuthShell.vue";
 import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
+import { loginDestination } from "../../services/navigation";
 import api from "../../services/api";
 import { useAuthStore } from "../../stores/auth";
 import { renderGoogleButton } from "../../services/googleAuth";
@@ -16,6 +17,7 @@ const googleError = ref("");
 const loading = ref(false);
 const googleBtnEl = ref(null);
 const router = useRouter();
+const route = useRoute();
 const auth = useAuthStore();
 
 // FR-AUTH-01/02: ฝั่ง client ตรวจสอบโดเมนอีเมลก่อนยิง request ด้วย (server ตรวจซ้ำอีกชั้น)
@@ -24,19 +26,7 @@ const LAMDUAN_DOMAIN = "@lamduan.mfu.ac.th";
 // ไปหน้า dashboard ตามบทบาทของผู้ใช้ที่ล็อกอินเข้ามา (ใช้ร่วมกันทั้ง Google และ email/password)
 // หมายเหตุ: isProfileComplete อยู่ใน user object เสมอ (backend ส่ง { token, user }) ไม่ใช่ field แยก
 function redirectAfterLogin(user) {
-  if (user?.isAdmin) {
-    router.push({ name: 'admin-dashboard' });
-    return;
-  }
-  if (!user?.isProfileComplete) {
-    router.push({ name: "register" });
-    return;
-  }
-  if (user?.currentRole === "worker") {
-    router.push({ name: "worker-dashboard" });
-  } else {
-    router.push({ name: "hirer-dashboard" });
-  }
+  router.replace(loginDestination(user, route.query.redirect));
 }
 
 async function handleContinue() {

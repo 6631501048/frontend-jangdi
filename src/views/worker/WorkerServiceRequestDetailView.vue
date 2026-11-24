@@ -1,4 +1,6 @@
 <script setup>
+import UserProfileLink from "../../components/UserProfileLink.vue";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 // MVP-02: Service Request details are the Hirer's persisted orderData (legacy text is still supported).
 import { computed, onMounted, onUnmounted, ref } from "vue";
@@ -6,7 +8,10 @@ import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
 import { requestWorkflowLabel } from "../../services/workflowStatus";
+const { goBack: navigateBack } = usePageNavigation();
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 const loading = ref(true);
 const errorMsg = ref("");
@@ -24,7 +29,7 @@ async function loadRequest({ background = false } = {}) {
   if (!background) loading.value = true;
   errorMsg.value = "";
   try {
-    const { data } = await api.get(`/service-posts/requests/${route.params.id}`);
+    const { data } = await api.get(`/service-posts/requests/${pageId}`);
     const structured = data.orderData || {};
     const post = data.servicePost || {};
     try {
@@ -33,6 +38,7 @@ async function loadRequest({ background = false } = {}) {
     } catch { /* Keep the estimate at the configured defaults. */ }
     request.value = {
       id: data._id,
+      requesterId: data.hirer?._id || data.hirer,
       requesterAvatarUrl: data.hirer?.avatarUrl,
       requester: data.hirer?.fullName || "ผู้ว่าจ้าง",
       serviceTitle: post.title || "-",
@@ -85,7 +91,7 @@ async function respond(action) {
   <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page -->
     <header class="topbar">
-      <button class="icon-btn" aria-label="ย้อนกลับ" @click="router.back()">
+      <button class="icon-btn" aria-label="ย้อนกลับ" @click="navigateBack()">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
       <h1 class="title">รายละเอียดคำขอ</h1>
@@ -98,7 +104,8 @@ async function respond(action) {
         <div class="card">
           <div class="requester-head">
             <span class="avatar"><UserAvatar :src="request.requesterAvatarUrl" :name="request.requester" /></span>
-            <div><p class="requester-name">{{ request.requester }}</p><p class="requester-loc">{{ request.serviceTitle }}</p></div>
+            <div><p class="requester-name">{{ request.requester }}</p>
+<UserProfileLink :user-id="request.requesterId" label="ดูโปรไฟล์ผู้ว่าจ้าง" /><p class="requester-loc">{{ request.serviceTitle }}</p></div>
           </div>
           <p class="section-title">รายละเอียดคำขอจาก Hirer</p>
           <p class="notes-text">{{ request.details }}</p>

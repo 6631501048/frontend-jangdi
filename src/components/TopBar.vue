@@ -12,12 +12,12 @@ async function switchRole() {
   const nextRole = auth.currentRole === "hirer" ? "worker" : "hirer";
   const { data } = await api.patch("/auth/role", { role: nextRole }); // FR-AUTH-06
   auth.updateUser(data.user);
-  router.push({ name: nextRole === "worker" ? "job-feed" : "hirer-dashboard" });
+  router.replace({ name: nextRole === "worker" ? "job-feed" : "hirer-dashboard" });
 }
 
 function logout() {
   auth.logout();
-  router.push({ name: "login" });
+  router.replace({ name: "login" });
 }
 </script>
 

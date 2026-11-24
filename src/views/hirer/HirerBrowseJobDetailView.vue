@@ -1,4 +1,6 @@
 ﻿<script setup>
+import UserProfileLink from "../../components/UserProfileLink.vue";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 // FR-BROWSE-01: ดูรายละเอียดประกาศงาน (Job) ของผู้ว่าจ้างรายอื่นในฟีด
 // หมายเหตุ: หน้านี้เป็นแบบอ่านอย่างเดียว ไม่มีปุ่ม "สมัคร" เพราะ FR-BROWSE-04 (สมัครงาน)
@@ -6,8 +8,11 @@ import UserAvatar from "../../components/UserAvatar.vue";
 import { onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+const { goBack: navigateBack } = usePageNavigation();
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 const loading = ref(true);
 const errorMsg = ref("");
@@ -22,7 +27,7 @@ function timeAgo(dateStr) {
 }
 
 const job = ref({
-  id: route.params.id,
+  id: pageId,
   hirerName: "",
   postedAgo: "-",
   description: "",
@@ -35,9 +40,10 @@ const job = ref({
 async function loadJob() {
   loading.value = true;
   try {
-    const { data } = await api.get(`/jobs/${route.params.id}`);
+    const { data } = await api.get(`/jobs/${pageId}`);
     job.value = {
       id: data._id,
+      hirerId: data.hirer?._id || data.hirer,
       hirerAvatarUrl: data.hirer?.avatarUrl,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
       postedAgo: timeAgo(data.createdAt),
@@ -56,7 +62,7 @@ async function loadJob() {
 onMounted(loadJob);
 
 function goBack() {
-  router.back();
+  navigateBack();
 }
 </script>
 
@@ -77,6 +83,7 @@ function goBack() {
           <span class="avatar"><UserAvatar :src="job.hirerAvatarUrl" :name="job.hirerName" /></span>
           <div>
             <p class="hirer-name">{{ job.hirerName }} <span class="posted-ago">{{ job.postedAgo }}</span></p>
+<UserProfileLink :user-id="job.hirerId" label="ดูโปรไฟล์ผู้ว่าจ้าง" />
             <p class="job-desc">{{ job.description }}</p>
           </div>
         </div>

@@ -26,6 +26,7 @@ const navItems = [
   { to: "/admin/posts", label: "จัดการประกาศ", icon: "🗂️" },
   { to: "/admin/payments", label: "การเงินและคืนเงิน", icon: "💳" },
   { to: "/admin/reports", label: "รายงานผู้ใช้", icon: "🚩" },
+  { to: "/admin/tester-feedback", label: "ความคิดเห็นผู้ทดสอบ", icon: "💬" },
   { to: "/admin/sos", label: "แจ้งเหตุฉุกเฉิน", icon: "🆘" },
 ];
 
@@ -35,7 +36,7 @@ function closeDrawer() {
 
 function handleLogout() {
   auth.logout();
-  router.push({ name: "login" });
+  router.replace({ name: "login" });
 }
 </script>
 

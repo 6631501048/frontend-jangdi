@@ -1,4 +1,5 @@
 <script setup>
+import { usePageNavigation } from "../../composables/usePageNavigation";
 // FR-MATCH-03: ผู้ว่าจ้างดูรายชื่อผู้สมัคร (applicants) ของงานที่ตัวเองประกาศ เรียงตามระยะทางใกล้สุดก่อน
 // FR-MATCH-04: ผู้ว่าจ้างเลือกผู้สมัครคนใดคนหนึ่งมาเป็นผู้รับจ้าง (Select Worker)
 //   -> job เข้าสถานะ assigned + สร้าง Payment เข้า escrow (held) ทันที (ดูหมายเหตุ Escrow ใน API reference)
@@ -6,11 +7,14 @@
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+const { goBack: navigateBack } = usePageNavigation();
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 
-const jobId = route.params.id;
+const jobId = pageId;
 
 /* ---------- ข้อมูลงานที่ประกาศไว้ ----------
    TODO FR-MATCH-03: แทนที่ mock นี้ด้วย GET /api/jobs/{jobId}
@@ -121,7 +125,7 @@ function closeSuccessModal() {
 }
 
 function goBack() {
-  router.back();
+  navigateBack();
 }
 </script>
 

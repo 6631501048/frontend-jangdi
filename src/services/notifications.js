@@ -39,6 +39,7 @@ export function connectNotificationSocket(token, userId, onNotification, onRecon
     const base = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/api\/?$/, "");
     socket = io(import.meta.env.VITE_SOCKET_URL || base || window.location.origin, {
       autoConnect: false,
+      auth: { token },
     });
     activeToken = token;
     activeUserId = userId;

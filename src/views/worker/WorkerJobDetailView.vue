@@ -1,4 +1,6 @@
 ﻿<script setup>
+import UserProfileLink from "../../components/UserProfileLink.vue";
+import { usePageNavigation } from "../../composables/usePageNavigation";
 import UserAvatar from "../../components/UserAvatar.vue";
 // FR-BROWSE-03: ดูรายละเอียดงานแบบเต็ม (คำอธิบาย ราคา ตำแหน่งที่ตั้ง ระยะเวลา หมายเหตุ) ก่อนสมัคร
 // FR-BROWSE-04: สมัครงาน โดยเพิ่มใบสมัครเข้าสู่คิวรอของงานนั้น (JOB_WAITING)
@@ -7,8 +9,11 @@ import UserAvatar from "../../components/UserAvatar.vue";
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+const { goBack: navigateBack } = usePageNavigation();
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 
 const loading = ref(true);
@@ -16,7 +21,7 @@ const errorMsg = ref("");
 
 /* ---------- ข้อมูลงาน ---------- */
 const job = ref({
-  id: route.params.id,
+  id: pageId,
   hirerName: "",
   title: "",
   backendStatus: "waiting",
@@ -36,7 +41,7 @@ const job = ref({
 async function loadJob() {
   loading.value = true;
   try {
-    const { data } = await api.get(`/jobs/${route.params.id}`);
+    const { data } = await api.get(`/jobs/${pageId}`);
     // An existing application must stay visible after page refresh.
     try {
       const { data: applications } = await api.get("/jobs/my-as-worker", { params: { status: "waiting" } });
@@ -47,6 +52,7 @@ async function loadJob() {
     }
     job.value = {
       id: data._id,
+      hirerId: data.hirer?._id || data.hirer,
       hirerAvatarUrl: data.hirer?.avatarUrl,
       hirerName: data.hirer?.fullName || "ผู้ว่าจ้าง",
       title: data.title || "ไม่มีชื่อประกาศ",
@@ -100,7 +106,7 @@ function viewMyRequest() {
 }
 
 function goBack() {
-  router.back();
+  navigateBack();
 }
 </script>
 
@@ -124,6 +130,7 @@ function goBack() {
           <span class="job-avatar"><UserAvatar :src="job.hirerAvatarUrl" :name="job.hirerName" /></span>
           <div>
             <p class="hirer-name">{{ job.hirerName }}</p>
+<UserProfileLink :user-id="job.hirerId" label="ดูโปรไฟล์ผู้ว่าจ้าง" />
             <p class="job-title">{{ job.title }}</p>
             <p class="job-desc">{{ job.description }}</p>
           </div>

@@ -1,4 +1,6 @@
 ﻿<script setup>
+import UserContactEmail from "../../components/UserContactEmail.vue";
+import UserProfileLink from "../../components/UserProfileLink.vue";
 import UserAvatar from "../../components/UserAvatar.vue";
 // FR-JOB-01/08, FR-TRACK-02/03/04, FR-SOS-01, FR-JOB-07: รายละเอียดงานของ Hirer ปรับเนื้อหาตามสถานะ
 import { computed, onMounted, onUnmounted, ref } from "vue";
@@ -19,6 +21,8 @@ const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecis
 
 
 const route = useRoute();
+// This page is keyed by route.path; keep in-flight requests bound to its original resource.
+const pageId = route.params.id;
 const router = useRouter();
 const job = ref(null);
 const loading = ref(true);
@@ -28,7 +32,7 @@ const applicantsLoaded = ref(false);
 const workerProfile = ref(null);
 const mockPayment = ref(null);
 const paymentTerms = ref({ ...defaultPaymentTerms });
-function goMockPayment() { router.push({ name: "hirer-mock-payment", params: { id: route.params.id } }); }
+function goMockPayment() { router.push({ name: "hirer-mock-payment", params: { id: pageId } }); }
 const cancellingJob = ref(false);
 const showReviewModal = ref(false);
 const reviewDone = ref(false);
@@ -73,10 +77,10 @@ async function loadJob() {
   errorMsg.value = "";
   timelineError.value = "";
   try {
-    const { data } = await api.get(`/jobs/${route.params.id}`);
+    const { data } = await api.get(`/jobs/${pageId}`);
     if (data.status === "completed" && !reviewStatusLoaded.value) {
       try {
-        const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+        const { data: review } = await api.get(`/jobs/${pageId}/review-status`);
         reviewDone.value = !!review.reviewed;
         reviewStatusLoaded.value = true;
       } catch { reviewDone.value = false; }
@@ -84,21 +88,21 @@ async function loadJob() {
     let events = [];
     if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
       try {
-        const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
+        const { data: timeline } = await api.get(`/jobs/${pageId}/timeline`);
         events = timeline;
       } catch {
         timelineError.value = "โหลดประวัติสถานะไม่สำเร็จ แต่ยังตรวจรูปหลักฐานได้";
       }
     }
     if (["assigned", "in_progress", "awaiting_confirmation", "disputed", "cancelled", "completed"].includes(data.status)) {
-      try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); mockPayment.value = pay; }
+      try { const { data: pay } = await api.get(`/payments/${pageId}/mock`); mockPayment.value = pay; }
       catch { mockPayment.value = null; }
     } else mockPayment.value = null;
     data.status = effectiveJobStatus(data.status, mockPayment.value || data.paymentStatus);
     // Image fetching must not block the job page or the next status poll.
     void loadProofImage(data);
     const selectedWorkerId = data.selectedWorker?._id || data.selectedWorker;
-    if (selectedWorkerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
+    if (selectedWorkerId && ["assigned", "in_progress", "awaiting_confirmation", "completed", "disputed", "cancelled"].includes(data.status)) {
       try {
         const { data: profile } = await api.get(`/users/${selectedWorkerId}`);
         workerProfile.value = profile;
@@ -109,7 +113,7 @@ async function loadJob() {
     applicantsLoaded.value = false;
     applicants.value = [];
     if (data.status === "waiting") {
-      const { data: rows } = await api.get(`/jobs/${route.params.id}/applicants`);
+      const { data: rows } = await api.get(`/jobs/${pageId}/applicants`);
       applicants.value = Array.isArray(rows) ? rows : [];
       applicantsLoaded.value = true;
     }
@@ -240,6 +244,12 @@ async function confirmCompletion() {
         <StatusBadge :status="job.status" :label="job.statusLabel" />
       </div>
 
+      <section v-if="job.selectedWorker" class="worker-profile-summary">
+        <h2>ผู้รับจ้างที่เลือก</h2>
+        <p>{{workerProfile?.fullName || job.selectedWorker?.fullName || 'ผู้รับจ้าง'}}</p>
+        <UserProfileLink :user-id="workerProfile?._id || job.selectedWorker?._id || job.selectedWorker" label="ดูโปรไฟล์ผู้รับจ้าง" />
+        <UserContactEmail :email="workerProfile?.email" />
+      </section>
       <dl class="rows">
         <div class="row"><dt>ประเภทงาน</dt><dd>{{ job.category }}</dd></div>
         <div class="row"><dt>รายละเอียด</dt><dd>{{ job.description || "ไม่ได้ระบุรายละเอียด" }}</dd></div>
@@ -361,7 +371,13 @@ async function confirmCompletion() {
       <!-- FR-JOB-07: รายละเอียดการยกเลิก -->
       <template v-if="job.status === 'cancelled' && job.cancellation">
         <h2 class="section-title">รายละเอียดการยกเลิก</h2>
-        <dl class="rows">
+        <section v-if="job.selectedWorker" class="worker-profile-summary">
+        <h2>ผู้รับจ้างที่เลือก</h2>
+        <p>{{workerProfile?.fullName || job.selectedWorker?.fullName || 'ผู้รับจ้าง'}}</p>
+        <UserProfileLink :user-id="workerProfile?._id || job.selectedWorker?._id || job.selectedWorker" label="ดูโปรไฟล์ผู้รับจ้าง" />
+        <UserContactEmail :email="workerProfile?.email" />
+      </section>
+      <dl class="rows">
           <div class="row"><dt>ผู้ยกเลิก</dt><dd>{{ job.cancellation.cancelledBy }}</dd></div>
           <div class="row"><dt>เหตุผล</dt><dd>{{ job.cancellation.reason }}</dd></div>
         </dl>
@@ -392,6 +408,8 @@ async function confirmCompletion() {
 </template>
 
 <style scoped>
+.worker-profile-summary{padding:16px;margin:16px 0;border:1px solid var(--jd-line);border-radius:14px;background:var(--jd-canvas)}.worker-profile-summary h2{margin:0;font-size:1rem}.worker-profile-summary p{margin:6px 0 0;overflow-wrap:anywhere}
+
 .job-detail { padding-bottom: 32px; }
 .card { padding: 16px; }
 .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
