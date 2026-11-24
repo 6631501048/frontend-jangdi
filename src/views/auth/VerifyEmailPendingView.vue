@@ -1,4 +1,5 @@
 <script setup>
+import AuthShell from "../../components/AuthShell.vue";
 // FR-AUTH-04: หน้า "ยังไม่ได้ยืนยันอีเมล" — แสดงเมื่อ backend ตอบ EMAIL_NOT_VERIFIED
 // ผู้ใช้ขอส่งลิงก์ใหม่ได้ (มี cooldown) และกด "ตรวจสอบอีกครั้ง" หลังกดลิงก์ในอีเมลแล้ว
 import { onBeforeUnmount, ref } from "vue";
@@ -72,7 +73,7 @@ function logout() {
 </script>
 
 <template>
-  <main class="pending-page">
+  <AuthShell><div class="verification-content">
     <p class="icon">📧</p>
     <h1>กรุณายืนยันอีเมลก่อนใช้งาน</h1>
     <p>
@@ -90,18 +91,16 @@ function logout() {
       {{ checking ? "กำลังตรวจสอบ..." : "ฉันยืนยันแล้ว — ตรวจสอบอีกครั้ง" }}
     </button>
     <button class="link" @click="logout">ออกจากระบบ</button>
-  </main>
+  </div></AuthShell>
 </template>
 
 <style scoped>
-.pending-page { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; }
-.icon { font-size: 40px; margin: 0; }
-h1 { font-size: 18px; margin: 0; }
-p { color: #555; font-size: 14px; max-width: 320px; }
-.ok { color: #15803d; }
-.err { color: #b91c1c; }
-button { width: 100%; max-width: 320px; min-height: 44px; border-radius: 8px; border: none; background: #2563eb; color: white; font-weight: 600; cursor: pointer; }
-button:disabled { opacity: 0.6; cursor: not-allowed; }
-button.secondary { background: white; color: #2563eb; border: 1px solid #2563eb; }
-button.link { background: none; color: #999; font-weight: 400; min-height: 32px; }
-</style>
+      .verification-content { text-align:center; overflow-wrap:anywhere; }
+      .icon { font-size:2.5rem; margin:0 0 16px; }
+      p { color:var(--jd-muted); font-size:.9375rem; }
+      .ok { color:var(--jd-success); } .err { color:var(--jd-danger); }
+      button { width:100%; min-height:48px; margin-top:12px; padding:12px; border:1px solid var(--jd-brand); border-radius:12px; background:var(--jd-brand); color:white; font-weight:600; }
+      button.secondary { border-color:var(--jd-input-border); color:var(--jd-ink); background:white; }
+      button.link { border:0; background:transparent; color:var(--jd-muted); font-weight:400; }
+      button:disabled { background:var(--jd-subtle); color:var(--jd-muted); border-color:var(--jd-input-border); }
+    </style>

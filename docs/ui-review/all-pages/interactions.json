@@ -1,0 +1,87 @@
+{
+  "fixtureData": true,
+  "checks": [
+    {
+      "name": "worker drawer: focus entry, Tab wrap, Escape, focus return"
+    },
+    {
+      "name": "admin drawer: focus entry, Tab wrap, Escape, focus return"
+    },
+    {
+      "name": "password-dialog",
+      "widths": [
+        320,
+        390,
+        768,
+        1440
+      ]
+    },
+    {
+      "name": "profile-edit",
+      "widths": [
+        320,
+        390,
+        768,
+        1440
+      ]
+    },
+    {
+      "name": "post-job-details",
+      "widths": [
+        320,
+        390,
+        768,
+        1440
+      ]
+    },
+    {
+      "name": "post-job-review",
+      "widths": [
+        320,
+        390,
+        768,
+        1440
+      ]
+    },
+    {
+      "name": "post-job: required category, details, review, back preserves input; no submission"
+    },
+    {
+      "name": "post-service-details",
+      "widths": [
+        320,
+        390,
+        768,
+        1440
+      ]
+    },
+    {
+      "name": "post-service-review",
+      "widths": [
+        320,
+        390,
+        768,
+        1440
+      ]
+    },
+    {
+      "name": "post-service: required category, details, review, back preserves input; no submission"
+    },
+    {
+      "name": "worker application: local request, submitted state, prevents repeat"
+    },
+    {
+      "name": "worker feed error and retry"
+    },
+    {
+      "name": "worker feed reflow with 200% text"
+    }
+  ],
+  "errors": [],
+  "mutations": [
+    {
+      "method": "POST",
+      "path": "/api/jobs/job-1/apply"
+    }
+  ]
+}

@@ -1,9 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
 import api from "../../services/api";
+import AdminDecisionDialog from '../../components/AdminDecisionDialog.vue';
+import {useAdminDecision} from '../../composables/useAdminDecision';
+const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
 
 const statusFilter = ref("All Status");
-const filters = ["All Status", "Pending", "Resolved", "Dismissed"];
+const filters = ["All Status", "Pending", "Investigating", "Resolved", "Dismissed"];
 
 const reports = ref([]);
 const loading = ref(true);
@@ -34,6 +37,7 @@ const filteredReports = computed(() => {
 
   const map = {
     Pending: "pending",
+    Investigating: "investigating",
     Resolved: "resolved",
     Dismissed: "dismissed",
   };
@@ -82,85 +86,28 @@ async function loadReports() {
   }
 }
 
-async function resolve(report) {
-  if (actionLoading.value) return;
-
-  const notes = window.prompt(
-    "หมายเหตุการแก้ไขรายงาน",
-    ""
-  );
-
-  if (notes === null) return;
-
-  actionLoading.value = report._id;
-
+async function updateReport(report, status) {
+  if (actionLoading.value || !['pending','investigating'].includes(report.status)) return;
+  const notes=await askDecision({title:status==='resolved'?'บันทึกแก้ไขรายงานแล้ว':'ยกเลิกรายงาน',message:report.reason,requireReason:true,minLength:5});
+  if(notes===null)return;
+  actionLoading.value=report._id;errorMessage.value='';
   try {
-    const { data } = await api.post(
-      `/admin/reports/${report._id}/resolve`,
-      {
-        status: "resolved",
-        resolutionNotes: notes,
-      }
-    );
-
-    reports.value = reports.value.map((item) =>
-      item._id === report._id
-        ? data.report
-        : item
-    );
-  } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถปิดรายงานได้"
-    );
-  } finally {
-    actionLoading.value = null;
-  }
+    const {data}=await api.post(`/admin/reports/${report._id}/resolve`,{status,resolutionNotes:notes});
+    reports.value=reports.value.map(item=>item._id===report._id?data.report:item);
+  } catch(error) {errorMessage.value=error.response?.data?.message || 'บันทึกผลการพิจารณารายงานไม่สำเร็จ';}
+  finally {actionLoading.value=null;}
 }
-
-async function dismiss(report) {
-  if (actionLoading.value) return;
-
-  const notes = window.prompt(
-    "หมายเหตุการ dismiss รายงาน",
-    ""
-  );
-
-  if (notes === null) return;
-
-  actionLoading.value = report._id;
-
-  try {
-    const { data } = await api.post(
-      `/admin/reports/${report._id}/resolve`,
-      {
-        status: "dismissed",
-        resolutionNotes: notes,
-      }
-    );
-
-    reports.value = reports.value.map((item) =>
-      item._id === report._id
-        ? data.report
-        : item
-    );
-  } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถ dismiss รายงานได้"
-    );
-  } finally {
-    actionLoading.value = null;
-  }
-}
+const resolve = report => updateReport(report,'resolved');
+const dismiss = report => updateReport(report,'dismissed');
 
 onMounted(loadReports);
 </script>
 
 <template>
-  <section class="reports">
+  <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
+  <section class="reports jd-page">
     <div class="header-row">
-      <p class="section-title">Handle Report</p>
+      <h1 class="section-title">รายงานผู้ใช้</h1>
 
       <button
         class="refresh-btn"
@@ -175,7 +122,7 @@ onMounted(loadReports);
       <div class="stat-pill">
         <span class="icon blue">📁</span>
         <div>
-          <p class="stat-label">Total Reports</p>
+          <p class="stat-label">รายงานทั้งหมด</p>
           <p class="stat-value">
             {{ totalReports }}
           </p>
@@ -185,7 +132,7 @@ onMounted(loadReports);
       <div class="stat-pill">
         <span class="icon yellow">⏳</span>
         <div>
-          <p class="stat-label">Pending Reports</p>
+          <p class="stat-label">รอพิจารณา</p>
           <p class="stat-value">
             {{ pendingReports }}
           </p>
@@ -195,7 +142,7 @@ onMounted(loadReports);
       <div class="stat-pill">
         <span class="icon green">✅</span>
         <div>
-          <p class="stat-label">Resolved</p>
+          <p class="stat-label">ดำเนินการแล้ว</p>
           <p class="stat-value">
             {{ resolvedReports }}
           </p>
@@ -205,7 +152,7 @@ onMounted(loadReports);
 
     <div class="card">
       <div class="card-header">
-        <p class="card-title">All Reports</p>
+        <p class="card-title">รายงานทั้งหมด</p>
 
         <select
           v-model="statusFilter"
@@ -220,7 +167,7 @@ onMounted(loadReports);
         </select>
       </div>
 
-      <div v-if="errorMessage" class="error-box">
+      <div v-if="errorMessage" class="error-box" role="alert">
         {{ errorMessage }}
       </div>
 
@@ -235,7 +182,7 @@ onMounted(loadReports);
           class="report-item"
         >
           <button
-            class="report-row"
+            type="button" class="report-row"
             @click="toggleExpand(report._id)"
           >
             <span class="report-icon">⚠️</span>
@@ -281,7 +228,7 @@ onMounted(loadReports);
 
             <p class="small-detail">
               Job:
-              {{ report.job || "-" }}
+              {{ report.job?.title || report.job?._id || report.job || "-" }}
             </p>
 
             <p
@@ -291,25 +238,29 @@ onMounted(loadReports);
               Resolution:
               {{ report.resolutionNotes }}
             </p>
+            <p v-if="report.resolvedBy || report.resolvedAt" class="small-detail">
+              Closed by {{ report.resolvedBy?.fullName || report.resolvedBy?.email || report.resolvedBy || "-" }}
+              · {{ report.resolvedAt ? new Date(report.resolvedAt).toLocaleString("th-TH") : "-" }}
+            </p>
 
             <div
-              v-if="report.status === 'pending'"
+              v-if="['pending', 'investigating'].includes(report.status)"
               class="action-row"
             >
               <button
                 class="action-btn primary"
-                :disabled="actionLoading === report._id"
+                :disabled="!!actionLoading"
                 @click.stop="resolve(report)"
               >
-                Mark Resolved
+                บันทึกแก้ไขแล้ว
               </button>
 
               <button
                 class="action-btn ghost"
-                :disabled="actionLoading === report._id"
+                :disabled="!!actionLoading"
                 @click.stop="dismiss(report)"
               >
-                Dismiss
+                ยกเลิกรายงาน
               </button>
             </div>
           </div>
@@ -391,13 +342,13 @@ onMounted(loadReports);
 
 .stat-label {
   margin: 0;
-  font-size: 11px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
 .stat-value {
   margin: 2px 0 0;
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 800;
 }
 
@@ -418,7 +369,7 @@ onMounted(loadReports);
 .card-title {
   font-weight: 700;
   margin: 0;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .range-select {
@@ -473,18 +424,18 @@ onMounted(loadReports);
 }
 
 .report-title {
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
 .report-meta {
-  font-size: 11px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
   margin-top: 2px;
 }
 
 .status-text {
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -510,7 +461,7 @@ onMounted(loadReports);
 
 .report-detail {
   padding: 0 0 14px 40px;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 .report-detail p {
@@ -519,7 +470,7 @@ onMounted(loadReports);
 
 .small-detail {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: 0.875rem;
 }
 
 .action-row {
@@ -530,7 +481,7 @@ onMounted(loadReports);
 
 .action-btn {
   flex: 1;
-  min-height: 38px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   font-weight: 700;

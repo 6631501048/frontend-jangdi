@@ -1,0 +1,149 @@
+{
+  "fixtureData": true,
+  "layout": [
+    {
+      "width": 320,
+      "scrollWidth": 305,
+      "columns": 1,
+      "smallTargets": []
+    },
+    {
+      "width": 375,
+      "scrollWidth": 360,
+      "columns": 1,
+      "smallTargets": []
+    },
+    {
+      "width": 390,
+      "scrollWidth": 375,
+      "columns": 1,
+      "smallTargets": []
+    },
+    {
+      "width": 768,
+      "scrollWidth": 753,
+      "columns": 2,
+      "smallTargets": []
+    },
+    {
+      "width": 1024,
+      "scrollWidth": 1009,
+      "columns": 2,
+      "smallTargets": []
+    },
+    {
+      "width": 1440,
+      "scrollWidth": 1425,
+      "columns": 2,
+      "smallTargets": []
+    }
+  ],
+  "contrast": [
+    {
+      "selector": ".post-job",
+      "foreground": "rgb(255, 255, 255)",
+      "background": "rgb(162, 73, 54)",
+      "ratio": 5.93
+    },
+    {
+      "selector": ".start-card p",
+      "foreground": "rgb(96, 70, 57)",
+      "background": "rgb(250, 229, 219)",
+      "ratio": 7.11
+    },
+    {
+      "selector": ".eyebrow",
+      "foreground": "rgb(162, 73, 54)",
+      "background": "rgb(252, 250, 248)",
+      "ratio": 5.69
+    },
+    {
+      "selector": ".categories button.active",
+      "foreground": "rgb(162, 73, 54)",
+      "background": "rgb(250, 229, 219)",
+      "ratio": 4.88
+    },
+    {
+      "selector": ".tabs button.active",
+      "foreground": "rgb(162, 73, 54)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 5.93
+    },
+    {
+      "selector": ".history-copy span",
+      "foreground": "rgb(99, 91, 83)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 6.66
+    },
+    {
+      "selector": ".request-count",
+      "foreground": "rgb(16, 14, 4)",
+      "background": "rgb(255, 244, 207)",
+      "ratio": 17.57
+    },
+    {
+      "selector": ".search-help",
+      "foreground": "rgb(99, 91, 83)",
+      "background": "rgb(252, 250, 248)",
+      "ratio": 6.4
+    },
+    {
+      "selector": ".desc",
+      "foreground": "rgb(16, 14, 4)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 19.33
+    },
+    {
+      "selector": ".time",
+      "foreground": "rgb(99, 91, 83)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 6.66
+    },
+    {
+      "selector": ".type-badge.service",
+      "foreground": "rgb(119, 55, 33)",
+      "background": "rgb(250, 229, 219)",
+      "ratio": 7.35
+    },
+    {
+      "selector": ".btn-apply:disabled",
+      "foreground": "rgb(96, 75, 13)",
+      "background": "rgb(255, 244, 207)",
+      "ratio": 7.61
+    },
+    {
+      "selector": ".btn-details",
+      "foreground": "rgb(16, 14, 4)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 19.33
+    },
+    {
+      "selector": ".post-meta dt",
+      "foreground": "rgb(99, 91, 83)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 6.66
+    },
+    {
+      "selector": ".price strong",
+      "foreground": "rgb(16, 14, 4)",
+      "background": "rgb(255, 255, 255)",
+      "ratio": 19.33
+    },
+    {
+      "selector": ".filter-btn",
+      "foreground": "rgb(16, 14, 4)",
+      "background": "rgb(255, 244, 207)",
+      "ratio": 17.57
+    }
+  ],
+  "checks": [
+    "feed pagination and visibility guards",
+    "pending and own-service actions",
+    "job, service, post-job and request-history links",
+    "keyboard focus and Enter activation",
+    "category filter, search and reset",
+    "200% text reflow",
+    "loading, error retry and empty state"
+  ],
+  "errors": []
+}

@@ -1,15 +1,21 @@
 <script setup>
 import { computed, onMounted, ref } from "vue";
+import { useRoute } from "vue-router";
 import api from "../../services/api";
+import AdminDecisionDialog from '../../components/AdminDecisionDialog.vue';
+import {useAdminDecision} from '../../composables/useAdminDecision';
+const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
 
-const activeFilter = ref("All");
-const filters = ["All", "Pending", "Complete"];
+const route = useRoute();
+const activeFilter = ref(route.query.status === "active" ? "รอดำเนินการ" : "ทั้งหมด");
+const filters = ["ทั้งหมด", "รอดำเนินการ", "ดำเนินการแล้ว"];
 
 const alerts = ref([]);
 const loading = ref(true);
 const errorMessage = ref("");
 const actionLoading = ref(null);
 const expandedId = ref(null);
+const resolutionNotes = ref({});
 
 const counts = computed(() => ({
   all: alerts.value.length,
@@ -24,11 +30,11 @@ const counts = computed(() => ({
 }));
 
 const filteredAlerts = computed(() => {
-  if (activeFilter.value === "All") {
+  if (activeFilter.value === "ทั้งหมด") {
     return alerts.value;
   }
 
-  if (activeFilter.value === "Pending") {
+  if (activeFilter.value === "รอดำเนินการ") {
     return alerts.value.filter(
       (alert) => alert.status === "active"
     );
@@ -45,7 +51,7 @@ function toggleExpand(id) {
 }
 
 function statusLabel(status) {
-  return status === "active" ? "Pending" : "Complete";
+  return status === "active" ? "รอดำเนินการ" : "ดำเนินการแล้ว";
 }
 
 function formatDate(value) {
@@ -90,60 +96,51 @@ async function loadAlerts() {
   }
 }
 
-function contactWorker(alert) {
-  const phone = alert.worker?.phone;
-
+function contactWorker(item) {
+  const phone = String(item.worker?.phone || "").trim();
   if (!phone) {
-    alert("ผู้ใช้รายนี้ไม่มีหมายเลขโทรศัพท์");
+    errorMessage.value="ผู้ใช้รายนี้ไม่มีหมายเลขโทรศัพท์";
     return;
   }
-
-  window.location.href = `tel:${phone}`;
+  // A phone link is initiated only on explicit Admin action.
+  window.location.href = `tel:${encodeURIComponent(phone)}`;
 }
 
-async function markResolved(alert) {
-  if (actionLoading.value) return;
-
-  const notes = window.prompt(
-    "หมายเหตุสำหรับการปิดเคส SOS",
-    ""
-  );
-
-  if (notes === null) return;
-
-  actionLoading.value = alert._id;
-
+async function markResolved(item) {
+  if (actionLoading.value || item.status !== "active") return;
+  const notes = String(resolutionNotes.value[item._id] || "").trim();
+  if (notes.length < 5 || notes.length > 1000) {
+    errorMessage.value="กรุณาระบุหมายเหตุการปิดเคส 5-1000 ตัวอักษร";
+    return;
+  }
+  if (await askDecision({title:'ปิดเคส SOS',message:'ยืนยันว่าตรวจสอบเหตุและพร้อมปิดเคสแล้ว? หมายเหตุ: '+notes,confirmLabel:'ยืนยันปิดเคส'}) === null) return;
+  actionLoading.value = item._id;
   try {
-    const { data } = await api.post(
-      `/admin/sos/${alert._id}/resolve`,
-      {
-        adminNotes: notes,
-      }
-    );
-
-    alerts.value = alerts.value.map((item) =>
-      item._id === alert._id
-        ? data.sos
-        : item
-    );
+    await api.post(`/admin/sos/${item._id}/resolve`, { adminNotes: notes });
+    delete resolutionNotes.value[item._id];
+    await loadAlerts(); // Preserve populated worker and job data from the list API.
   } catch (error) {
-    alert(
-      error.response?.data?.message ||
-        "ไม่สามารถปิดเคส SOS ได้"
-    );
+    errorMessage.value=error.response?.data?.message || "ไม่สามารถปิดเคส SOS ได้";
+    if (error.response?.status === 409) await loadAlerts();
   } finally {
     actionLoading.value = null;
   }
+}
+function mapsLink(item) {
+  const point = item.location?.coordinates;
+  if (!Array.isArray(point) || point.length !== 2 || !point.every(Number.isFinite)) return null;
+  return `https://www.google.com/maps?q=${encodeURIComponent(`${point[1]},${point[0]}`)}`;
 }
 
 onMounted(loadAlerts);
 </script>
 
 <template>
-  <section class="sos">
+  <AdminDecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
+  <section class="sos jd-page">
     <div class="header-row">
       <div>
-        <p class="section-title">SOS Alert</p>
+        <h1 class="section-title">แจ้งเหตุฉุกเฉิน</h1>
         <p class="subtitle">
           รับและจัดการสัญญาณ SOS จาก Worker
         </p>
@@ -154,15 +151,13 @@ onMounted(loadAlerts);
         :disabled="loading"
         @click="loadAlerts"
       >
-        {{ loading ? "Loading..." : "Refresh" }}
+        {{ loading ? "กำลังโหลด..." : "รีเฟรช" }}
       </button>
     </div>
 
     <div class="card overview-card">
       <div class="overview-header">
-        <span class="overview-title">
-          SOS Alert overview
-        </span>
+        <span class="overview-title"> ภาพรวมเหตุฉุกเฉิน </span>
       </div>
 
       <div class="overview-stats">
@@ -170,27 +165,27 @@ onMounted(loadAlerts);
           <p class="overview-value">
             {{ counts.all }}
           </p>
-          <p class="overview-label">All</p>
-        </div>
-
-        <div class="overview-stat">
-          <p class="overview-value">
-            {{ counts.complete }}
-          </p>
-          <p class="overview-label">Complete</p>
+          <p class="overview-label">ทั้งหมด</p>
         </div>
 
         <div class="overview-stat">
           <p class="overview-value danger">
             {{ counts.pending }}
           </p>
-          <p class="overview-label">Pending</p>
+          <p class="overview-label">รอดำเนินการ</p>
+        </div>
+
+        <div class="overview-stat">
+          <p class="overview-value">
+            {{ counts.complete }}
+          </p>
+          <p class="overview-label">ดำเนินการแล้ว</p>
         </div>
       </div>
     </div>
 
     <nav class="tabs">
-      <button
+      <button :aria-pressed="activeFilter === filter"
         v-for="filter in filters"
         :key="filter"
         :class="{ active: activeFilter === filter }"
@@ -253,35 +248,39 @@ onMounted(loadAlerts);
           class="alert-detail"
         >
           <p class="detail-row">
-            <span>Worker</span>
+            <span>ผู้รับจ้าง</span>
             <strong>
               {{ alert.worker?.fullName || "-" }}
             </strong>
           </p>
 
           <p class="detail-row">
-            <span>Phone</span>
+            <span>เบอร์โทรศัพท์</span>
             <strong>
               {{ alert.worker?.phone || "-" }}
             </strong>
           </p>
 
           <p class="detail-row">
-            <span>Job</span>
+            <span>งาน</span>
             <strong>
               {{ alert.job?.title || "-" }}
             </strong>
           </p>
 
           <p class="detail-row">
-            <span>Location</span>
+            <span>สถานที่</span>
             <strong>
               {{ locationText(alert) }}
             </strong>
           </p>
 
+          <p v-if="mapsLink(alert)" class="detail-row">
+            <span>แผนที่</span>
+            <a :href="mapsLink(alert)" target="_blank" rel="noopener noreferrer">เปิดตำแหน่งบนแผนที่</a>
+          </p>
           <p class="detail-row">
-            <span>Triggered</span>
+            <span>เวลาแจ้งเหตุ</span>
             <strong>
               {{ formatDate(alert.triggeredAt) }}
             </strong>
@@ -295,21 +294,26 @@ onMounted(loadAlerts);
             {{ alert.adminNotes }}
           </p>
 
+          <p v-if="alert.resolvedAt" class="detail-row">
+            <span>ดำเนินการแล้ว</span><strong>{{ formatDate(alert.resolvedAt) }}</strong>
+          </p>
+          <label v-if="alert.status === 'active'" class="resolution-input">
+            หมายเหตุการดำเนินการ (5–1000 ตัวอักษร)
+            <textarea v-model="resolutionNotes[alert._id]" maxlength="1000" rows="3" placeholder="ระบุการช่วยเหลือ/การติดต่อก่อนปิดเคส" />
+          </label>
           <div class="action-row">
             <button
               class="action-btn ghost"
               @click.stop="contactWorker(alert)"
-            >
-              Contact Worker
-            </button>
+            > ติดต่อผู้รับจ้าง </button>
 
             <button
               v-if="alert.status === 'active'"
               class="action-btn primary"
-              :disabled="actionLoading === alert._id"
+              :disabled="!!actionLoading || String(resolutionNotes[alert._id] || '').trim().length < 5"
               @click.stop="markResolved(alert)"
             >
-              Mark Resolved
+              {{ actionLoading === alert._id ? "กำลังบันทึก..." : "Mark Resolved" }}
             </button>
           </div>
         </div>
@@ -319,7 +323,7 @@ onMounted(loadAlerts);
         v-if="!filteredAlerts.length"
         class="empty"
       >
-        No SOS alerts in this view.
+        ไม่มีรายการ SOS ในสถานะนี้
       </li>
     </ul>
   </section>
@@ -344,7 +348,7 @@ onMounted(loadAlerts);
 
 .subtitle {
   margin: 3px 0 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
@@ -371,7 +375,7 @@ onMounted(loadAlerts);
 }
 
 .overview-title {
-  font-size: 12px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
   font-weight: 600;
 }
@@ -392,7 +396,7 @@ onMounted(loadAlerts);
 
 .overview-value {
   margin: 0;
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 800;
 }
 
@@ -402,7 +406,7 @@ onMounted(loadAlerts);
 
 .overview-label {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
@@ -461,7 +465,7 @@ onMounted(loadAlerts);
 
 .alert-text {
   flex: 1;
-  font-size: 13px;
+  font-size: 0.875rem;
   font-weight: 600;
 }
 
@@ -470,7 +474,7 @@ onMounted(loadAlerts);
 }
 
 .status-badge {
-  font-size: 11px;
+  font-size: 0.875rem;
   font-weight: 700;
   padding: 5px 10px;
   border-radius: 999px;
@@ -501,7 +505,7 @@ onMounted(loadAlerts);
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 13px;
+  font-size: 0.875rem;
   margin: 0 0 7px;
 }
 
@@ -513,7 +517,7 @@ onMounted(loadAlerts);
   padding: 8px;
   border-radius: 8px;
   background: var(--color-bg);
-  font-size: 12px;
+  font-size: 0.875rem;
 }
 
 .action-row {
@@ -524,7 +528,7 @@ onMounted(loadAlerts);
 
 .action-btn {
   flex: 1;
-  min-height: 40px;
+  min-height: 44px;
   border: none;
   border-radius: 8px;
   font-weight: 700;
@@ -562,4 +566,6 @@ onMounted(loadAlerts);
     width: 100%;
   }
 }
+.resolution-input { display: grid; gap: 6px; margin: 12px 0; font-size: 0.875rem; font-weight: 600; }
+.resolution-input textarea { width: 100%; resize: vertical; padding: 10px; border-radius: 8px; border: 1px solid var(--color-border); font: inherit; }
 </style>

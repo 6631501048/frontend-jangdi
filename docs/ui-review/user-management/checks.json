@@ -1,0 +1,30 @@
+{
+  "fixtureData": true,
+  "checks": [
+    "keyboard Enter opens account details, focus is visible and close returns to the selected row",
+    "consistent summary, search/name/email/ID, role+status filters, pagination, empty/reset and safe selection",
+    "warning/suspension/restoration preserve reason dialog, exact existing API, live counters and persisted history",
+    "API failure keeps selected account, permits retry and cancellation writes nothing",
+    "responsive list/detail/dialog, contrast, focus and touch targets at 320/390/768/1024/1440px",
+    "initial API failure/retry and genuine empty account list"
+  ],
+  "errors": [],
+  "mutations": [
+    {
+      "method": "POST",
+      "path": "/api/admin/users/member-0/suspend"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/member-0/suspend"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/member-0/suspend"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/member-0/suspend"
+    }
+  ]
+}

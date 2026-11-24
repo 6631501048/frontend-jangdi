@@ -12,7 +12,7 @@ async function switchRole() {
   const nextRole = auth.currentRole === "hirer" ? "worker" : "hirer";
   const { data } = await api.patch("/auth/role", { role: nextRole }); // FR-AUTH-06
   auth.updateUser(data.user);
-  router.push({ name: nextRole === "worker" ? "worker-dashboard" : "hirer-dashboard" });
+  router.push({ name: nextRole === "worker" ? "job-feed" : "hirer-dashboard" });
 }
 
 function logout() {
@@ -40,11 +40,11 @@ function logout() {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--jd-line);
 }
 .user-info { display: flex; flex-direction: column; gap: 2px; }
 .role-badge {
-  font-size: 12px;
+  font-size: 0.875rem;
   color: #2563eb;
   background: #eff6ff;
   padding: 2px 8px;
@@ -52,6 +52,6 @@ function logout() {
   width: fit-content;
 }
 .actions { display: flex; gap: 8px; }
-.actions button { min-height: 36px; padding: 6px 12px; border-radius: 6px; border: 1px solid #ccc; background: white; font-size: 13px; }
+.actions button { min-height: 44px; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--jd-input-border); background: white; font-size: 0.875rem; }
 .logout-btn { color: #dc2626; }
 </style>

@@ -1,0 +1,69 @@
+{
+  "fixtureData": true,
+  "results": [
+    {
+      "check": "worker ServicePost/system",
+      "route": "/worker/my-services/service-1"
+    },
+    {
+      "check": "worker Payment/payment_update",
+      "route": "/worker/payment/transactions"
+    },
+    {
+      "check": "worker Job/new_nearby_job",
+      "route": "/worker/jobs/job-a"
+    },
+    {
+      "check": "worker Job/application_update",
+      "route": "/worker/jobs/job-a/tracking"
+    },
+    {
+      "check": "cross-role notification explains the required role and stays unread"
+    },
+    {
+      "check": "failed notification detail request stays open, unread and retryable"
+    },
+    {
+      "check": "same-component detail navigation loads the new job immediately"
+    },
+    {
+      "check": "worker My Jobs follows query navigation in both directions"
+    },
+    {
+      "check": "hirer feed ignores late responses from older search terms"
+    },
+    {
+      "check": "worker feed ignores late responses from older search terms"
+    },
+    {
+      "check": "profile load and save errors are visible; load retries and failed edits stay available"
+    }
+  ],
+  "errors": [],
+  "requests": [
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/audit-notification/read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/audit-notification/read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/audit-notification/read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/audit-notification/read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/audit-notification/read"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/users/preview-user"
+    }
+  ]
+}

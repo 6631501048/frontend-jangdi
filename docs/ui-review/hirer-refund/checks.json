@@ -1,0 +1,20 @@
+{
+  "fixtureData": true,
+  "checks": [
+    "both hirer job-state refund links open the internal form and page confirmation",
+    "remove individual/all evidence, reselect same file, preserve valid files on invalid/oversized/excessive picks",
+    "responsive, contrast, targets and Escape cancellation at 320/390/768/1440px",
+    "API failure preserves form/evidence and retry submits successfully"
+  ],
+  "errors": [],
+  "mutations": [
+    {
+      "method": "POST",
+      "path": "/api/payments/job-1/refund-request"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/job-1/refund-request"
+    }
+  ]
+}

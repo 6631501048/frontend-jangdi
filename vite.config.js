@@ -12,6 +12,12 @@ export default defineConfig({
         target: "http://localhost:4000",
         changeOrigin: true,
       },
+      // Public profile avatars are served from the backend /uploads path.
+      // /uploads/job-proofs remains restricted; private proofs use /api with JWT.
+      "/uploads": {
+        target: "http://localhost:4000",
+        changeOrigin: true,
+      },
     },
   },
 });

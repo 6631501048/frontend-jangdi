@@ -3,18 +3,28 @@
 // FR-JOB-02: นำทางการสร้างประกาศงานผ่าน 3 ขั้นตอน (1) หมวดหมู่ (2) รายละเอียด+ตำแหน่ง (3) ตรวจสอบก่อนส่ง
 //            (ในไฟล์นี้แบ่งเป็น step UI 1-2-3 เหมือนเดิม + หน้าจอผลลัพธ์ "Post Success" แยกต่างหาก)
 // FR-JOB-03/05: ข้อความจะถูกกรองเนื้อหาอัตโนมัติก่อนเข้าคิวรอ Admin อนุมัติ (ทำที่ backend)
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import api from "../../services/api";
+import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
 
 const router = useRouter();
+const feePercent = ref(null);
+const feeTerms = ref({ ...defaultPaymentTerms });
+const configError = ref('');
+async function loadPaymentConfig(){
+  configError.value='';
+  try{const {data}=await api.get('/payments/config');feeTerms.value={...feeTerms.value,...data};feePercent.value=data.feePercent;}
+  catch{configError.value='โหลดอัตราค่าบริการไม่สำเร็จ กรุณาลองใหม่ก่อนโพสต์งาน';}
+}
+onMounted(loadPaymentConfig);
 
 /* ---------- หมวดหมู่ (เหมือนตัวกรองใน HirerDashboard เพื่อความสอดคล้องกันทั้งแอป) ---------- */
 const categories = [
-  { id: "cleaning", label: "Cleaning", icon: "🧹" },
-  { id: "delivery", label: "Delivery", icon: "🛵" },
-  { id: "tutoring", label: "Tutoring & Education", icon: "📘" },
-  { id: "it", label: "IT & Programming", icon: "💻" },
+  { id: "cleaning", label: "ทำความสะอาด", icon: "🧹" },
+  { id: "delivery", label: "จัดส่ง", icon: "🛵" },
+  { id: "tutoring", label: "สอนพิเศษ", icon: "📘" },
+  { id: "it", label: "ไอทีและเขียนโปรแกรม", icon: "💻" },
 ];
 
 /* ---------- สถานะฟอร์ม ---------- */
@@ -32,34 +42,55 @@ const form = ref({
   details: "",
   serviceFee: null,
   scheduledAt: "",
-  durationStart: "",
-  durationEnd: "",
   from: "",
   to: "",
   notes: "",
+  durationHours: "",
 });
 
 const categoryLabel = computed(
   () => categories.find((c) => c.id === form.value.category)?.label || "-"
 );
+const feeBreakdown = computed(() => calculatePaymentFees(form.value.serviceFee, feeTerms.value));
+const transactionFee = computed(() => feeBreakdown.value.platformFeeAmount);
+const totalPayment = computed(() => feeBreakdown.value.totalDue);
+const isDelivery = computed(() => form.value.category === "delivery");
+const isCleaning = computed(() => form.value.category === "cleaning");
+const usesDurationHours = computed(() => isCleaning.value || form.value.category === "tutoring");
+const detailsLabel = computed(() => ({
+  delivery: "รายละเอียดสิ่งที่ให้จัดส่ง",
+  tutoring: "วิชา / หัวข้อและระดับผู้เรียน",
+  it: "รายละเอียดงานและผลลัพธ์ที่ต้องการ",
+}[form.value.category] || "รายละเอียดงาน"));
+const detailsPlaceholder = computed(() => ({
+  delivery: "เช่น ประเภทสิ่งของ ขนาด หรือคำแนะนำในการรับส่ง",
+  tutoring: "เช่น วิชาคณิตศาสตร์ ระดับมัธยมต้น เนื้อหาที่ต้องการเรียน",
+  it: "เช่น ต้องการทำเว็บไซต์หรือแก้ปัญหาอะไร ใช้เทคโนโลยีใด",
+}[form.value.category] || "อธิบายงานที่ต้องการให้ทำ"));
 const conditionLabel = computed(() =>
-  form.value.durationStart && form.value.durationEnd
-    ? `${new Date(form.value.durationStart).toLocaleString("th-TH")} - ${new Date(form.value.durationEnd).toLocaleString("th-TH")}` : "-"
+  usesDurationHours.value && form.value.durationHours
+    ? `${form.value.durationHours} ชั่วโมง`
+    : "-"
 );
+const minScheduledAt = computed(() => {
+  const nextMinute = new Date();
+  nextMinute.setMinutes(nextMinute.getMinutes() + 1, 0, 0);
+  return `${nextMinute.getFullYear()}-${String(nextMinute.getMonth() + 1).padStart(2, "0")}-${String(nextMinute.getDate()).padStart(2, "0")}T${String(nextMinute.getHours()).padStart(2, "0")}:${String(nextMinute.getMinutes()).padStart(2, "0")}`;
+});
 
 const step1Valid = computed(() => !!form.value.category);
 const step2Valid = computed(
   () =>
     form.value.name.trim() &&
-    form.value.details.trim() &&
+    (isCleaning.value || form.value.details.trim()) &&
     form.value.serviceFee !== null &&
     form.value.serviceFee !== "" &&
-    form.value.scheduledAt &&
-    ((!form.value.durationStart && !form.value.durationEnd) ||
-      (form.value.durationStart && form.value.durationEnd &&
-        new Date(form.value.durationEnd) > new Date(form.value.durationStart))) &&
+    Number(form.value.serviceFee) >= 40 &&
+    form.value.scheduledAt && new Date(form.value.scheduledAt).getTime() > Date.now() &&
+    form.value.notes.trim() &&
+    (!usesDurationHours.value || (Number(form.value.durationHours) > 0 && Number(form.value.durationHours) <= 24)) &&
     form.value.from.trim() &&
-    form.value.to.trim()
+    (!isDelivery.value || form.value.to.trim())
 );
 
 function selectCategory(id) {
@@ -67,7 +98,7 @@ function selectCategory(id) {
 }
 function next() {
   if (step.value === 1 && !step1Valid.value) return;
-  if (step.value === 2 && !step2Valid.value) return;
+  if (step.value === 2 && (!step2Valid.value || !form.value.scheduledAt || new Date(form.value.scheduledAt).getTime() <= Date.now())) return;
   if (step.value < 3) step.value++;
 }
 function back() {
@@ -80,34 +111,48 @@ function useCurrentLocation() {
   locating.value = true;
   navigator.geolocation.getCurrentPosition(
     ({ coords }) => { location.value = { lat: coords.latitude, lng: coords.longitude }; locating.value = false; },
-    () => { errorMsg.value = "Unable to get your location. Please allow location access and try again."; locating.value = false; },
+    () => { errorMsg.value = "ระบุตำแหน่งไม่สำเร็จ กรุณาอนุญาตให้เข้าถึงตำแหน่งแล้วลองอีกครั้ง"; locating.value = false; },
     { enableHighAccuracy: true, timeout: 10000 }
   );
 }
 
 async function submit() {
+  if (!step2Valid.value || !form.value.scheduledAt || new Date(form.value.scheduledAt).getTime() <= Date.now()) {
+    step.value = 2;
+    errorMsg.value = "กรุณากรอกรายละเอียดงาน วันเวลาในอนาคต และข้อมูลที่จำเป็นให้ครบ";
+    return;
+  }
+  if (feePercent.value == null) { await loadPaymentConfig(); if (feePercent.value == null) return; }
   // TODO FR-JOB-01: POST /api/jobs { category, name(title), details(description), serviceFee(price), from, to, startTime, endTime, notes }
   // TODO FR-JOB-03/04/05: backend กรองเนื้อหาอัตโนมัติก่อน แล้วส่งต่อเข้าคิวรอ Admin อนุมัติ
   if (location.value.lat === null || location.value.lng === null) {
-    errorMsg.value = "Please select your current location before posting.";
+    errorMsg.value = "กรุณาระบุตำแหน่งก่อนประกาศงาน";
     return;
   }
   submitting.value = true;
   errorMsg.value = "";
   rejectionReason.value = "";
   try {
+    const scheduledAt = new Date(form.value.scheduledAt);
+    const durationStart = usesDurationHours.value ? scheduledAt : null;
+    const durationEnd = usesDurationHours.value
+      ? new Date(scheduledAt.getTime() + Number(form.value.durationHours) * 60 * 60 * 1000)
+      : null;
+    const description = isCleaning.value
+      ? `ทำความสะอาด ใช้เวลาประมาณ ${form.value.durationHours} ชั่วโมง`
+      : form.value.details.trim();
     const { data } = await api.post("/jobs", {
-      category: form.value.category, title: form.value.name.trim(), description: form.value.details.trim(),
-      price: Number(form.value.serviceFee), scheduledAt: new Date(form.value.scheduledAt).toISOString(),
+      category: form.value.category, title: form.value.name.trim(), description,
+      price: Number(form.value.serviceFee), scheduledAt: scheduledAt.toISOString(),
       locationText: form.value.from.trim(), lat: location.value.lat, lng: location.value.lng,
-      fromText: form.value.from.trim(), toText: form.value.to.trim(), deliveryFee: 0, notes: form.value.notes.trim(),
-      durationStart: form.value.durationStart ? new Date(form.value.durationStart).toISOString() : null,
-      durationEnd: form.value.durationEnd ? new Date(form.value.durationEnd).toISOString() : null,
+      fromText: isDelivery.value ? form.value.from.trim() : "", toText: isDelivery.value ? form.value.to.trim() : "", deliveryFee: 0, notes: form.value.notes.trim(),
+      durationStart: durationStart ? durationStart.toISOString() : null,
+      durationEnd: durationEnd ? durationEnd.toISOString() : null,
     });
-    rejectionReason.value = data.job?.status === "rejected" ? data.job.rejectionReason || "This post was rejected during review." : "";
+    rejectionReason.value = data.job?.status === "rejected" ? data.job.rejectionReason || "ประกาศนี้ไม่ผ่านการตรวจสอบ" : "";
     submitted.value = true;
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "Unable to post this job. Please try again.";
+    errorMsg.value = err.response?.data?.message || "ประกาศงานไม่สำเร็จ กรุณาลองใหม่";
   } finally {
     submitting.value = false;
   }
@@ -125,29 +170,30 @@ function close() {
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <!-- แถบด้านบนแบบ sub-page: ปุ่มปิด + ชื่อหน้า -->
     <header class="topbar">
       <button class="icon-btn" aria-label="ปิด" @click="close">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
       </button>
-      <h1 class="title">Post Hirer</h1>
+      <h1 class="title">ประกาศงาน</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
     <main class="content">
+      <p v-if="configError" class="error-msg" role="alert">{{configError}} <button type="button" @click="loadPaymentConfig">ลองใหม่</button></p>
       <div class="card">
         <!-- ===== หน้าจอสำเร็จ ===== -->
         <section v-if="submitted" class="success">
           <div class="check-circle">
             <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
           </div>
-          <h2 class="success-title">Post Success!</h2>
-          <p class="success-sub">Your service has been posted.</p>
+          <h2 class="success-title">ประกาศงานสำเร็จ</h2>
+          <p class="success-sub">ส่งประกาศงานแล้ว</p>
           <p v-if="rejectionReason" class="error-msg">{{ rejectionReason }}</p>
           <div class="success-actions">
-            <button class="btn-primary" @click="viewMyPosts">View My Posts</button>
-            <button class="btn-muted" @click="backToHome">Back to Home</button>
+            <button class="btn-primary" @click="viewMyPosts">ดูประกาศของฉัน</button>
+            <button class="btn-muted" @click="backToHome">กลับหน้าหลัก</button>
           </div>
         </section>
 
@@ -164,9 +210,9 @@ function close() {
 
           <!-- ขั้นตอน 1: หมวดหมู่ -->
           <section v-if="step === 1" class="step-body">
-            <h2 class="section-title">Select Job Category</h2>
+            <h2 class="section-title">เลือกหมวดหมู่งาน</h2>
             <div class="category-grid">
-              <button
+              <button :aria-pressed="form.category === c.id"
                 v-for="c in categories"
                 :key="c.id"
                 type="button"
@@ -183,91 +229,129 @@ function close() {
 
           <!-- ขั้นตอน 2: รายละเอียดงาน + ตำแหน่งที่ตั้ง -->
           <section v-else-if="step === 2" class="step-body">
-            <h2 class="section-title">Work Details</h2>
+            <h2 class="section-title">รายละเอียดงาน</h2>
+            <div class="selected-category">
+              <div>
+                <span class="selected-category-label">หมวดหมู่งานที่เลือก</span>
+                <strong>{{ categoryLabel }}</strong>
+              </div>
+              <button type="button" class="change-category-btn" @click="step = 1">เปลี่ยนหมวดหมู่</button>
+            </div>
 
-            <label class="field-label">Name / Service</label>
-            <input v-model="form.name" type="text" placeholder="เช่น รับส่งพัสดุ / ซื้อของฝาก" />
+            <label class="field-label">ชื่องาน / บริการ</label>
+            <input aria-label="ชื่องาน / บริการ" v-model="form.name" type="text" :placeholder="isCleaning ? 'เช่น ทำความสะอาดบ้านหรือคอนโด' : isDelivery ? 'เช่น รับส่งพัสดุ / ซื้อของฝาก' : form.category === 'tutoring' ? 'เช่น สอนคณิตศาสตร์ระดับมัธยม' : 'เช่น ทำเว็บไซต์หรือแก้ไขระบบ'" />
 
-            <label class="field-label">Details</label>
-            <textarea v-model="form.details" rows="3" placeholder="อธิบายงานที่ต้องการให้ทำ"></textarea>
+            <template v-if="!isCleaning">
+              <label class="field-label">{{ detailsLabel }}</label>
+              <textarea :aria-label="detailsLabel" v-model="form.details" rows="3" :placeholder="detailsPlaceholder"></textarea>
+            </template>
 
             <div class="field-row">
               <div class="field-col">
-                <label class="field-label">Service Fee</label>
+                <label class="field-label">ค่าจ้างผู้รับจ้าง</label>
                 <div class="input-suffix">
-                  <input v-model.number="form.serviceFee" type="number" min="0" placeholder="0" />
-                  <span class="suffix">Baht</span>
+                  <input aria-label="ค่าจ้างผู้รับจ้าง" v-model.number="form.serviceFee" type="number" min="40" placeholder="40" />
+                  <span class="suffix">บาท</span>
+                </div>
+                <small class="price-hint">ค่าจ้างขั้นต่ำ 40 บาท</small>
+                <div v-if="Number(form.serviceFee) > 0" class="price-breakdown" aria-live="polite">
+                  <div><span>ค่าบริการแพลตฟอร์มรวมค่าธรรมเนียมธุรกรรม</span><strong>{{feePercent == null ? 'รอคำนวณ' : transactionFee.toFixed(2)+' บาท'}}</strong></div>
+                  <div class="price-total"><span>ยอดชำระรวม</span><strong>{{ totalPayment.toFixed(2) }} บาท</strong></div>
                 </div>
               </div>
               <div class="field-col">
-                <label class="field-label">Scheduled time</label>
+                <label class="field-label">วันและเวลาที่ต้องการให้เริ่มงาน</label>
                 <div class="time-range">
-                  <input v-model="form.scheduledAt" type="datetime-local" />
+                  <input aria-label="วันและเวลาที่ต้องการให้เริ่มงาน" v-model="form.scheduledAt" type="datetime-local" :min="minScheduledAt" required />
+                  <small v-if="form.scheduledAt && new Date(form.scheduledAt).getTime() <= Date.now()" class="price-hint">กรุณาเลือกวันและเวลาในอนาคต</small>
                 </div>
               </div>
             </div>
 
-            <p class="location-title">Location</p>
+            <p class="location-title">สถานที่ทำงาน</p>
             <button type="button" class="location-btn" :disabled="locating" @click="useCurrentLocation">
-              {{ locating ? "Getting location..." : location.lat !== null ? "Location selected" : "Use current location" }}
+              {{ locating ? "กำลังค้นหาตำแหน่ง…" : location.lat !== null ? "เลือกตำแหน่งแล้ว" : "ใช้ตำแหน่งปัจจุบัน" }}
             </button>
             <!-- TODO: เพิ่ม Google Maps pin เลือกตำแหน่งที่ตั้งแทน input ข้อความ -->
-            <label class="field-label">From</label>
+            <template v-if="isDelivery">
+            <label class="field-label">จุดรับสิ่งของ</label>
             <div class="input-icon">
-              <input v-model="form.from" type="text" placeholder="ตำแหน่งต้นทาง" />
+              <input aria-label="จุดรับสิ่งของ" v-model="form.from" type="text" placeholder="ตำแหน่งต้นทาง" />
               <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
             </div>
-            <label class="field-label">To</label>
+            <label class="field-label">จุดส่งสิ่งของ</label>
             <div class="input-icon">
-              <input v-model="form.to" type="text" placeholder="ตำแหน่งปลายทาง" />
+              <input aria-label="จุดส่งสิ่งของ" v-model="form.to" type="text" placeholder="ตำแหน่งปลายทาง" />
               <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
             </div>
+            </template>
+            <template v-else>
+              <label class="field-label">{{ isCleaning ? 'ที่อยู่ที่ให้ไปทำความสะอาด' : 'สถานที่นัดหมาย / สถานที่ทำงาน' }}</label>
+              <div class="input-icon">
+                <input :aria-label="isCleaning ? 'ที่อยู่ที่ให้ไปทำความสะอาด' : 'สถานที่นัดหมาย / สถานที่ทำงาน'" v-model="form.from" type="text" placeholder="ระบุที่อยู่หรือสถานที่ให้ชัดเจน" />
+                <svg class="pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.5-7-11a7 7 0 0114 0c0 4.5-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+              </div>
+            </template>
 
-            <label class="field-label">Duration window (Optional)</label>
-            <div class="time-range">
-              <input v-model="form.durationStart" type="datetime-local" aria-label="Duration start" />
-              <span class="dash">-</span>
-              <input v-model="form.durationEnd" type="datetime-local" aria-label="Duration end" />
-            </div>
+            <template v-if="isCleaning">
+              <label class="field-label">ใช้เวลาทำงานกี่ชั่วโมง</label>
+              <div class="input-suffix"><input aria-label="ใช้เวลาทำงานกี่ชั่วโมง" v-model.number="form.durationHours" type="number" min="1" max="24" step="0.5" placeholder="เช่น 3" /><span class="suffix">ชั่วโมง</span></div>
+            </template>
+            <template v-else-if="usesDurationHours">
+              <label class="field-label">{{ isCleaning ? 'ใช้เวลาทำงานกี่ชั่วโมง' : 'สอนเป็นเวลากี่ชั่วโมง' }}</label>
+              <div class="input-suffix"><input :aria-label="isCleaning ? 'ใช้เวลาทำงานกี่ชั่วโมง' : 'สอนเป็นเวลากี่ชั่วโมง'" v-model.number="form.durationHours" type="number" :min="isCleaning ? 1 : 0.5" max="24" step="0.5" :placeholder="isCleaning ? 'เช่น 3' : 'เช่น 2'" /><span class="suffix">ชั่วโมง</span></div>
+            </template>
 
-            <label class="field-label">Additional Notes (Optional)</label>
-            <textarea v-model="form.notes" rows="2" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+            <label class="field-label">รายละเอียดงานเพิ่มเติม (บังคับ)</label>
+            <textarea aria-label="รายละเอียดงานเพิ่มเติม (บังคับ)" v-model="form.notes" rows="3" required placeholder="ระบุรายละเอียดเพิ่มเติมที่ผู้รับจ้างจำเป็นต้องทราบ"></textarea>
           </section>
 
           <!-- ขั้นตอน 3: ตรวจสอบก่อนส่ง -->
           <section v-else class="step-body">
-            <h2 class="section-title">Review Details</h2>
+            <h2 class="section-title">ตรวจสอบรายละเอียด</h2>
             <dl class="review-list">
               <div class="review-row">
-                <dt>Job Category</dt>
+                <dt>หมวดหมู่งาน</dt>
                 <dd>{{ categoryLabel }}</dd>
               </div>
               <div class="review-row">
-                <dt>Name / Service</dt>
+                <dt>ชื่องาน / บริการ</dt>
                 <dd>{{ form.name || "-" }}</dd>
               </div>
-              <div class="review-row">
-                <dt>Details</dt>
+              <div v-if="!isCleaning" class="review-row">
+                <dt>รายละเอียด</dt>
                 <dd>{{ form.details || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Service Fee</dt>
-                <dd>{{ form.serviceFee !== null && form.serviceFee !== "" ? `${form.serviceFee} Baht` : "-" }}</dd>
+                <dt>ค่าจ้างผู้รับจ้าง</dt>
+                <dd>{{ form.serviceFee !== null && form.serviceFee !== "" ? `${form.serviceFee} บาท` : "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Duration window</dt>
+                <dt>ค่าบริการแพลตฟอร์มรวมค่าธรรมเนียมธุรกรรม</dt>
+                <dd>{{ transactionFee.toFixed(2) }} บาท</dd>
+              </div>
+              <div class="review-row review-total">
+                <dt>ยอดชำระรวม</dt>
+                <dd>{{ totalPayment.toFixed(2) }} บาท</dd>
+              </div>
+              <div class="review-row">
+                <dt>วันและเวลาเริ่มงาน</dt>
+                <dd>{{ form.scheduledAt ? new Date(form.scheduledAt).toLocaleString('th-TH') : '-' }}</dd>
+              </div>
+              <div class="review-row">
+                <dt>{{ usesDurationHours ? 'ระยะเวลาทำงาน' : 'ช่วงเวลาทำงาน' }}</dt>
                 <dd>{{ conditionLabel }}</dd>
               </div>
               <div class="review-row">
-                <dt>From</dt>
+                <dt>{{ isDelivery ? 'จุดรับสิ่งของ' : 'สถานที่ทำงาน' }}</dt>
                 <dd>{{ form.from || "-" }}</dd>
               </div>
-              <div class="review-row">
-                <dt>To</dt>
+              <div v-if="isDelivery" class="review-row">
+                <dt>ถึง</dt>
                 <dd>{{ form.to || "-" }}</dd>
               </div>
               <div class="review-row">
-                <dt>Additional Notes (Optional)</dt>
+                <dt>รายละเอียดงานเพิ่มเติม</dt>
                 <dd>{{ form.notes || "-" }}</dd>
               </div>
             </dl>
@@ -275,15 +359,15 @@ function close() {
 
           <!-- ปุ่มควบคุมขั้นตอน -->
           <div class="actions">
-            <button class="btn-muted" @click="back">Previous</button>
+            <button class="btn-muted" @click="back">ย้อนกลับ</button>
             <button
               v-if="step < 3"
               class="btn-primary"
               :disabled="(step === 1 && !step1Valid) || (step === 2 && !step2Valid)"
               @click="next"
-            >Next</button>
+            >ถัดไป</button>
             <button v-else class="btn-primary" :disabled="submitting" @click="submit">
-              {{ submitting ? "Posting..." : "Post" }}
+              {{ submitting ? "กำลังส่งประกาศ…" : "ยืนยันประกาศงาน" }}
             </button>
           </div>
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
@@ -294,37 +378,50 @@ function close() {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; }
-.card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
+.card { background: var(--jd-surface); border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); }
 
 /* ---------- Stepper ---------- */
 .stepper { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 20px; }
 .step-dot {
-  width: 26px; height: 26px; border-radius: 50%; border: 1px solid #ddd;
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--jd-input-border);
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #999; background: #fff; flex-shrink: 0;
+  font-size: 0.875rem; font-weight: 700; color: var(--jd-muted); background: var(--jd-surface); flex-shrink: 0;
 }
-.step-dot.active { background: #ffc93c; border-color: #ffc93c; color: #111; }
-.step-line { width: 36px; height: 1px; background: #ddd; }
+.step-dot.active { background: var(--jd-accent); border-color: var(--jd-warning); color: var(--jd-ink); }
+.step-line { width: 36px; height: 1px; background: var(--jd-input-border); }
 
-.section-title { margin: 0 0 14px; font-size: 14px; font-weight: 700; color: #111; }
+.section-title { margin: 0 0 14px; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+
+.selected-category {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px; margin-bottom: 4px; border: 1px solid #f3d574;
+  border-radius: 8px; background: var(--jd-accent-soft);
+}
+.selected-category > div { display: flex; flex-direction: column; gap: 4px; }
+.selected-category-label { font-size: 0.875rem; color: var(--jd-muted); }
+.selected-category strong { font-size: 0.875rem; color: var(--jd-ink); }
+.change-category-btn {
+  flex-shrink: 0; border: 0; padding: 8px 10px; border-radius: 6px;
+  background: var(--jd-surface); color: #78350f; font-size: 0.875rem; font-weight: 700; cursor: pointer;
+}
 
 /* ---------- ขั้นตอน 1: หมวดหมู่ ---------- */
 .category-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -332,64 +429,73 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width:
   position: relative;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; padding: 20px 8px; min-height: 88px;
-  border: 1px solid #e5e5e5; border-radius: 10px; background: #fff; cursor: pointer;
+  border: 1px solid var(--jd-line); border-radius: 10px; background: var(--jd-surface); cursor: pointer;
 }
-.category-card.active { border-color: #ffc93c; background: #fffbea; }
-.cat-dot { position: absolute; top: 8px; left: 8px; width: 8px; height: 8px; border-radius: 50%; background: #ffc93c; }
-.cat-icon { font-size: 22px; }
-.cat-label { font-size: 13px; color: #333; text-align: center; }
-.category-card.active .cat-label { color: #111; font-weight: 600; }
+.category-card.active { border-color: var(--jd-warning); background: var(--jd-accent-soft); }
+.cat-dot { position: absolute; top: 8px; left: 8px; width: 8px; height: 8px; border-radius: 50%; background: var(--jd-accent); }
+.cat-icon { font-size: 1.375rem; }
+.cat-label { font-size: 0.875rem; color: var(--jd-ink); text-align: center; }
+.category-card.active .cat-label { color: var(--jd-ink); font-weight: 600; }
 
 /* ---------- ขั้นตอน 2: ฟอร์มรายละเอียด ---------- */
 .step-body { display: flex; flex-direction: column; }
-.field-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 12px; color: #666; }
+.field-label { display: block; margin-top: 12px; margin-bottom: 4px; font-size: 0.875rem; color: var(--jd-muted); }
 input, select, textarea {
-  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #ddd;
-  font-size: 13px; font-family: inherit; min-height: 42px; color: #111; background: #fff;
+  width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--jd-input-border);
+  font-size: 0.875rem; font-family: inherit; min-height: 44px; color: var(--jd-ink); background: var(--jd-surface);
 }
 textarea { resize: vertical; }
 .field-row { display: flex; gap: 10px; }
 .field-col { flex: 1; min-width: 0; }
 .input-suffix { position: relative; display: flex; align-items: center; }
 .input-suffix input { padding-right: 46px; }
-.input-suffix .suffix { position: absolute; right: 12px; font-size: 12px; color: #999; }
+.input-suffix .suffix { position: absolute; right: 12px; font-size: 0.875rem; color: var(--jd-muted); }
+.price-hint { display: block; margin-top: 4px; color: var(--jd-muted); font-size: 0.875rem; }
+.price-breakdown { margin-top: 8px; padding: 10px; border-radius: 8px; background: var(--jd-canvas); font-size: 0.875rem; }
+.price-breakdown > div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; color: var(--jd-muted); }
+.price-breakdown strong { color: var(--jd-ink); font-weight: 600; }
+.price-breakdown .price-total { margin-top: 4px; padding-top: 7px; border-top: 1px solid var(--jd-line); color: var(--jd-ink); }
+.price-breakdown .price-total strong { color: var(--jd-ink); font-size: 0.875rem; }
 .time-range { display: flex; align-items: center; gap: 6px; }
 .time-range input { min-width: 0; }
-.time-range .dash { color: #999; flex-shrink: 0; }
+.time-range .dash { color: var(--jd-muted); flex-shrink: 0; }
 
-.location-title { margin: 16px 0 0; font-size: 12px; font-weight: 700; color: #111; }
-.location-btn { margin-top: 8px; min-height: 38px; border: 1px solid #fbbf24; border-radius: 8px; background: #fffbea; color: #78350f; font-weight: 600; cursor: pointer; }
+.location-title { margin: 16px 0 0; font-size: 0.875rem; font-weight: 700; color: var(--jd-ink); }
+.location-btn { margin-top: 8px; min-height: 44px; border: 1px solid var(--jd-accent); border-radius: 8px; background: var(--jd-accent-soft); color: #78350f; font-weight: 600; cursor: pointer; }
 .location-btn:disabled { opacity: .65; cursor: not-allowed; }
 .input-icon { position: relative; display: flex; align-items: center; }
 .input-icon input { padding-right: 36px; }
-.input-icon .pin { position: absolute; right: 10px; width: 16px; height: 16px; color: #999; }
+.input-icon .pin { position: absolute; right: 10px; width: 16px; height: 16px; color: var(--jd-muted); }
 
 /* ---------- ขั้นตอน 3: ตรวจสอบ ---------- */
 .review-list { margin: 0; display: flex; flex-direction: column; }
-.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid #f2f2f2; }
+.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--jd-subtle); }
 .review-row:last-child { border-bottom: none; }
-.review-row dt { flex-shrink: 0; font-size: 12px; color: #999; }
-.review-row dd { margin: 0; font-size: 13px; color: #111; font-weight: 600; text-align: right; }
+.review-row dt { flex-shrink: 0; font-size: 0.875rem; color: var(--jd-muted); }
+.review-row dd { margin: 0; font-size: 0.875rem; color: var(--jd-ink); font-weight: 600; text-align: right; }
+.review-row.review-total { border-top: 1px solid var(--jd-input-border); border-bottom: none; margin-top: 4px; padding-top: 12px; }
+.review-row.review-total dt, .review-row.review-total dd { color: var(--jd-ink); font-weight: 700; }
 
 /* ---------- ปุ่ม ---------- */
 .actions { display: flex; gap: 10px; margin-top: 20px; }
 .btn-primary, .btn-muted {
-  flex: 1; min-height: 44px; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+  flex: 1; min-height: 44px; border-radius: 8px; font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
-.btn-primary { background: #ffc93c; border: none; color: #111; }
+.btn-primary { background: var(--jd-accent); border: none; color: var(--jd-ink); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-muted { background: #e5e5e5; border: none; color: #333; }
-.error-msg { margin: 10px 0 0; color: #e11d48; text-align: center; font-size: 12px; }
+.btn-muted { background: var(--jd-line); border: none; color: var(--jd-ink); }
+.error-msg { margin: 10px 0 0; color: #e11d48; text-align: center; font-size: 0.875rem; }
 
 /* ---------- หน้าจอสำเร็จ ---------- */
 .success { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 40px 8px 8px; }
 .check-circle {
-  width: 64px; height: 64px; border-radius: 50%; background: #22c55e; color: #fff;
+  width: 64px; height: 64px; border-radius: 50%; background: #22c55e; color: var(--jd-surface);
   display: flex; align-items: center; justify-content: center; margin-bottom: 16px;
 }
 .check-circle svg { width: 32px; height: 32px; stroke-width: 3; }
-.success-title { margin: 0 0 6px; font-size: 18px; font-weight: 700; color: #22c55e; }
-.success-sub { margin: 0 0 32px; font-size: 13px; color: #888; }
+.success-title { margin: 0 0 6px; font-size: 1.125rem; font-weight: 700; color: var(--jd-success); }
+.success-sub { margin: 0 0 32px; font-size: 0.875rem; color: var(--jd-muted); }
 .success-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; }
 .success-actions .btn-primary, .success-actions .btn-muted { width: 100%; }
 </style>
+

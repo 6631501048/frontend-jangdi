@@ -1,9 +1,11 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // SRS 3.5.15 / FR-REV-01–02: หลังงานเสร็จสิ้น ผู้รับจ้างให้คะแนน + รีวิวผู้ว่าจ้าง
 // ระบบรีวิวสองทาง (reciprocal) ช่วยรักษาความรับผิดชอบของทั้งสองฝั่งบนแพลตฟอร์ม
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import { resolveBackendAssetUrl } from "../../services/backendAssets";
 
 const route = useRoute();
 const router = useRouter();
@@ -11,18 +13,20 @@ const router = useRouter();
 const hirer = ref({ jobId: route.params.id, name: "", avatarUrl: null });
 const loading = ref(true);
 const errorMsg = ref("");
+const reviewed = ref(false);
+const canReview = ref(false);
 
 function resolveAvatar(pathOrUrl) {
-  if (!pathOrUrl) return null;
-  if (pathOrUrl.startsWith("http")) return pathOrUrl;
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api";
-  return apiBase.replace(/\/api\/?$/, "") + pathOrUrl;
+  return resolveBackendAssetUrl(pathOrUrl);
 }
 
 async function loadJob() {
   loading.value = true;
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+    reviewed.value = review.reviewed;
+    canReview.value = review.eligible && !review.reviewed;
     hirer.value = {
       jobId: data._id,
       name: data.hirer?.fullName || "ผู้ว่าจ้าง",
@@ -62,7 +66,7 @@ const submitting = ref(false);
 const canSubmit = computed(() => rating.value > 0 && !submitting.value);
 
 async function submitReview() {
-  if (!canSubmit.value) return;
+  if (!canSubmit.value || !canReview.value) return;
   submitting.value = true;
   errorMsg.value = "";
   try {
@@ -71,8 +75,10 @@ async function submitReview() {
       tags: selectedTags.value,
       comment: comment.value,
     });
-    router.push("/worker/jobs");
+    reviewed.value = true;
+    canReview.value = false;
   } catch (err) {
+    if (err.response?.status === 409) { reviewed.value = true; canReview.value = false; }
     errorMsg.value = err.response?.data?.message || "ส่งรีวิวไม่สำเร็จ";
   } finally {
     submitting.value = false;
@@ -82,27 +88,33 @@ async function submitReview() {
 function goBack() {
   router.back();
 }
+function goHome() {
+  router.push("/worker");
+}
 </script>
 
 <template>
-  <div class="page">
+  <div class="page jd-page">
     <header class="topbar">
       <button class="icon-btn" aria-label="ย้อนกลับ" @click="goBack">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6" /></svg>
       </button>
-      <h1 class="title">Review</h1>
+      <h1 class="title">เขียนรีวิว</h1>
       <span class="spacer" aria-hidden="true"></span>
     </header>
 
     <main class="content">
-      <div class="card">
+      <p v-if="loading">กำลังโหลดข้อมูล...</p>
+      <template v-else-if="reviewed">
+        <p class="review-complete" role="status">คุณได้รีวิว Hirer ของงานนี้แล้ว</p>
+        <button type="button" class="btn-primary home-btn" @click="goHome">กลับหน้าโฮม</button>
+      </template>
+      <p v-else-if="!canReview">{{ errorMsg || 'ยังไม่สามารถรีวิวงานนี้ได้' }}</p>
+      <div v-if="!loading && canReview" class="card">
         <div class="profile-block">
-          <span class="avatar" aria-hidden="true">
-            <img v-if="hirer.avatarUrl" :src="hirer.avatarUrl" alt="" />
-            <svg v-else viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" /></svg>
-          </span>
+          <span class="avatar"><UserAvatar :src="hirer.avatarUrl" :name="hirer.name" /></span>
           <p class="hirer-name">{{ hirer.name }}</p>
-          <p class="hirer-role">Hirer</p>
+          <p class="hirer-role">ผู้ว่าจ้าง</p>
         </div>
 
         <div class="stars-block">
@@ -125,7 +137,7 @@ function goBack() {
         <p class="prompt">How was your experience with the hirer?</p>
 
         <div class="tags-block">
-          <button
+          <button :aria-pressed="selectedTags.includes(tag)"
             v-for="tag in tagOptions"
             :key="tag"
             type="button"
@@ -137,7 +149,7 @@ function goBack() {
           </button>
         </div>
 
-        <textarea
+        <textarea aria-label="Send feedback to the Hirer"
           v-model="comment"
           class="comment-input"
           rows="3"
@@ -154,65 +166,67 @@ function goBack() {
 </template>
 
 <style scoped>
-.page { position: relative; min-height: 100vh; background: #f0f0f0; }
+.page { position: relative; min-height: 100vh; background: var(--jd-canvas); }
 svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
 /* ---------- Top bar (sub-page) ---------- */
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px; background: #fff; position: sticky; top: 0; z-index: 10;
-  border-bottom: 1px solid #eee;
+  padding: 10px 12px; background: var(--jd-surface); position: sticky; top: 0; z-index: 10;
+  border-bottom: 1px solid var(--jd-line);
 }
 .icon-btn {
   display: flex; align-items: center; justify-content: center;
   width: 40px; height: 40px; border: none; background: transparent;
-  border-radius: 50%; color: #111; cursor: pointer;
+  border-radius: 50%; color: var(--jd-ink); cursor: pointer;
 }
-.title { margin: 0; font-size: 15px; font-weight: 700; color: #111; }
+.title { margin: 0; font-size: 0.9375rem; font-weight: 700; color: var(--jd-ink); }
 .spacer { width: 40px; }
 
 .content { padding: 16px; }
-.card { background: #fff; border-radius: 12px; padding: 24px 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); display: flex; flex-direction: column; align-items: center; }
+.review-complete { text-align: center; }
+.card { background: var(--jd-surface); border-radius: 12px; padding: 24px 16px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06); display: flex; flex-direction: column; align-items: center; }
 
 /* ---------- โปรไฟล์ผู้ว่าจ้าง ---------- */
 .profile-block { display: flex; flex-direction: column; align-items: center; margin-bottom: 16px; }
 .avatar {
-  width: 72px; height: 72px; border-radius: 50%; border: 1px solid #ddd;
-  display: flex; align-items: center; justify-content: center; color: #555; overflow: hidden; background: #fafafa;
+  width: 72px; height: 72px; border-radius: 50%; border: 1px solid var(--jd-input-border);
+  display: flex; align-items: center; justify-content: center; color: var(--jd-muted); overflow: hidden; background: var(--jd-canvas);
 }
 .avatar svg { width: 34px; height: 34px; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
-.hirer-name { margin: 10px 0 0; font-size: 16px; font-weight: 700; color: #111; }
-.hirer-role { margin: 2px 0 0; font-size: 11px; color: #999; }
+.hirer-name { margin: 10px 0 0; font-size: 1rem; font-weight: 700; color: var(--jd-ink); }
+.hirer-role { margin: 2px 0 0; font-size: 0.875rem; color: var(--jd-muted); }
 
 /* ---------- ดาว ---------- */
 .stars-block { display: flex; gap: 4px; margin-bottom: 10px; }
 .star-btn { border: none; background: transparent; padding: 2px; cursor: pointer; }
-.star-btn svg { width: 30px; height: 30px; fill: none; stroke: #ddd; stroke-width: 1.5; transition: fill 0.1s, stroke 0.1s; }
-.star-btn svg.filled { fill: #ffc93c; stroke: #ffc93c; }
+.star-btn svg { width: 30px; height: 30px; fill: none; stroke: var(--jd-input-border); stroke-width: 1.5; transition: fill 0.1s, stroke 0.1s; }
+.star-btn svg.filled { fill: var(--jd-accent); stroke: var(--jd-accent); }
 
-.prompt { margin: 0 0 16px; font-size: 13px; color: #555; text-align: center; }
+.prompt { margin: 0 0 16px; font-size: 0.875rem; color: var(--jd-muted); text-align: center; }
 
 /* ---------- Tag ---------- */
 .tags-block { width: 100%; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px; }
 .tag-chip {
-  border: 1px solid #ddd; border-radius: 999px; background: #fff; color: #555;
-  font-size: 12px; padding: 7px 14px; cursor: pointer; white-space: nowrap;
+  border: 1px solid var(--jd-input-border); border-radius: 999px; background: var(--jd-surface); color: var(--jd-muted);
+  font-size: 0.875rem; padding: 7px 14px; cursor: pointer; white-space: nowrap;
 }
-.tag-chip.active { border-color: #ffc93c; background: #fff8e1; color: #8a6d00; font-weight: 700; }
+.tag-chip.active { border-color: var(--jd-warning); background: #fff8e1; color: #8a6d00; font-weight: 700; }
 
 /* ---------- คอมเมนต์ ---------- */
 .comment-input {
-  width: 100%; border: 1px solid #ddd; border-radius: 10px; padding: 10px 12px;
-  font-size: 13px; color: #111; resize: vertical; font-family: inherit; margin-bottom: 20px;
+  width: 100%; border: 1px solid var(--jd-input-border); border-radius: 10px; padding: 10px 12px;
+  font-size: 0.875rem; color: var(--jd-ink); resize: vertical; font-family: inherit; margin-bottom: 20px;
 }
-.comment-input::placeholder { color: #aaa; }
+.comment-input::placeholder { color: var(--jd-muted); }
 
 /* ---------- ปุ่มหลัก ---------- */
 .btn-primary {
   width: 100%; min-height: 46px; border: none; border-radius: 10px;
-  background: #ffc93c; color: #111; font-size: 14px; font-weight: 700; cursor: pointer;
+  background: var(--jd-accent); color: var(--jd-ink); font-size: 0.875rem; font-weight: 700; cursor: pointer;
 }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-.error-msg { margin: 10px 0 0; font-size: 12px; color: #e11d48; text-align: center; }
+.home-btn { display: block; width: auto; min-width: 180px; margin: 12px auto 0; padding: 0 24px; background: var(--jd-accent); color: var(--jd-ink); }
+.error-msg { margin: 10px 0 0; font-size: 0.875rem; color: #e11d48; text-align: center; }
 </style>

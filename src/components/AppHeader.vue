@@ -25,8 +25,8 @@ function goBack() {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 8px;
-  border-bottom: 1px solid #eee;
+  padding: 12px max(12px, calc((100% - 960px) / 2));
+  border-bottom: 1px solid var(--jd-line);
   position: sticky;
   top: 0;
   background: white;
@@ -37,15 +37,15 @@ function goBack() {
   min-height: 44px;
   border: none;
   background: transparent;
-  font-size: 24px;
+  font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
-  color: #111;
+  color: var(--jd-ink);
 }
 h1 {
   flex: 1;
   text-align: center;
-  font-size: 16px;
+  font-size: 1.125rem;
   font-weight: 600;
   margin: 0;
 }

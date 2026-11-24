@@ -1,10 +1,22 @@
-<script setup>
+﻿<script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-JOB-01/08, FR-TRACK-02/03/04, FR-SOS-01, FR-JOB-07: รายละเอียดงานของ Hirer ปรับเนื้อหาตามสถานะ
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
+import { fetchCompletionProof, proofRequestError } from "../../services/completionProof";
+import { createProofImageLoader } from "../../services/proofImageLoader";
 import AppHeader from "../../components/AppHeader.vue";
 import StatusBadge from "../../components/StatusBadge.vue";
+import { effectiveJobStatus } from "../../services/workflowStatus";
+import { paymentStatus } from '../../services/finance';
+import JobPaymentStatus from '../../components/JobPaymentStatus.vue';
+import JobReviewModal from '../../components/JobReviewModal.vue';
+import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
+import DecisionDialog from '../../components/AdminDecisionDialog.vue';
+import { useAdminDecision } from '../../composables/useAdminDecision';
+const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
+
 
 const route = useRoute();
 const router = useRouter();
@@ -14,7 +26,13 @@ const errorMsg = ref("");
 const applicants = ref([]);
 const applicantsLoaded = ref(false);
 const workerProfile = ref(null);
+const mockPayment = ref(null);
+const paymentTerms = ref({ ...defaultPaymentTerms });
+function goMockPayment() { router.push({ name: "hirer-mock-payment", params: { id: route.params.id } }); }
 const cancellingJob = ref(false);
+const showReviewModal = ref(false);
+const reviewDone = ref(false);
+const reviewStatusLoaded = ref(false);
 const canCancelJob = computed(() => job.value?.status === "waiting");
 
 // Private proof images cannot be loaded with <img src="/uploads/...">:
@@ -23,64 +41,62 @@ const canCancelJob = computed(() => job.value?.status === "waiting");
 const proofObjectUrl = ref(null);
 const proofLoading = ref(false);
 const proofError = ref("");
-let loadedProofKey = null;
-function clearProofImage() {
-  if (proofObjectUrl.value) URL.revokeObjectURL(proofObjectUrl.value);
-  proofObjectUrl.value = null;
-}
-async function loadProofImage(jobData, force = false) {
-  const key = jobData?.completionProofUrl ? `${jobData._id}:${jobData.completionProofUrl}` : null;
-  if (!force && loadedProofKey === key) return;
-  loadedProofKey = key;
-  clearProofImage();
-  proofError.value = "";
-  if (!key) return;
-  proofLoading.value = true;
-  try {
-    const { data } = await api.get(`/jobs/${jobData._id}/completion-proof`, { responseType: "blob" });
-    // Avoid reusing the image from a job that has changed while a request was pending.
-    if (loadedProofKey === key) proofObjectUrl.value = URL.createObjectURL(data);
-  } catch (err) {
-    if (loadedProofKey === key) {
-      let message = err.response?.data?.message;
-      // Axios keeps error bodies as Blob when responseType is "blob".
-      if (!message && err.response?.data instanceof Blob) {
-        try {
-          const body = await err.response.data.text();
-          message = JSON.parse(body).message;
-        } catch {
-          // Keep the HTTP status as a useful fallback for non-JSON responses.
-        }
-      }
-      const status = err.response?.status;
-      proofError.value = message || `Unable to load the completion photo${status ? ` (HTTP ${status})` : ". Check your connection and try again."}`;
-    }
-  } finally {
-    proofLoading.value = false;
-  }
-}
+const timelineError = ref("");
+const proofLoader = createProofImageLoader({
+  fetchImage: fetchCompletionProof,
+  describeError: proofRequestError,
+  onChange(state) {
+    proofObjectUrl.value = state.url;
+    proofLoading.value = state.loading;
+    proofError.value = state.error;
+  },
+});
+const loadProofImage = (data, force = false) => proofLoader.load(data, force);
 function retryProof() {
   if (job.value) loadProofImage(job.value, true);
 }
 
 function formatDuration(data) {
   if (data.durationStart && data.durationEnd) {
+    const hours = (new Date(data.durationEnd) - new Date(data.durationStart)) / 3600000;
+    if (Number.isFinite(hours) && hours > 0) {
+      const rounded = Number.isInteger(hours) ? hours : Number(hours.toFixed(1));
+      return `${rounded} ชั่วโมง`;
+    }
     return `${new Date(data.durationStart).toLocaleString("th-TH")} - ${new Date(data.durationEnd).toLocaleString("th-TH")}`;
   }
-  return data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH") : "-";
+  return "-";
 }
 
 async function loadJob() {
   if (!job.value) loading.value = true;
   errorMsg.value = "";
+  timelineError.value = "";
   try {
     const { data } = await api.get(`/jobs/${route.params.id}`);
+    if (data.status === "completed" && !reviewStatusLoaded.value) {
+      try {
+        const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+        reviewDone.value = !!review.reviewed;
+        reviewStatusLoaded.value = true;
+      } catch { reviewDone.value = false; }
+    }
     let events = [];
     if (["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
-      const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
-      events = timeline;
+      try {
+        const { data: timeline } = await api.get(`/jobs/${route.params.id}/timeline`);
+        events = timeline;
+      } catch {
+        timelineError.value = "โหลดประวัติสถานะไม่สำเร็จ แต่ยังตรวจรูปหลักฐานได้";
+      }
     }
-    await loadProofImage(data);
+    if (["assigned", "in_progress", "awaiting_confirmation", "disputed", "cancelled", "completed"].includes(data.status)) {
+      try { const { data: pay } = await api.get(`/payments/${route.params.id}/mock`); mockPayment.value = pay; }
+      catch { mockPayment.value = null; }
+    } else mockPayment.value = null;
+    data.status = effectiveJobStatus(data.status, mockPayment.value || data.paymentStatus);
+    // Image fetching must not block the job page or the next status poll.
+    void loadProofImage(data);
     const selectedWorkerId = data.selectedWorker?._id || data.selectedWorker;
     if (selectedWorkerId && ["assigned", "in_progress", "awaiting_confirmation", "completed"].includes(data.status)) {
       try {
@@ -101,42 +117,45 @@ async function loadJob() {
       ...data,
       id: data._id,
       durationLabel: formatDuration(data),
+      scheduledLabel: data.scheduledAt ? new Date(data.scheduledAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" }) : "-",
       serviceFee: data.deliveryFee || 0,
-      total: Number(data.price || 0) + Number(data.deliveryFee || 0),
+      transactionFee: mockPayment.value?.platformFeeAmount ?? calculatePaymentFees(Number(data.price || 0) + Number(data.deliveryFee || 0), paymentTerms.value).platformFeeAmount,
+      total: mockPayment.value?.totalDue ?? calculatePaymentFees(Number(data.price || 0) + Number(data.deliveryFee || 0), paymentTerms.value).totalDue,
       from: { label: data.fromText || data.locationText || "-" },
       to: { label: data.toText || "-" },
       applicants: applicants.value,
       timelineEvents: events,
-      cancellation: data.status === "cancelled" ? { cancelledBy: "Hirer", reason: data.cancelReason || "Not specified", at: data.cancelledAt } : null,
-      statusLabel: ({ assigned: "Worker selected", in_progress: "In Progress", awaiting_confirmation: "Waiting for your confirmation", completed: "Completed", cancelled: "Cancelled" })[data.status] || data.status,
+      cancellation: data.status === "cancelled" ? { cancelledBy: mockPayment.value?.status === 'refunded' ? 'แอดมิน (คืนเงิน)' : 'ผู้ว่าจ้าง', reason: data.cancelReason || mockPayment.value?.refundNotes || "ไม่ได้ระบุเหตุผล", at: data.cancelledAt } : null,
+      statusLabel: ({ pending_review: "รอตรวจสอบ", rejected: "ถูกปฏิเสธ", waiting: "เปิดรับสมัคร", assigned: "เลือกผู้รับจ้างแล้ว", in_progress: "กำลังดำเนินงาน", awaiting_confirmation: "รอคุณยืนยันงาน", completed: "เสร็จสิ้น", cancelled: "ยกเลิก", disputed: mockPayment.value?.status === "refund_pending" ? "รอแอดมินคืนเงิน" : "รอพิจารณาคืนเงิน" })[data.status] || data.status,
     };
   } catch (err) {
-    errorMsg.value = err.response?.data?.message || "Unable to load job details.";
+    errorMsg.value = err.response?.data?.message || "โหลดรายละเอียดงานไม่สำเร็จ";
   } finally {
     loading.value = false;
   }
 }
 let statusRefreshTimer;
 onMounted(async () => {
+  try { const {data} = await api.get('/payments/config'); paymentTerms.value={...paymentTerms.value,...data}; } catch { /* Stored payment amounts remain authoritative. */ }
   await loadJob();
   statusRefreshTimer = window.setInterval(() => {
-    if (["assigned", "in_progress", "awaiting_confirmation"].includes(job.value?.status)) loadJob();
+    if (["assigned", "in_progress", "awaiting_confirmation", "disputed"].includes(job.value?.status) || (job.value?.status === 'completed' && (!mockPayment.value || mockPayment.value.status === 'payout_pending')) || (job.value?.status === 'cancelled' && mockPayment.value?.status === 'refunded' && !mockPayment.value.hasRefundSlip)) loadJob();
   }, 5000);
 });
 onUnmounted(() => {
   window.clearInterval(statusRefreshTimer);
-  clearProofImage();
+  proofLoader.dispose();
 });
 
 async function cancelJob() {
   if (!canCancelJob.value || cancellingJob.value) return;
-  const reason = window.prompt("เหตุผลที่ต้องการยกเลิกประกาศงาน (งานที่ยังไม่เลือก Worker เท่านั้น):");
+  const reason = await askDecision({ title: 'ยกเลิกประกาศงาน', message: 'ระบุเหตุผลในการยกเลิกประกาศนี้ ยกเลิกได้ก่อนเลือกผู้รับจ้างเท่านั้น', requireReason: true, minLength: 5, maxLength: 500, confirmLabel: 'ยืนยันยกเลิก' });
   if (reason === null) return;
   if (!reason.trim()) {
     errorMsg.value = "กรุณาระบุเหตุผลในการยกเลิก";
     return;
   }
-  if (!window.confirm("ต้องการยกเลิกประกาศงานนี้ใช่หรือไม่?")) return;
+  if (!canCancelJob.value || cancellingJob.value) return;
   cancellingJob.value = true;
   try {
     await api.post(`/jobs/${job.value._id}/cancel`, { reason: reason.trim() });
@@ -151,9 +170,13 @@ function goApplicants() {
   router.push({ name: "hirer-applicants", params: { id: job.value._id } });
 }
 function goReview() {
-  router.push({ name: "hirer-review", params: { id: job.value.id } });
+  showReviewModal.value = true;
+}
+function goHome() {
+  router.push("/hirer");
 }
 const confirmingCompletion = ref(false);
+const showCompletionPopup = ref(false);
 const completionError = ref("");
 function formatStatusTime(value) {
   if (!value) return null;
@@ -163,7 +186,7 @@ function formatStatusTime(value) {
 const progressSteps = computed(() => {
   const currentStep = ({ assigned: 0, in_progress: 1, awaiting_confirmation: 2, completed: 3 })[job.value?.status] ?? -1;
   const statuses = ["assigned", "in_progress", "awaiting_confirmation", "completed"];
-  return ["Assigned", "In Progress", "Awaiting Confirmation", "Completed"].map((label, index) => ({
+  return ["เลือกผู้รับจ้างแล้ว", "กำลังดำเนินงาน", "รอยืนยันงาน", "เสร็จสิ้น"].map((label, index) => ({
     label,
     done: currentStep > index,
     current: currentStep === index,
@@ -173,17 +196,24 @@ const progressSteps = computed(() => {
 });
 
 async function confirmCompletion() {
-  if (!job.value || job.value.status !== "awaiting_confirmation" || confirmingCompletion.value || !proofObjectUrl.value) return;
-  if (!window.confirm("Have you reviewed the completion photo and received the work? Confirm completion? (Demo payment only.)")) return;
+  if (mockPayment.value?.status !== "held" || !job.value || job.value.status !== "awaiting_confirmation" || confirmingCompletion.value || !proofObjectUrl.value) return;
+  const answer = await askDecision({
+    title: 'ยืนยันรับงานและปิดงาน',
+    message: 'คุณตรวจสอบรูปหลักฐานและได้รับงานครบถ้วนแล้วใช่หรือไม่?',
+    notice: 'เมื่อยืนยัน ระบบจะปิดงานและส่งเข้าคิวให้แอดมินจ่ายค่าจ้างพร้อมแนบสลิป ผู้รับจ้างจะได้รับเงินหลังแอดมินบันทึกการจ่ายแล้ว',
+    confirmLabel: 'ยืนยันรับงาน',
+  });
+  if (answer === null || mockPayment.value?.status !== 'held' || job.value?.status !== 'awaiting_confirmation' || confirmingCompletion.value || !proofObjectUrl.value) return;
 
   confirmingCompletion.value = true;
   completionError.value = "";
   try {
     const { data } = await api.post(`/jobs/${job.value._id}/confirm-completion`);
-    job.value = { ...job.value, ...data.job, statusLabel: "Completed" };
+    job.value = { ...job.value, ...data.job, statusLabel: "เสร็จสิ้น" };
     await loadJob();
+    showCompletionPopup.value = true;
   } catch (err) {
-    completionError.value = err.response?.data?.message || "Unable to confirm job completion.";
+    completionError.value = err.response?.data?.message || "ยืนยันปิดงานไม่สำเร็จ กรุณาลองใหม่";
   } finally {
     confirmingCompletion.value = false;
   }
@@ -192,14 +222,16 @@ async function confirmCompletion() {
 </script>
 
 <template>
-  <main v-if="job" class="job-detail">
+  <main v-if="job" class="job-detail jd-page">
     <p v-if="errorMsg" class="completion-error" role="alert">{{ errorMsg }}</p>
-    <AppHeader title="Job Details" />
+    <AppHeader title="รายละเอียดงาน" />
 
     <section class="card">
+      <div v-if="job.status === 'disputed'" class="mock-banner" role="status"><strong>{{ mockPayment?.status === 'refund_pending' ? 'อนุมัติแล้ว รอแอดมินคืนเงินและแนบหลักฐาน' : 'งานพักไว้ระหว่างพิจารณาคืนเงิน' }}</strong><p>งานพักไว้และยังไม่ปล่อยค่าจ้าง แอดมินเป็นผู้ดำเนินการคืนเงิน</p><RouterLink :to="{name:'hirer-refund',params:{id:job._id}}">ดูสถานะคำขอคืนเงิน</RouterLink></div>
+      <div v-else-if="mockPayment?.status === 'refunded'" class="mock-banner" role="status"><strong>คืนเงินแล้ว (โหมดทดสอบ)</strong><p>จำนวน {{Number(mockPayment.refundAmount || 0).toLocaleString('th-TH')}} บาท</p><p>เหตุผลผู้ดูแล: {{mockPayment.refundNotes || '—'}}</p></div>
       <div class="head">
         <div class="who">
-          <div class="avatar">👤</div>
+          <span class="avatar"><UserAvatar :src="job.hirer?.avatarUrl" :name="job.hirer?.fullName" /></span>
           <div>
             <div class="title">{{ job.title }}</div>
             <div class="sub">{{ job.description }}</div>
@@ -209,50 +241,63 @@ async function confirmCompletion() {
       </div>
 
       <dl class="rows">
-        <div class="row"><dt>Details</dt><dd>{{ job.description }}</dd></div>
-        <div class="row"><dt>Time</dt><dd>{{ job.durationLabel }}</dd></div>
-        <div class="row"><dt>Price</dt><dd>{{ job.price }} Baht</dd></div>
-        <div class="row"><dt>Service Fee</dt><dd>{{ job.serviceFee }} Baht</dd></div>
-        <div class="row total"><dt>Total</dt><dd>{{ job.total }} Baht</dd></div>
+        <div class="row"><dt>ประเภทงาน</dt><dd>{{ job.category }}</dd></div>
+        <div class="row"><dt>รายละเอียด</dt><dd>{{ job.description || "ไม่ได้ระบุรายละเอียด" }}</dd></div>
+        <div class="row"><dt>วันและเวลาเริ่มงาน</dt><dd>{{ job.scheduledLabel }}</dd></div>
+        <div v-if="job.durationStart && job.durationEnd" class="row"><dt>ระยะเวลาทำงาน</dt><dd>{{ job.durationLabel }}</dd></div>
+        <div class="row"><dt>ค่าจ้างผู้รับจ้าง</dt><dd>{{ Number(job.price || 0).toFixed(2) }} บาท</dd></div>
+        <div v-if="job.serviceFee" class="row"><dt>ค่าบริการเพิ่มเติม</dt><dd>{{ Number(job.serviceFee).toFixed(2) }} บาท</dd></div>
+        <div class="row"><dt>ค่าบริการแพลตฟอร์มรวมค่าธรรมเนียมธุรกรรม</dt><dd>{{job.transactionFee == null ? 'รอคำนวณ' : job.transactionFee.toFixed(2)+' บาท'}}</dd></div>
+        <div class="row total"><dt>ยอดรวม</dt><dd>{{job.total == null ? 'รอคำนวณ' : job.total+' บาท'}}</dd></div>
       </dl>
 
-      <div class="locations">
+      <div v-if="job.category === 'delivery'" class="locations">
         <div class="loc">
           <span class="pin">📍</span>
-          <div><span class="loc-label">From</span><br />{{ job.from.label }}</div>
+          <div><span class="loc-label">จุดรับสิ่งของ</span><br />{{ job.from.label }}</div>
         </div>
         <div class="loc">
           <span class="pin">🏁</span>
-          <div><span class="loc-label">To</span><br />{{ job.to.label }}</div>
+          <div><span class="loc-label">จุดส่งสิ่งของ</span><br />{{ job.to.label }}</div>
         </div>
+      </div>
+      <div v-else class="locations">
+        <div class="loc"><span class="pin">📍</span><div><span class="loc-label">สถานที่ทำงาน</span><br />{{ job.from.label }}</div></div>
       </div>
 
       <div class="notes">
-        <span class="loc-label">Additional Notes (Optional)</span>
+        <span class="loc-label">หมายเหตุเพิ่มเติม (ไม่บังคับ)</span>
         <p>{{ job.notes || "-" }}</p>
       </div>
 
       <button v-if="canCancelJob" class="btn danger" :disabled="cancellingJob" @click="cancelJob">
-        {{ cancellingJob ? "Cancelling..." : "Cancel Job" }}
+        {{ cancellingJob ? "Cancelling..." : "ยกเลิกประกาศงาน" }}
       </button>
       <!-- FR-JOB-08 / FR-MATCH-03: ยังไม่เลือกช่าง ให้ดูผู้สมัครได้ -->
       <button v-if="job.status === 'waiting'" class="btn primary" @click="goApplicants">
-        View Applicants ({{ job.applicants.length }})
+        ดูผู้สมัคร ({{ job.applicants.length }})
       </button>
 
       <!-- FR-TRACK-01/02/03, FR-SOS-01: งานกำลังดำเนินการ -->
       <!-- Worker contact and progress after selection -->
+      <div v-if="mockPayment" class="mock-banner">
+        <strong>{{paymentStatus(mockPayment.status, mockPayment.paymentMode)}}</strong>
+        <p v-if="mockPayment.status === 'pending'">ชำระผ่าน Stripe ด้วยบัตรหรือ QR ได้โดยไม่ต้องแนบสลิป ระบบยืนยันเงินก่อนเริ่มงาน</p>
+        <p v-if="mockPayment.status === 'slip_rejected'">สลิปจำลองถูกปฏิเสธ กรุณาตรวจเหตุผลและแนบใหม่</p>
+        <p v-if="mockPayment.slipReviewNotes">ผลตรวจสลิป: {{mockPayment.slipReviewNotes}}</p>
+        <button type="button" class="btn primary" @click="goMockPayment">ดูการชำระเงินและหลักฐานจ่ายค่าจ้าง</button>
+      </div>
       <template v-if="['assigned', 'in_progress', 'awaiting_confirmation', 'completed'].includes(job.status)">
-        <h2 class="section-title">Contact</h2>
+        <h2 class="section-title">ช่องทางติดต่อ</h2>
         <div class="contact-row">
-          <a v-if="workerProfile?.phone" class="contact-btn" :href="`tel:${workerProfile.phone}`">
-            &#128222; <span>{{ workerProfile.phone }}<br /><small>Phone call</small></span>
+          <a v-if="workerProfile?.phone" class="contact-btn phone-contact" :href="`tel:${workerProfile.phone}`">
+            &#128222; <span>{{ workerProfile.phone }}<br /><small>โทรศัพท์</small></span>
           </a>
-          <div v-else class="contact-btn unavailable">&#128222; <span>Phone unavailable<br /><small>Not provided in profile</small></span></div>
-          <a v-if="workerProfile?.lineId" class="contact-btn" :href="`https://line.me/R/ti/p/~${encodeURIComponent(workerProfile.lineId)}`" target="_blank" rel="noopener noreferrer">
+          <div v-else class="contact-btn phone-contact unavailable">&#128222; <span>ไม่มีเบอร์โทรศัพท์<br /><small>ไม่ได้ระบุในโปรไฟล์</small></span></div>
+          <a v-if="workerProfile?.lineId" class="contact-btn line-contact" :href="`https://line.me/R/ti/p/~${encodeURIComponent(workerProfile.lineId)}`" target="_blank" rel="noopener noreferrer">
             &#128172; <span>@{{ workerProfile.lineId }}<br /><small>LINE ID</small></span>
           </a>
-          <div v-else class="contact-btn unavailable">&#128172; <span>LINE ID unavailable<br /><small>Not provided in profile</small></span></div>
+          <div v-else class="contact-btn line-contact unavailable">&#128172; <span>ไม่มี LINE ID<br /><small>ไม่ได้ระบุในโปรไฟล์</small></span></div>
         </div>
 
         <ol class="timeline">
@@ -261,65 +306,88 @@ async function confirmCompletion() {
             <div>
               <div class="t-label">{{ step.label }}</div>
               <div v-if="step.timestamp" class="t-time">{{ step.timestamp }}</div>
-              <div v-else-if="step.current && step.label === 'Completed'" class="t-time">Confirmed by Hirer</div>
-              <div v-else-if="step.current && step.label === 'Assigned'" class="t-time">Worker has been selected</div>
-              <div v-else-if="step.current && step.label === 'In Progress'" class="t-time">Worker is doing the job</div>
-              <div v-else-if="step.current && step.label === 'Awaiting Confirmation'" class="t-time">Completion proof submitted, waiting for your approval</div>
+              <div v-else-if="step.current && step.label === 'เสร็จสิ้น'" class="t-time">ผู้ว่าจ้างยืนยันแล้ว</div>
+              <div v-else-if="step.current && step.label === 'เลือกผู้รับจ้างแล้ว'" class="t-time">เลือกผู้รับจ้างแล้ว</div>
+              <div v-else-if="step.current && step.label === 'กำลังดำเนินงาน'" class="t-time">ผู้รับจ้างกำลังทำงาน</div>
+              <div v-else-if="step.current && step.label === 'รอยืนยันงาน'" class="t-time">ส่งหลักฐานแล้ว รอคุณตรวจสอบ</div>
             </div>
           </li>
         </ol>
 
         <p v-if="['assigned', 'in_progress'].includes(job.status)" class="proof-note">หากงานมีปัญหาระหว่างดำเนินการ กรุณาติดต่อผู้ดูแลก่อนยกเลิก เพื่อไม่ให้ข้อมูลการจ่ายเงินจำลองผิดพลาด</p>
+        <RouterLink v-if="mockPayment?.status === 'held' && ['assigned', 'in_progress'].includes(job.status)" class="btn danger refund-link" :to="{name:'hirer-refund',params:{id:job._id}}">ไม่ยอมรับงาน / ขอคืนเงิน</RouterLink>
       </template>
 
       <!-- Authorized proof preview is available while pending and after confirmation. -->
       <template v-if="['awaiting_confirmation', 'completed'].includes(job.status)">
-        <h2 class="section-title">Completion proof</h2>
-        <p v-if="proofLoading" class="proof-note">Loading photo...</p>
+        <h2 class="section-title">รูปหลักฐานที่ผู้รับจ้างส่งแล้ว</h2>
+        <p v-if="timelineError" class="proof-note">{{ timelineError }}</p>
+        <p v-if="proofLoading" class="proof-note" role="status">กำลังโหลดรูปหลักฐาน…</p>
         <a v-else-if="proofObjectUrl" class="proof-link" :href="proofObjectUrl" target="_blank" rel="noopener noreferrer">
-          <img class="completion-proof" :src="proofObjectUrl" alt="Worker completion proof" />
-          Open full-size photo
+          <img class="completion-proof" :src="proofObjectUrl" alt="รูปหลักฐานที่ผู้รับจ้างส่งสำหรับงานนี้" @error="proofLoader.fail('ไม่สามารถแสดงภาพหลักฐานได้ กรุณาลองโหลดใหม่')" />
+          ดูรูปขนาดเต็ม
         </a>
         <div v-else-if="proofError" role="alert" class="proof-missing">
           {{ proofError }}
-          <button type="button" class="btn outline" @click="retryProof">Retry photo</button>
+          <button type="button" class="btn outline" @click="retryProof">ลองโหลดรูปอีกครั้ง</button>
         </div>
-        <p v-else class="proof-missing">The worker has not provided a completion photo.</p>
+        <p v-else class="proof-missing">ยังไม่มีรูปหลักฐานที่ส่งสำเร็จสำหรับงานนี้</p>
       </template>
 
       <template v-if="job.status === 'awaiting_confirmation'">
-        <p class="proof-note">Please review the photo and make sure the work was delivered before confirming.</p>
+        <p class="proof-note">กรุณาตรวจรูปและยืนยันเมื่องานส่งมอบเรียบร้อยแล้ว</p>
         <p v-if="completionError" class="completion-error" role="alert">{{ completionError }}</p>
-        <button class="btn primary" :disabled="confirmingCompletion || !proofObjectUrl" @click="confirmCompletion">
-          {{ confirmingCompletion ? "Confirming..." : "Confirm Job Completed" }}
-        </button>
+        <div class="job-action-row">
+          <RouterLink v-if="mockPayment?.status === 'held'" class="btn danger refund-link" :to="{name:'hirer-refund',params:{id:job._id}}">ไม่ยอมรับงาน / ขอคืนเงิน</RouterLink>
+          <button class="btn primary" :disabled="confirmingCompletion || !proofObjectUrl || mockPayment?.status !== 'held'" @click="confirmCompletion">
+            {{ confirmingCompletion ? "กำลังยืนยัน…" : "ยืนยันรับงานและปิดงาน" }}
+          </button>
+        </div>
       </template>
+      <JobPaymentStatus v-if="['completed','disputed','cancelled'].includes(job.status)" :payment="mockPayment" role="hirer" />
       <div v-if="job.status === 'completed'">
         <p class="completion-success" role="status">
-          Job confirmed by Hirer<span v-if="job.completionConfirmedAt"> on {{ new Date(job.completionConfirmedAt).toLocaleString('th-TH') }}</span>.
-          Payment is recorded in DEMO mode; no real transfer occurred.
+          ผู้ว่าจ้างยืนยันปิดงานแล้ว<span v-if="job.completionConfirmedAt"> เมื่อ {{ new Date(job.completionConfirmedAt).toLocaleString('th-TH') }}</span>.
+          การจ่ายค่าจ้างติดตามแยกจากการตรวจรับงาน ดูสถานะและหลักฐานด้านล่าง
         </p>
         <div class="actions">
-          <button class="btn primary" @click="goReview">Review</button>
-          <!-- Refund remains outside this MVP flow; do not route to mock refunds. -->
+          <button v-if="!reviewDone" class="btn primary" @click="goReview">ให้ดาวและรีวิว</button>
+          <p v-else class="review-done" role="status">รีวิวงานนี้แล้ว</p>
+          <button v-if="reviewDone" class="btn primary home-button" @click="goHome">กลับหน้าโฮม</button>
+
         </div>
       </div>
 
       <!-- FR-JOB-07: รายละเอียดการยกเลิก -->
       <template v-if="job.status === 'cancelled' && job.cancellation">
-        <h2 class="section-title">Cancellation Details</h2>
+        <h2 class="section-title">รายละเอียดการยกเลิก</h2>
         <dl class="rows">
-          <div class="row"><dt>Cancelled By</dt><dd>{{ job.cancellation.cancelledBy }}</dd></div>
-          <div class="row"><dt>Reason</dt><dd>{{ job.cancellation.reason }}</dd></div>
+          <div class="row"><dt>ผู้ยกเลิก</dt><dd>{{ job.cancellation.cancelledBy }}</dd></div>
+          <div class="row"><dt>เหตุผล</dt><dd>{{ job.cancellation.reason }}</dd></div>
         </dl>
-        <button class="btn primary" @click="router.push({ name: 'hirer-my-jobs' })">Back to My Jobs</button>
+        <button class="btn primary" @click="router.push({ name: 'hirer-my-jobs' })">กลับไปงานของฉัน</button>
       </template>
     </section>
+    <button
+      v-if="job.status === 'disputed' || mockPayment?.status === 'refunded'"
+      class="btn primary home-button refund-home-button"
+      @click="goHome"
+    >กลับไปหน้าแรก</button>
+    <DecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
+    <JobReviewModal v-if="showReviewModal" role="hirer" :job-id="String(job._id)" @close="showReviewModal = false" @reviewed="reviewDone = true; reviewStatusLoaded = true" />
+    <div v-if="showCompletionPopup" class="completion-popup-backdrop" role="presentation" @click.self="showCompletionPopup = false">
+      <section class="completion-popup" role="alertdialog" aria-modal="true" aria-labelledby="completion-popup-title">
+        <div class="completion-popup-icon" aria-hidden="true">✓</div>
+        <h2 id="completion-popup-title">ยืนยันปิดงานสำเร็จ</h2>
+        <p>งานเสร็จเรียบร้อยแล้ว และส่งเข้าคิวรอผู้ดูแลบันทึกจ่ายค่าจ้าง</p>
+        <button class="btn primary" @click="showCompletionPopup = false">ตกลง</button>
+      </section>
+    </div>
   </main>
-  <main v-else class="job-detail">
-    <AppHeader title="Job Details" />
+  <main v-else class="job-detail jd-page">
+    <AppHeader title="รายละเอียดงาน" />
     <p v-if="loading" class="placeholder">กำลังโหลดรายละเอียดงาน...</p>
-    <p v-else class="placeholder" role="alert">{{ errorMsg || "Job not found." }}</p>
+    <p v-else class="placeholder" role="alert">{{ errorMsg || "ไม่พบงานนี้" }}</p>
   </main>
 </template>
 
@@ -328,49 +396,68 @@ async function confirmCompletion() {
 .card { padding: 16px; }
 .head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
 .who { display: flex; gap: 10px; align-items: flex-start; }
-.avatar { width: 36px; height: 36px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; }
-.title { font-weight: 700; font-size: 15px; }
-.sub { font-size: 12px; color: #888; margin-top: 2px; }
-.rows { margin: 12px 0; border-top: 1px solid #f0f0f0; }
-.row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
-.row dt { color: #888; }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--jd-subtle); display: flex; align-items: center; justify-content: center; }
+.title { font-weight: 700; font-size: 0.9375rem; }
+.sub { font-size: 0.875rem; color: var(--jd-muted); margin-top: 2px; }
+.rows { margin: 12px 0; border-top: 1px solid var(--jd-canvas); }
+.row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--jd-canvas); font-size: 0.875rem; }
+.row dt { color: var(--jd-muted); }
 .row dd { margin: 0; font-weight: 600; }
-.row.total dd { font-size: 15px; }
-.locations { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+.row.total dd { font-size: 0.9375rem; }
+.locations { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--jd-canvas); font-size: 0.875rem; }
 .loc { display: flex; gap: 8px; }
-.loc-label { font-size: 11px; color: #aaa; }
-.notes { padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
-.notes p { margin: 4px 0 0; color: #555; }
-.section-title { font-size: 14px; margin: 16px 0 8px; }
+.loc-label { font-size: 0.875rem; color: var(--jd-muted); }
+.notes { padding: 12px 0; border-bottom: 1px solid var(--jd-canvas); font-size: 0.875rem; }
+.notes p { margin: 4px 0 0; color: var(--jd-muted); }
+.section-title { font-size: 0.875rem; margin: 16px 0 8px; }
 .contact-row { display: flex; gap: 10px; }
 .contact-btn {
   flex: 1; display: flex; align-items: center; gap: 8px; padding: 10px;
-  border: 1px solid #e5e7eb; border-radius: 10px; background: white; font-size: 12px;
-  min-height: 48px; text-decoration: none; color: #111; cursor: pointer;
+  border: 1px solid var(--jd-line); border-radius: 10px; background: white; font-size: 0.875rem;
+  min-height: 48px; text-decoration: none; color: var(--jd-ink); cursor: pointer;
 }
 .contact-btn span { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
-.contact-btn small { color: #888; font-size: 10px; }
-.contact-btn.unavailable { color: #999; cursor: default; }
+.contact-btn small { color: var(--jd-muted); font-size: 0.875rem; }
+.contact-btn.unavailable { color: var(--jd-muted); cursor: default; }
+.contact-btn.phone-contact { border-color: #bfdbfe; background: #eff6ff; }
+.contact-btn.phone-contact.unavailable { color: #475569; }
+.contact-btn.line-contact { border-color: #06c755; background: #06c755; color: #fff; }
+.contact-btn.line-contact span, .contact-btn.line-contact strong, .contact-btn.line-contact small { color: #fff; }
 .timeline { list-style: none; margin: 18px 0 8px; padding: 0; }
 .timeline li { display: flex; gap: 10px; align-items: flex-start; padding: 0 0 18px 2px; position: relative; }
-.timeline li:not(:last-child)::before { content: ""; position: absolute; left: 7px; top: 14px; bottom: -2px; width: 2px; background: #e5e7eb; }
-.timeline .dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid #d1d5db; margin-top: 1px; flex-shrink: 0; }
-.timeline li.done .dot, .timeline li.current .dot { background: #fbbf24; border-color: #fbbf24; }
-.timeline li.current .t-label, .timeline li.done .t-label { color: #b8860b; font-weight: 700; }
-.t-label { font-size: 12px; color: #777; }
-.t-time { font-size: 11px; color: #999; }
-.btn { width: 100%; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 14px; margin-top: 10px; border: 1px solid #e5e7eb; background: white; cursor: pointer; }
-.btn.primary { background: #fbbf24; color: #78350f; border: none; }
+.timeline li:not(:last-child)::before { content: ""; position: absolute; left: 7px; top: 14px; bottom: -2px; width: 2px; background: var(--jd-line); }
+.timeline .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--jd-surface); border: 2px solid var(--jd-input-border); margin-top: 1px; flex-shrink: 0; }
+.timeline li.done .dot, .timeline li.current .dot { background: var(--jd-accent); border-color: var(--jd-warning); }
+.timeline li.current .t-label, .timeline li.done .t-label { color: var(--jd-warning); font-weight: 700; }
+.t-label { font-size: 0.875rem; color: var(--jd-muted); }
+.t-time { font-size: 0.875rem; color: var(--jd-muted); }
+.btn { width: 100%; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 0.875rem; margin-top: 10px; border: 1px solid var(--jd-line); background: white; cursor: pointer; }
+.btn.primary { background: var(--jd-accent); color: #78350f; border: none; }
 .btn.danger { background: #ef4444; color: white; border: none; }
-.btn.outline { background: white; color: #555; }
+.btn.outline { background: white; color: var(--jd-muted); }
+.job-action-row { display: flex; gap: 10px; margin-top: 10px; }
+.job-action-row > .btn { flex: 1; width: 0; min-width: 0; margin-top: 0; padding: 8px 6px; font-size: 0.875rem; }
+.refund-link { display: flex; align-items: center; justify-content: center; margin-top: 12px; text-decoration: none; text-align: center; }
 .actions { display: flex; gap: 10px; }
-.proof-link { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px; color: #1d4ed8; font-size: 13px; margin: 4px 0; }
+.proof-link { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 6px; color: #1d4ed8; font-size: 0.875rem; margin: 4px 0; }
 .completion-proof { display: block; max-width: 100%; max-height: 320px; border-radius: 8px; object-fit: contain; }
-.proof-missing, .proof-note, .completion-error, .completion-success { font-size: 12px; margin: 8px 0; }
-.proof-note { color: #555; }
+.proof-missing, .proof-note, .completion-error, .completion-success { font-size: 0.875rem; margin: 8px 0; }
+.proof-note { color: var(--jd-muted); }
 .proof-missing, .completion-error { color: #dc2626; }
 .completion-success { color: #15803d; }
+.review-done { margin: 16px 0 0; color: var(--jd-muted); font-size: 0.875rem; text-align: center; }
+.completion-popup-backdrop { position:fixed; inset:0; z-index:40; display:grid; place-items:center; padding:20px; background:rgb(15 23 42 / 45%); }
+.completion-popup { width:min(100%,360px); padding:24px; border-radius:16px; background:var(--jd-surface); text-align:center; box-shadow:0 16px 48px rgb(0 0 0 / 20%); }
+.completion-popup-icon { display:grid; width:48px; height:48px; margin:0 auto 12px; place-items:center; border-radius:50%; background:#dcfce7; color:#15803d; font-size: 1.75rem; font-weight:800; }
+.completion-popup h2 { margin:0 0 8px; font-size: 1.0625rem; }
+.completion-popup p { margin:0 0 16px; color:#475569; font-size: 0.875rem; line-height:1.6; }
+.completion-popup .btn { margin:0; }
+.home-button { min-height: 44px; padding: 0 18px; border-radius: 9px; font-weight: 700; }
+.refund-home-button { display:block; margin:12px auto 24px; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .actions .btn { margin-top: 16px; }
-.placeholder { padding: 16px; color: #888; }
+.placeholder { padding: 16px; color: var(--jd-muted); }
+.mock-banner { margin: 14px 0; padding: 14px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px; }
+.mock-banner p { font-size: 0.875rem; }
 </style>
+

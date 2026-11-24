@@ -1,6 +1,7 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import api from "../../services/api";
+import AdminFinancialSummary from "../../components/AdminFinancialSummary.vue";
 
 const loading = ref(true);
 const errorMessage = ref("");
@@ -11,27 +12,6 @@ const stats = ref({
   pendingJobs: 0,
   openSos: 0,
 });
-
-const finance = ref({
-  totalVolume: 0,
-  totalFees: 0,
-  count: 0,
-});
-
-const hasFinanceData = computed(() => {
-  return (
-    finance.value.totalVolume > 0 ||
-    finance.value.totalFees > 0 ||
-    finance.value.count > 0
-  );
-});
-
-function money(value) {
-  return `฿${Number(value || 0).toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })}`;
-}
 
 async function loadDashboard() {
   loading.value = true;
@@ -47,11 +27,6 @@ async function loadDashboard() {
       openSos: Number(data.openSos) || 0,
     };
 
-    finance.value = {
-      totalVolume: Number(data.monthlyFinancials?.totalVolume) || 0,
-      totalFees: Number(data.monthlyFinancials?.totalFees) || 0,
-      count: Number(data.monthlyFinancials?.count) || 0,
-    };
   } catch (error) {
     console.error(error);
 
@@ -71,10 +46,10 @@ onMounted(loadDashboard);
 </script>
 
 <template>
-  <section class="dashboard">
+  <section class="dashboard jd-page">
     <div class="page-header">
       <div>
-        <h1>Dashboard</h1>
+        <h1>ภาพรวมระบบ</h1>
         <p class="page-description">
           ภาพรวมการทำงานของระบบ JangDi
         </p>
@@ -85,7 +60,7 @@ onMounted(loadDashboard);
         :disabled="loading"
         @click="loadDashboard"
       >
-        {{ loading ? "Loading..." : "Refresh" }}
+        {{ loading ? "กำลังโหลด…" : "รีเฟรช" }}
       </button>
     </div>
 
@@ -104,73 +79,37 @@ onMounted(loadDashboard);
     <template v-else>
       <div class="stat-grid">
         <div class="stat-card fill-primary">
-          <p class="stat-label">All Users</p>
+          <p class="stat-label">ผู้ใช้ทั้งหมด</p>
           <p class="stat-value">{{ stats.totalUsers }}</p>
-          <p class="stat-sub">Users</p>
+          <p class="stat-sub">คน</p>
         </div>
 
         <div class="stat-card fill-muted">
-          <p class="stat-label">All Jobs</p>
+          <p class="stat-label">งานทั้งหมด</p>
           <p class="stat-value">{{ stats.totalJobs }}</p>
-          <p class="stat-sub">Jobs</p>
+          <p class="stat-sub">งาน</p>
         </div>
 
         <RouterLink
-          to="/admin/posts"
+          :to="{ path: '/admin/posts', query: { status: 'pending_review' } }"
           class="stat-card outline"
         >
-          <p class="stat-label">Pending</p>
+          <p class="stat-label">งานรออนุมัติ</p>
           <p class="stat-value">{{ stats.pendingJobs }}</p>
-          <p class="stat-sub">Jobs waiting for review</p>
+          <p class="stat-sub">รอผู้ดูแลตรวจสอบ</p>
         </RouterLink>
 
         <RouterLink
-          to="/admin/sos"
+          :to="{ path: '/admin/sos', query: { status: 'active' } }"
           class="stat-card outline"
         >
-          <p class="stat-label">SOS Active</p>
+          <p class="stat-label">แจ้งเหตุฉุกเฉิน</p>
           <p class="stat-value">{{ stats.openSos }}</p>
-          <p class="stat-sub">Active alerts</p>
+          <p class="stat-sub">เหตุที่ยังดำเนินการอยู่</p>
         </RouterLink>
       </div>
 
-      <div class="card">
-        <p class="card-title">Work Chart</p>
-
-        <div class="chart-placeholder">
-          <p>ยังไม่มีข้อมูลกราฟรายวัน/รายสัปดาห์</p>
-          <small>
-            Backend Dashboard ปัจจุบันยังไม่ได้ส่งข้อมูลส่วนนี้
-          </small>
-        </div>
-      </div>
-
-      <div class="card">
-        <p class="card-title">Monthly Finance Summary</p>
-
-        <dl class="finance-list">
-          <div class="finance-row">
-            <dt>Total job value</dt>
-            <dd>{{ money(finance.totalVolume) }}</dd>
-          </div>
-
-          <div class="finance-row">
-            <dt>Platform fee earned</dt>
-            <dd class="positive">
-              +{{ money(finance.totalFees) }}
-            </dd>
-          </div>
-
-          <div class="finance-row">
-            <dt>Released jobs</dt>
-            <dd>{{ finance.count }}</dd>
-          </div>
-        </dl>
-
-        <p v-if="!hasFinanceData" class="empty">
-          ยังไม่มีข้อมูลการเงินของเดือนนี้
-        </p>
-      </div>
+      <AdminFinancialSummary />
     </template>
   </section>
 </template>
@@ -189,13 +128,13 @@ onMounted(loadDashboard);
 }
 
 h1 {
-  font-size: 20px;
+  font-size: 1.25rem;
   margin: 4px 0;
 }
 
 .page-description {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.875rem;
   color: var(--color-text-muted);
 }
 
@@ -228,18 +167,18 @@ h1 {
 
 .stat-label {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 .stat-value {
   margin: 6px 0 2px;
-  font-size: 26px;
+  font-size: 1.625rem;
   font-weight: 800;
 }
 
 .stat-sub {
   margin: 0;
-  font-size: 12px;
+  font-size: 0.875rem;
   opacity: 0.75;
 }
 
@@ -249,7 +188,7 @@ h1 {
 }
 
 .fill-muted {
-  background: #8b8f98;
+  background: var(--jd-muted);
   color: white;
 }
 
@@ -270,7 +209,30 @@ h1 {
 .card-title {
   font-weight: 700;
   margin: 0 0 10px;
-  font-size: 14px;
+  font-size: 0.875rem;
+}
+
+.finance-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.finance-heading .card-title { margin-bottom: 0; }
+.demo-label {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: var(--jd-accent-soft);
+  color: var(--jd-warning);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.finance-disclaimer {
+  margin: 6px 0 8px;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
 }
 
 .chart-placeholder {
@@ -286,7 +248,7 @@ h1 {
 }
 
 .chart-placeholder small {
-  font-size: 11px;
+  font-size: 0.875rem;
 }
 
 .finance-list {
@@ -298,7 +260,7 @@ h1 {
   justify-content: space-between;
   padding: 8px 0;
   border-bottom: 1px solid var(--color-border);
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .finance-row:last-child {
@@ -328,7 +290,7 @@ h1 {
 
 .empty {
   color: var(--color-text-muted);
-  font-size: 13px;
+  font-size: 0.875rem;
 }
 
 @media (max-width: 600px) {

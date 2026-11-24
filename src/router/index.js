@@ -1,9 +1,11 @@
-import { createRouter, createWebHistory } from "vue-router";
+﻿import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 
 const routes = [
   { path: "/", redirect: "/login" },
   { path: "/login", name: "login", component: () => import("../views/auth/LoginView.vue") },
+  { path: '/forgot-password', name: 'forgot-password', component: () => import('../views/auth/ForgotPasswordView.vue'), meta: { authRecovery: true } },
+  { path: '/reset-password', name: 'reset-password', component: () => import('../views/auth/ResetPasswordView.vue'), meta: { authRecovery: true } },
   { path: "/register", name: "register", component: () => import("../views/auth/RegisterView.vue") },
   { path: "/verify-email", name: "verify-email", component: () => import("../views/auth/VerifyEmailView.vue") },
   {
@@ -13,6 +15,8 @@ const routes = [
     component: () => import("../views/auth/VerifyEmailPendingView.vue"),
     meta: { requiresAuth: true },
   },
+
+  { path: "/notifications", name: "notifications", component: () => import("../views/NotificationsView.vue"), meta: { requiresAuth: true } },
 
   // Hirer (FR-JOB-*)
   {
@@ -54,6 +58,12 @@ const routes = [
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
+    path: "/hirer/my-jobs/:id/mock-payment",
+    name: "hirer-mock-payment",
+    component: () => import("../views/hirer/HirerMockPaymentView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
     path: "/hirer/my-jobs/:id/confirmed",
     name: "hirer-job-confirmed",
     component: () => import("../views/hirer/HirerJobConfirmedView.vue"),
@@ -79,6 +89,12 @@ const routes = [
     meta: { requiresAuth: true, role: "hirer" },
   },
   {
+    path: "/hirer/service-posts/:id",
+    name: "hirer-service-post-detail",
+    component: () => import("../views/hirer/HirerServicePostDetailView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
+  {
     path: "/hirer/hire/:id",
     name: "hirer-hire-service",
     component: () => import("../views/hirer/HirerHireServiceView.vue"),
@@ -90,12 +106,18 @@ const routes = [
     component: () => import("../views/hirer/HirerPaymentView.vue"),
     meta: { requiresAuth: true, role: "hirer" },
   },
+  {
+    path: "/hirer/payment/transactions",
+    name: "hirer-payment-transactions",
+    component: () => import("../views/hirer/HirerPaymentTransactionsView.vue"),
+    meta: { requiresAuth: true, role: "hirer" },
+  },
 
   // Worker (FR-BROWSE-*, FR-TRACK-*)
   {
     path: "/worker",
     name: "worker-dashboard",
-    component: () => import("../views/worker/WorkerDashboard.vue"),
+    redirect: { name: "job-feed" },
     meta: { requiresAuth: true, role: "worker" },
   },
   {
@@ -130,14 +152,25 @@ const routes = [
   },
   {
     path: "/worker/service-posts",
-    name: "worker-my-service-posts",
-    component: () => import("../views/worker/WorkerMyServicePostView.vue"),
+    redirect: { name: "worker-my-jobs", query: { view: "services" } },
     meta: { requiresAuth: true, role: "worker" },
   },
   {
     path: "/worker/service-posts/new",
     name: "worker-post-service",
     component: () => import("../views/worker/WorkerCreateServicePostView.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/service-posts/:id",
+    name: "worker-service-post-detail",
+    component: () => import("../views/hirer/HirerServicePostDetailView.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
+  {
+    path: "/worker/my-services/:id",
+    name: "worker-my-service-management",
+    component: () => import("../views/worker/WorkerMyServicePostView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
   {
@@ -152,6 +185,12 @@ const routes = [
     component: () => import("../views/worker/WorkerPaymentView.vue"),
     meta: { requiresAuth: true, role: "worker" },
   },
+  {
+    path: "/worker/payment/transactions",
+    name: "worker-payment-transactions",
+    component: () => import("../views/worker/WorkerPaymentTransactionsView.vue"),
+    meta: { requiresAuth: true, role: "worker" },
+  },
 
   // Profile — ใช้ร่วมกันระหว่าง Hirer และ Worker (บัญชีเดียวสลับ role ได้ตาม FR-AUTH-06)
   // ไม่ผูก meta.role เพราะเนื้อหาในหน้าไม่มีอะไรเฉพาะ role ใดเลย (FR-PROF-01/02/03, FR-REV-04)
@@ -159,6 +198,18 @@ const routes = [
     path: "/profile",
     name: "profile",
     component: () => import("../views/ProfileView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/profile/ratings",
+    name: "profile-ratings",
+    component: () => import("../views/ProfileRatingsView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/profile/history",
+    name: "profile-history",
+    component: () => import("../views/ProfileHistoryView.vue"),
     meta: { requiresAuth: true },
   },
 
@@ -169,6 +220,7 @@ const routes = [
     meta: { requiresAuth: true, adminOnly: true },
     children: [
       { path: "", redirect: { name: "admin-dashboard" } },
+      { path: 'profile', name: 'admin-profile', component: () => import('../views/ProfileView.vue') },
       {
         path: "dashboard",
         name: "admin-dashboard",
@@ -225,9 +277,16 @@ router.beforeEach((to) => {
     return { name: "login" };
   }
 
+  if (auth.isLoggedIn && auth.user?.isAdmin) {
+    if (['profile', 'profile-ratings', 'profile-history'].includes(to.name)) return { name: 'admin-profile' };
+    if (to.meta.role || to.name === 'register') return { name: 'admin-dashboard' };
+  }
+
   if (
     auth.isLoggedIn &&
+    !auth.user?.isAdmin &&
     !auth.isProfileComplete &&
+    !to.meta.authRecovery &&
     to.name !== "register" &&
     to.name !== "login"
   ) {
@@ -239,8 +298,9 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.role && auth.currentRole !== to.meta.role) {
-    return { name: auth.currentRole === "worker" ? "worker-dashboard" : "hirer-dashboard" };
+    return { name: auth.currentRole === "worker" ? "job-feed" : "hirer-dashboard" };
   }
 });
 
 export default router;
+

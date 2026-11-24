@@ -1,0 +1,18 @@
+{
+  "fixtureData": true,
+  "liveSnapshotUsed": true,
+  "checks": [
+    "hirer: valid jobs/services, own and closed/full/expired records hidden, pagination",
+    "hirer: title/publisher/literal search, category/tabs, empty/reset, detail links and location",
+    "hirer: responsive and accessibility at 320/390/768/1440px",
+    "hirer: failed load/retry and automatic refresh recovers and displays new work",
+    "worker: valid jobs/services, own and closed/full/expired records hidden, pagination",
+    "worker: title/publisher/literal search, category/tabs, empty/reset, detail links and location",
+    "worker: responsive and accessibility at 320/390/768/1440px",
+    "worker: failed load/retry and automatic refresh recovers and displays new work",
+    "hirer: real public API snapshot renders with account-specific own-post filtering",
+    "worker: real public API snapshot renders with account-specific own-post filtering"
+  ],
+  "errors": [],
+  "mutations": []
+}

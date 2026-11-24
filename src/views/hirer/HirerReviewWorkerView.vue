@@ -1,6 +1,7 @@
 <script setup>
+import UserAvatar from "../../components/UserAvatar.vue";
 // FR-REV-01: Hirer rates and reviews the selected Worker after a job is complete.
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
@@ -8,10 +9,14 @@ import AppHeader from "../../components/AppHeader.vue";
 const route = useRoute();
 const router = useRouter();
 const job = ref(null);
+const workerAvatarUrl = ref("");
 const workerName = ref("Worker");
 const loading = ref(true);
 const submitting = ref(false);
 const errorMsg = ref("");
+const reviewStatus = ref(null);
+const reviewed = computed(() => reviewStatus.value?.reviewed === true);
+
 const rating = ref(4);
 const comment = ref("");
 const tagOptions = ["On time", "Fast & Efficient", "Item as Described", "Friendly", "Communicated Well", "Reliable", "Polite"];
@@ -22,6 +27,7 @@ function toggleTag(tag) {
   if (i === -1) selectedTags.value.push(tag);
   else selectedTags.value.splice(i, 1);
 }
+function goHome() { router.push("/hirer"); }
 
 async function loadJob() {
   loading.value = true;
@@ -32,7 +38,10 @@ async function loadJob() {
     const workerId = data.selectedWorker?._id || data.selectedWorker;
     if (!workerId) throw new Error("No worker is assigned to this job.");
     const { data: worker } = await api.get(`/users/${workerId}`);
+    const { data: review } = await api.get(`/jobs/${route.params.id}/review-status`);
+    reviewStatus.value = review;
     job.value = data;
+    workerAvatarUrl.value = worker.avatarUrl || "";
     workerName.value = worker.fullName || "Worker";
   } catch (err) {
     errorMsg.value = err.response?.data?.message || err.message || "Unable to load job details.";
@@ -43,7 +52,7 @@ async function loadJob() {
 onMounted(loadJob);
 
 async function submit() {
-  if (!job.value || submitting.value || rating.value < 1 || rating.value > 5) return;
+  if (!job.value || reviewed.value || submitting.value || rating.value < 1 || rating.value > 5) return;
   submitting.value = true;
   errorMsg.value = "";
   try {
@@ -52,8 +61,9 @@ async function submit() {
       tags: selectedTags.value,
       comment: comment.value.trim(),
     });
-    router.push({ name: "hirer-dashboard" });
+    reviewStatus.value = { reviewed: true };
   } catch (err) {
+    if (err.response?.status === 409) reviewStatus.value = { reviewed: true };
     errorMsg.value = err.response?.data?.message || "Unable to submit review.";
   } finally {
     submitting.value = false;
@@ -62,18 +72,23 @@ async function submit() {
 </script>
 
 <template>
-  <main v-if="loading || !job" class="review">
-    <AppHeader title="Review" />
+  <main v-if="loading || !job" class="review jd-page">
+    <AppHeader title="รีวิวผู้รับจ้าง" />
     <p v-if="loading" class="form-message">Loading job...</p>
     <p v-if="errorMsg" class="form-message error" role="alert">{{ errorMsg }}</p>
   </main>
-  <main v-else-if="job" class="review">
-    <AppHeader title="Review" />
+  <main v-else-if="job" class="review jd-page">
+    <AppHeader title="รีวิวผู้รับจ้าง" />
 
     <section class="content">
-      <div class="avatar">👤</div>
+      <template v-if="reviewed">
+        <p class="form-message" role="status">คุณรีวิว Worker สำหรับงานนี้แล้ว ไม่สามารถส่งซ้ำได้</p>
+        <button type="button" class="btn home" @click="goHome">กลับหน้าโฮม</button>
+      </template>
+      <template v-else>
+      <span class="avatar"><UserAvatar :src="workerAvatarUrl" :name="workerName" /></span>
       <div class="name">{{ workerName }}</div>
-      <div class="role">Worker</div>
+      <div class="role">ผู้รับจ้าง</div>
 
       <div class="stars">
         <button
@@ -82,14 +97,15 @@ async function submit() {
           class="star"
           :class="{ filled: n <= rating }"
           @click="rating = n"
-          :aria-label="`${n} star`"
+          :aria-label="`${n} ดาว`"
+          :aria-pressed="n === rating"
         >★</button>
       </div>
 
-      <p class="question">How was your experience with the worker?</p>
+      <p class="question">คุณรู้สึกอย่างไรกับการทำงานของผู้รับจ้าง?</p>
 
       <div class="tags">
-        <button
+        <button :aria-pressed="selectedTags.includes(tag)"
           v-for="tag in tagOptions"
           :key="tag"
           class="tag"
@@ -98,10 +114,11 @@ async function submit() {
         >{{ tag }}</button>
       </div>
 
-      <textarea v-model="comment" rows="3" placeholder="Additional feedback (optional)"></textarea>
+      <textarea aria-label="ความคิดเห็นเพิ่มเติม (ไม่บังคับ)" v-model="comment" rows="3" placeholder="ความคิดเห็นเพิ่มเติม (ไม่บังคับ)"></textarea>
 
       <p v-if="errorMsg" class="form-message error" role="alert">{{ errorMsg }}</p>
-      <button class="btn primary" :disabled="submitting" @click="submit">{{ submitting ? "Submitting..." : "Review" }}</button>
+      <button class="btn primary" :disabled="submitting" @click="submit">{{ submitting ? "กำลังส่งรีวิว…" : "ส่งรีวิว" }}</button>
+      </template>
     </section>
   </main>
 </template>
@@ -110,28 +127,29 @@ async function submit() {
 .review { padding-bottom: 32px; }
 .content { padding: 20px 16px; text-align: center; }
 .avatar {
-  width: 72px; height: 72px; border-radius: 50%; background: #f3f4f6; margin: 0 auto 8px;
-  display: flex; align-items: center; justify-content: center; font-size: 30px;
+  width: 72px; height: 72px; border-radius: 50%; background: var(--jd-subtle); margin: 0 auto 8px;
+  display: flex; align-items: center; justify-content: center; font-size: 1.875rem;
 }
-.name { font-weight: 700; font-size: 16px; }
-.role { color: #888; font-size: 12px; margin-bottom: 12px; }
+.name { font-weight: 700; font-size: 1rem; }
+.role { color: var(--jd-muted); font-size: 0.875rem; margin-bottom: 12px; }
 .stars { display: flex; justify-content: center; gap: 6px; margin: 10px 0; }
-.star { font-size: 30px; background: none; border: none; color: #e5e7eb; cursor: pointer; min-width: 44px; min-height: 44px; }
-.star.filled { color: #fbbf24; }
-.question { font-size: 13px; color: #555; margin: 8px 0 12px; }
+.star { font-size: 1.875rem; background: none; border: none; color: var(--jd-line); cursor: pointer; min-width: 44px; min-height: 44px; }
+.star.filled { color: var(--jd-warning); }
+.question { font-size: 0.875rem; color: var(--jd-muted); margin: 8px 0 12px; }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px; }
 .tag {
-  padding: 8px 14px; border-radius: 20px; border: 1px solid #e5e7eb; background: white;
-  font-size: 12px; cursor: pointer; min-height: 40px;
+  padding: 8px 14px; border-radius: 20px; border: 1px solid var(--jd-line); background: white;
+  font-size: 0.875rem; cursor: pointer; min-height: 44px;
 }
-.tag.active { background: #fef3c7; border-color: #fbbf24; color: #92400e; font-weight: 600; }
+.tag.active { background: #fef3c7; border-color: var(--jd-warning); color: #92400e; font-weight: 600; }
 textarea {
-  width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #e5e7eb;
+  width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--jd-line);
   font-family: inherit; resize: vertical; margin-bottom: 20px;
 }
-.btn { width: 100%; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 14px; border: none; cursor: pointer; }
-.btn.primary { background: #fbbf24; color: #78350f; }
+.btn { width: 100%; min-height: 44px; border-radius: 10px; font-weight: 600; font-size: 0.875rem; border: none; cursor: pointer; }
+.btn.primary { background: var(--jd-accent); color: #78350f; }
+.btn.home { display: block; width: auto; min-width: 180px; margin: 12px auto 0; padding: 0 24px; background: var(--jd-accent); color: var(--jd-ink); }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.form-message { padding: 16px; text-align: center; color: #555; }
+.form-message { padding: 16px; text-align: center; color: var(--jd-muted); }
 .form-message.error { color: #dc2626; }
 </style>
