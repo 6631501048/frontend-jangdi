@@ -420,8 +420,8 @@ async function confirmCompletion() {
 .contact-btn.unavailable { color: var(--jd-muted); cursor: default; }
 .contact-btn.phone-contact { border-color: #bfdbfe; background: #eff6ff; }
 .contact-btn.phone-contact.unavailable { color: #475569; }
-.contact-btn.line-contact { border-color: var(--jd-success); background: #06c755; color: var(--jd-surface); }
-.contact-btn.line-contact span, .contact-btn.line-contact small { color: var(--jd-surface); }
+.contact-btn.line-contact { border-color: #06c755; background: #06c755; color: #fff; }
+.contact-btn.line-contact span, .contact-btn.line-contact strong, .contact-btn.line-contact small { color: #fff; }
 .timeline { list-style: none; margin: 18px 0 8px; padding: 0; }
 .timeline li { display: flex; gap: 10px; align-items: flex-start; padding: 0 0 18px 2px; position: relative; }
 .timeline li:not(:last-child)::before { content: ""; position: absolute; left: 7px; top: 14px; bottom: -2px; width: 2px; background: var(--jd-line); }

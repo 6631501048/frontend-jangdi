@@ -629,14 +629,14 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   border: 1px solid var(--jd-input-border); border-radius: 10px; background: var(--jd-surface); padding: 8px 10px; cursor: pointer;
 }
 .contact-btn.phone-contact { border-color: #bfdbfe; background: #eff6ff; }
-.contact-btn.line-contact { border-color: var(--jd-success); background: #30d274; text-decoration: none; }
+.contact-btn.line-contact { border-color: #06c755; background: #06c755; color: #fff; text-decoration: none; }
 .contact-btn svg { flex-shrink: 0; color: #334155; }
 .contact-btn span { display: flex; flex-direction: column; text-align: left; min-width: 0; }
 .contact-btn strong { font-size: 0.875rem; color: var(--jd-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contact-btn small { font-size: 0.875rem; color: #475569; }
-.contact-btn.line-contact strong, .contact-btn.line-contact small, .contact-btn.line-contact svg { color: var(--jd-surface); }
+.contact-btn.line-contact span, .contact-btn.line-contact strong, .contact-btn.line-contact small, .contact-btn.line-contact svg { color: #fff; }
 .contact-btn.unavailable { background: var(--jd-canvas); border-color: #e2e8f0; cursor: default; }
-.contact-btn.line-contact.unavailable { border-color: var(--jd-success); background: #06c755; }
+.contact-btn.line-contact.unavailable { border-color: #06c755; background: #06c755; }
 
 /* ---------- Timeline + SOS ---------- */
 .status-sos-row { display: flex; gap: 12px; margin-top: 16px; }

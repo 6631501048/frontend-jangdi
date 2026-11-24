@@ -168,11 +168,11 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 
 /* ---------- Tabs ---------- */
 .tabs {
-  display: flex; background: var(--jd-surface); border-radius: 10px; overflow: hidden;
-  border: 1px solid var(--jd-line); margin-bottom: 14px;
+  display: flex; gap: 8px; margin-bottom: 14px;
 }
 .tabs button {
-  flex: 1; min-height: 44px; border: none; background: transparent;
+  flex: 1; min-height: 44px; border: 1px solid var(--jd-line); border-radius: 10px;
+  background: var(--jd-surface);
   font-size: 0.875rem; color: var(--jd-muted); cursor: pointer;
 }
 .tabs button.active { background: var(--jd-accent); color: var(--jd-ink); font-weight: 700; }

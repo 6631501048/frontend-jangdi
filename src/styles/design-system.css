@@ -69,6 +69,8 @@ a { text-underline-offset: 4px; }
 .app-shell .jd-page :is(.contact-btn.line-contact, .contact-btn.line-contact.unavailable) { background:var(--jd-success); border-color:var(--jd-success); color:white; }
 .app-shell .jd-page .contact-btn.unavailable { background:var(--jd-subtle); border-color:var(--jd-line); color:var(--jd-muted); }
 .app-shell .jd-page .contact-btn.unavailable :is(span, strong, small, svg) { color:var(--jd-muted); }
+.app-shell .jd-page .contact-btn.line-contact.unavailable { background:#06c755; border-color:#06c755; color:#fff; }
+.app-shell .jd-page .contact-btn.line-contact.unavailable :is(span, strong, small, svg) { color:#fff; }
 .app-shell .jd-page :is(.sos-title, .status-tag.red) { color:var(--jd-danger); }
 .app-shell .jd-page .worker-avatar { color:var(--jd-muted); }
 .app-shell .jd-page .tab.chosen { background:var(--jd-peach-soft); color:var(--jd-brand); border-color:var(--jd-brand); }

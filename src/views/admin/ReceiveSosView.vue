@@ -7,8 +7,8 @@ import {useAdminDecision} from '../../composables/useAdminDecision';
 const {decision,askDecision,confirmDecision,cancelDecision}=useAdminDecision();
 
 const route = useRoute();
-const activeFilter = ref(route.query.status === "active" ? "Pending" : "All");
-const filters = ["All", "Pending", "Complete"];
+const activeFilter = ref(route.query.status === "active" ? "รอดำเนินการ" : "ทั้งหมด");
+const filters = ["ทั้งหมด", "รอดำเนินการ", "ดำเนินการแล้ว"];
 
 const alerts = ref([]);
 const loading = ref(true);
@@ -30,11 +30,11 @@ const counts = computed(() => ({
 }));
 
 const filteredAlerts = computed(() => {
-  if (activeFilter.value === "All") {
+  if (activeFilter.value === "ทั้งหมด") {
     return alerts.value;
   }
 
-  if (activeFilter.value === "Pending") {
+  if (activeFilter.value === "รอดำเนินการ") {
     return alerts.value.filter(
       (alert) => alert.status === "active"
     );
@@ -51,7 +51,7 @@ function toggleExpand(id) {
 }
 
 function statusLabel(status) {
-  return status === "active" ? "Pending" : "Complete";
+  return status === "active" ? "รอดำเนินการ" : "ดำเนินการแล้ว";
 }
 
 function formatDate(value) {
@@ -151,7 +151,7 @@ onMounted(loadAlerts);
         :disabled="loading"
         @click="loadAlerts"
       >
-        {{ loading ? "Loading..." : "Refresh" }}
+        {{ loading ? "กำลังโหลด..." : "รีเฟรช" }}
       </button>
     </div>
 
@@ -169,17 +169,17 @@ onMounted(loadAlerts);
         </div>
 
         <div class="overview-stat">
-          <p class="overview-value">
-            {{ counts.complete }}
-          </p>
-          <p class="overview-label">ดำเนินการแล้ว</p>
-        </div>
-
-        <div class="overview-stat">
           <p class="overview-value danger">
             {{ counts.pending }}
           </p>
           <p class="overview-label">รอดำเนินการ</p>
+        </div>
+
+        <div class="overview-stat">
+          <p class="overview-value">
+            {{ counts.complete }}
+          </p>
+          <p class="overview-label">ดำเนินการแล้ว</p>
         </div>
       </div>
     </div>
@@ -323,7 +323,7 @@ onMounted(loadAlerts);
         v-if="!filteredAlerts.length"
         class="empty"
       >
-        No SOS alerts in this view.
+        ไม่มีรายการ SOS ในสถานะนี้
       </li>
     </ul>
   </section>
