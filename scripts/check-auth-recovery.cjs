@@ -85,16 +85,16 @@ const submitted = [], checks = [];
 
   await navigate('/profile', { ...session, user: { ...session.user, isProfileComplete: true } });
   await until('!document.querySelector(".profile-state[role=status]")');
-  await evaluate(`window.alert = message => { window.passwordAlert = message }; [...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'เปลี่ยนรหัสผ่าน').click()`);
+  await evaluate(`[...document.querySelectorAll('button')].find(button => button.textContent.trim() === 'เปลี่ยนรหัสผ่าน').click()`);
   await until('!!document.querySelector(".modal input")');
   await set('input[autocomplete=current-password]', 'wrong-password');
   await set('input[aria-label="รหัสผ่านใหม่"]', 'new-password-123');
   await set('input[aria-label="ยืนยันรหัสผ่านใหม่"]', 'new-password-123');
   await click('.modal-actions .btn-gold');
-  await until('!!window.passwordAlert');
+  await until('!!document.querySelector(".password-error")');
   assert.equal(await evaluate('location.pathname'), '/profile');
   assert.equal(await evaluate('JSON.parse(localStorage.getItem("jangdi_auth")).token'), session.token);
-  assert(await evaluate('window.passwordAlert.includes("รหัสผ่านปัจจุบันไม่ถูกต้อง")'));
+  assert(await evaluate('document.querySelector(".password-error").textContent.includes("รหัสผ่านปัจจุบันไม่ถูกต้อง")'));
   checks.push('incorrect current password preserves the profile session');
 
   for (const width of [320, 390, 768, 1440]) {

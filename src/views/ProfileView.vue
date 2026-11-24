@@ -111,13 +111,22 @@ function cancelEditProfile() {
 /* ---------- เปลี่ยนรหัสผ่าน ---------- */
 const showPasswordModal = ref(false);
 const passwordPanel = ref(null);
-const { onKeydown: passwordKeydown } = useDialogFocus(() => showPasswordModal.value, passwordPanel, () => { showPasswordModal.value = false; });
+const { onKeydown: passwordKeydown } = useDialogFocus(() => showPasswordModal.value, passwordPanel, closePasswordModal);
 const passwordForm = ref({ current: "", next: "", confirm: "" });
 const savingPassword = ref(false);
+const passwordError = ref(''), passwordSuccess = ref('');
+function openPasswordModal() {
+  passwordError.value = ''; passwordSuccess.value = '';
+  passwordForm.value = { current: '', next: '', confirm: '' };
+  showPasswordModal.value = true;
+}
+function closePasswordModal() { if (!savingPassword.value) showPasswordModal.value = false; }
 async function submitPasswordChange() {
   if (savingPassword.value) return;
+  passwordError.value = '';
   const validation = passwordValidationMessage(passwordForm.value.next, passwordForm.value.confirm);
-  if (validation) { alert(validation); return; }
+  if (validation) { passwordError.value = validation; return; }
+  if (!passwordForm.value.current) { passwordError.value = 'กรุณากรอกรหัสผ่านปัจจุบัน'; return; }
   savingPassword.value = true;
   try {
     const { data } = await api.patch("/auth/password", {
@@ -125,11 +134,11 @@ async function submitPasswordChange() {
       next: passwordForm.value.next,
     }, { keepSessionOnUnauthorized: true });
     if (data.token) auth.setSession(data.token, auth.user);
-    alert("เปลี่ยนรหัสผ่านสำเร็จ");
+    passwordSuccess.value = 'เปลี่ยนรหัสผ่านสำเร็จ';
     showPasswordModal.value = false;
     passwordForm.value = { current: "", next: "", confirm: "" };
   } catch (err) {
-    alert(err.response?.data?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ");
+    passwordError.value = err.response?.data?.message || "เปลี่ยนรหัสผ่านไม่สำเร็จ";
   } finally { savingPassword.value = false; }
 }
 
@@ -252,6 +261,7 @@ onMounted(loadProfile);
 
     <component :is="isAdmin ? 'section' : 'main'" class="content">
       <h1 class="page-title">{{ isAdmin ? 'โปรไฟล์ผู้ดูแลระบบ' : 'จัดการโปรไฟล์' }}</h1>
+      <p v-if="passwordSuccess" class="password-success profile-state" role="status">{{ passwordSuccess }}</p>
       <p v-if="loading" class="profile-state" role="status">กำลังโหลดข้อมูลโปรไฟล์…</p>
       <p v-if="errorMsg" class="profile-state profile-error" role="alert">{{ errorMsg }} <button v-if="!loading && !isEditingProfile && !isEditingAddress" type="button" class="btn-outline" @click="loadProfile">ลองอีกครั้ง</button></p>
 
@@ -342,7 +352,7 @@ onMounted(loadProfile);
             <button class="btn-gold" @click="saveProfile">บันทึก</button>
           </template>
           <template v-else>
-            <button class="btn-gold" :disabled="loading || !profileLoaded" @click="showPasswordModal = true">เปลี่ยนรหัสผ่าน</button>
+            <button class="btn-gold" :disabled="loading || !profileLoaded" @click="openPasswordModal">เปลี่ยนรหัสผ่าน</button>
             <button class="btn-gold" :disabled="loading || !profileLoaded" @click="startEditProfile">แก้ไขข้อมูลส่วนตัว</button>
           </template>
         </div>
@@ -435,20 +445,23 @@ onMounted(loadProfile);
 
     <!-- Modal เปลี่ยนรหัสผ่าน -->
     <Transition name="fade">
-      <div v-if="showPasswordModal" class="modal-backdrop" @click.self="showPasswordModal = false">
+      <div v-if="showPasswordModal" class="modal-backdrop" @click.self="closePasswordModal">
         <div ref="passwordPanel" class="modal" role="dialog" aria-modal="true" aria-labelledby="password-title" tabindex="-1" @keydown="passwordKeydown">
           <h3 id="password-title">เปลี่ยนรหัสผ่าน</h3>
+          <form @submit.prevent="submitPasswordChange" :aria-busy="savingPassword">
           <label>รหัสผ่านปัจจุบัน</label>
-          <input aria-label="รหัสผ่านปัจจุบัน" v-model="passwordForm.current" type="password" autocomplete="current-password" />
+          <input aria-label="รหัสผ่านปัจจุบัน" v-model="passwordForm.current" type="password" autocomplete="current-password" :disabled="savingPassword" />
           <label>รหัสผ่านใหม่</label>
-          <input aria-label="รหัสผ่านใหม่" v-model="passwordForm.next" type="password" autocomplete="new-password" />
+          <input aria-label="รหัสผ่านใหม่" v-model="passwordForm.next" type="password" autocomplete="new-password" :disabled="savingPassword" />
           <label>ยืนยันรหัสผ่านใหม่</label>
-          <input aria-label="ยืนยันรหัสผ่านใหม่" v-model="passwordForm.confirm" type="password" autocomplete="new-password" />
+          <input aria-label="ยืนยันรหัสผ่านใหม่" v-model="passwordForm.confirm" type="password" autocomplete="new-password" :disabled="savingPassword" />
+          <p v-if="passwordError" class="password-error" role="alert">{{ passwordError }}</p>
           <RouterLink class="password-recovery-link" :to="{ name: 'forgot-password' }">ลืมรหัสผ่าน / ยังไม่ได้ตั้งรหัสผ่าน?</RouterLink>
           <div class="modal-actions">
-            <button class="btn-outline" @click="showPasswordModal = false">ยกเลิก</button>
-            <button class="btn-gold" :disabled="savingPassword" @click="submitPasswordChange">{{ savingPassword ? 'กำลังบันทึก…' : 'บันทึก' }}</button>
+            <button type="button" class="btn-outline" :disabled="savingPassword" @click="closePasswordModal">ยกเลิก</button>
+            <button type="submit" class="btn-gold" :disabled="savingPassword">{{ savingPassword ? 'กำลังบันทึก…' : 'บันทึก' }}</button>
           </div>
+          </form>
         </div>
       </div>
     </Transition>
@@ -457,6 +470,8 @@ onMounted(loadProfile);
 </template>
 
 <style scoped>
+.password-error { color:var(--jd-danger); font-size:.875rem; overflow-wrap:anywhere; }
+.profile-state.password-success { color:var(--jd-success); background:var(--jd-success-soft); }
 .password-recovery-link { display:inline-block; width:fit-content; max-width:100%; margin-top:12px; color:var(--jd-brand); font-size:.875rem; text-underline-offset:4px; }
 .profile-state { padding:14px 16px; border-radius:12px; background:var(--jd-subtle); color:var(--jd-muted); font-size:.875rem; }
 .profile-error { background:var(--jd-danger-soft); color:var(--jd-danger); overflow-wrap:anywhere; }

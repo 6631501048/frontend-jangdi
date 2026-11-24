@@ -11,6 +11,7 @@ const emit = defineEmits(["update:modelValue"]);
 const auth = useAuthStore();
 const router = useRouter();
 const switching = ref(false);
+const switchError = ref('');
 const panel = ref(null);
 const { onKeydown } = useDialogFocus(() => props.modelValue, panel, close);
 const isWorker = computed(() => auth.currentRole === "worker");
@@ -25,10 +26,11 @@ const items = computed(() => isWorker.value
       { label: "งานของฉัน", to: "/hirer/my-jobs" },
       { label: "การชำระเงิน", to: "/hirer/payment" },
     ]);
-function close() { emit("update:modelValue", false); }
+function close() { switchError.value = ''; emit("update:modelValue", false); }
 async function switchRole() {
   if (switching.value) return;
   switching.value = true;
+  switchError.value = '';
   const nextRole = isWorker.value ? "hirer" : "worker";
   try {
     const { data } = await api.patch("/auth/role", { role: nextRole });
@@ -36,7 +38,7 @@ async function switchRole() {
     close();
     router.push({ name: nextRole === "worker" ? "job-feed" : "hirer-dashboard" });
   } catch (error) {
-    window.alert(error.response?.data?.message || "สลับบทบาทไม่สำเร็จ กรุณาลองใหม่");
+    switchError.value = error.response?.data?.message || "สลับบทบาทไม่สำเร็จ กรุณาลองใหม่";
   } finally {
     switching.value = false;
   }
@@ -60,12 +62,14 @@ function logout() {
         <RouterLink v-for="item in items" :key="item.to" :to="item.to" class="drawer-link" @click="close">{{ item.label }}</RouterLink>
         <button class="drawer-link" :disabled="switching" @click="switchRole">{{ switching ? "กำลังสลับบทบาท…" : isWorker ? "สลับเป็นผู้ว่าจ้าง (Hirer)" : "สลับเป็นผู้รับจ้าง (Worker)" }}</button>
       </nav>
+      <p v-if="switchError" class="drawer-error" role="alert">{{ switchError }}</p>
       <button class="drawer-link logout" @click="logout">ออกจากระบบ</button>
     </aside>
   </Transition>
 </template>
 
 <style scoped>
+.drawer-error { padding:12px; border-radius:10px; background:var(--jd-danger-soft); color:var(--jd-danger); font-size:.875rem; overflow-wrap:anywhere; }
 .drawer-backdrop { position:fixed; inset:0; z-index:50; background:rgb(0 0 0 / 35%); }
 .role-drawer { position:fixed; inset:0; z-index:51; display:flex; width:360px; max-width:90vw; height:100dvh; overflow-y:auto; flex-direction:column; padding:24px 20px 18px; background:var(--jd-surface); box-shadow:2px 0 18px rgb(0 0 0 / 12%); }
 .drawer-brand { display:flex; align-items:center; gap:12px; margin:3px 4px 6px; font-size: 1.25rem; }

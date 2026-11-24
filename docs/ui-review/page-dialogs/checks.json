@@ -1,0 +1,77 @@
+{
+  "fixtureData": true,
+  "checks": [
+    "expired-job cancellation uses page confirmation, Escape cancels, explicit confirmation posts once",
+    "hirer profile password validation/failure/success stays in page and preserves session",
+    "worker profile password validation/failure/success stays in page and preserves session",
+    "admin profile password validation/failure/success stays in page and preserves session",
+    "hirer role-switch error is inline, preserves role and supports retry",
+    "worker role-switch error is inline, preserves role and supports retry",
+    "SOS confirmation, geolocation fallback, cancel, success and retry remain in the page",
+    "leaving tracking during geolocation does not send an SOS",
+    "new page messages/dialogs fit 320/390/768/1440px with accessible names and contrast"
+  ],
+  "errors": [],
+  "mutations": [
+    {
+      "method": "POST",
+      "path": "/api/jobs/job-1/cancel"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/password"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/password"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/password"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/password"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/password"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/password"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/role"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/role"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/role"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/auth/role"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sos"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sos"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sos"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sos"
+    }
+  ]
+}

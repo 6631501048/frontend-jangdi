@@ -5,6 +5,9 @@ import { useRoute, useRouter } from "vue-router";
 import api from "../../services/api";
 import AppHeader from "../../components/AppHeader.vue";
 import { calculatePaymentFees, defaultPaymentTerms } from "../../services/paymentFees";
+import DecisionDialog from '../../components/AdminDecisionDialog.vue';
+import { useAdminDecision } from '../../composables/useAdminDecision';
+const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
 
 const route = useRoute();
 const router = useRouter();
@@ -49,8 +52,9 @@ async function loadApplicants() {
 onMounted(loadApplicants);
 
 async function cancelExpiredJob() {
-  if (!canCancelExpiredJob.value || cancellingExpiredJob.value) return;
-  if (!window.confirm("งานนี้เลยเวลานัดและไม่มีผู้สมัคร ต้องการลบประกาศงานหรือไม่?")) return;
+  if (!canCancelExpiredJob.value || cancellingExpiredJob.value || decision.value) return;
+  const answer = await askDecision({ title: 'ยกเลิกงานที่เลยเวลานัด', message: 'งานนี้เลยเวลานัดและยังไม่มีผู้สมัคร ต้องการยกเลิกประกาศงานหรือไม่?', confirmLabel: 'ยืนยันยกเลิกงาน' });
+  if (answer === null || !canCancelExpiredJob.value || cancellingExpiredJob.value) return;
   cancellingExpiredJob.value = true;
   try {
     await api.post(`/jobs/${job.value._id}/cancel`, {
@@ -99,9 +103,10 @@ function select(workerId) {
       </div>
       <div v-if="!loading && !errorMsg && !applicants.length" class="empty-state">
         <p class="empty">No applicants yet.</p>
-        <button v-if="canCancelExpiredJob" class="delete-btn" :disabled="cancellingExpiredJob" @click="cancelExpiredJob">{{ cancellingExpiredJob ? "Cancelling..." : "ลบงาน" }}</button>
+        <button v-if="canCancelExpiredJob" class="delete-btn" :disabled="cancellingExpiredJob || !!decision" @click="cancelExpiredJob">{{ cancellingExpiredJob ? "Cancelling..." : "ลบงาน" }}</button>
       </div>
     </section>
+    <DecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
   </main>
 </template>
 

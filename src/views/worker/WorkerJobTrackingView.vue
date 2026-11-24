@@ -14,6 +14,9 @@ import ReportUserForm from "../../components/ReportUserForm.vue";
 import JobPaymentStatus from '../../components/JobPaymentStatus.vue';
 import JobReviewModal from '../../components/JobReviewModal.vue';
 import { effectiveJobStatus } from '../../services/workflowStatus';
+import DecisionDialog from '../../components/AdminDecisionDialog.vue';
+import { useAdminDecision } from '../../composables/useAdminDecision';
+const { decision, askDecision, confirmDecision, cancelDecision } = useAdminDecision();
 
 const route = useRoute();
 const router = useRouter();
@@ -291,10 +294,15 @@ async function submitStatusUpdate() {
 const sosSending = ref(false);
 const sosLocating = ref(false);
 const sosMessage = ref("");
+const sosConfirming = ref(false), sosError = ref(false);
+let sosDisposed = false;
+onUnmounted(() => { sosDisposed = true; });
+const canSendSOS = () => !sosDisposed && hasLoaded.value && job.value.status === 'in-progress';
 async function postSOS(coords = null) {
-  if (sosSending.value) return;
+  if (sosSending.value || !canSendSOS()) return;
   sosSending.value = true;
   sosMessage.value = "";
+  sosError.value = false;
   try {
     await api.post("/sos", {
       jobId: job.value.id,
@@ -303,29 +311,38 @@ async function postSOS(coords = null) {
     sosMessage.value = coords
       ? "ส่ง SOS พร้อมตำแหน่งสำเร็จ ผู้ดูแลระบบได้รับข้อมูลเหตุแล้ว"
       : "ส่ง SOS สำเร็จ (ไม่มีพิกัด) กรุณาติดต่อผู้ดูแลโดยตรงหากยังอยู่ในอันตราย";
-    window.alert(sosMessage.value);
   } catch (err) {
+    sosError.value = true;
     sosMessage.value = err.response?.data?.message || "ส่ง SOS ไม่สำเร็จ กรุณาติดต่อผู้ดูแลโดยตรง";
-    window.alert(sosMessage.value);
   } finally {
     sosSending.value = false;
   }
 }
-function offerSOSWithoutLocation() {
-  if (window.confirm("ไม่สามารถรับพิกัดได้ ต้องการส่ง SOS โดยไม่แนบตำแหน่งหรือไม่?")) {
-    void postSOS();
-  }
+async function offerSOSWithoutLocation() {
+  if (!canSendSOS()) return;
+  sosMessage.value = 'ยังไม่ได้ส่ง SOS เนื่องจากไม่สามารถรับพิกัดได้';
+  sosConfirming.value = true;
+  let answer;
+  try { answer = await askDecision({ title: 'ส่ง SOS โดยไม่มีพิกัด', message: 'ไม่สามารถรับตำแหน่งปัจจุบันได้ ต้องการส่ง SOS โดยไม่แนบพิกัดหรือไม่?', notice: 'ผู้ดูแลจะได้รับข้อมูลเหตุและงาน แต่จะไม่มีตำแหน่งปัจจุบันของคุณ', confirmLabel: 'ส่ง SOS ไม่มีพิกัด' }); }
+  finally { sosConfirming.value = false; }
+  if (answer !== null && canSendSOS()) await postSOS();
 }
-function sendSOS() {
-  if (sosSending.value || sosLocating.value || !window.confirm("ยืนยันการส่งสัญญาณฉุกเฉิน (SOS) ใช่หรือไม่?")) return;
+async function sendSOS() {
+  if (sosSending.value || sosLocating.value || sosConfirming.value || !canSendSOS()) return;
+  sosConfirming.value = true;
+  sosError.value = false;
+  let answer;
+  try { answer = await askDecision({ title: 'ยืนยันแจ้งเหตุฉุกเฉิน', message: 'ต้องการส่ง SOS สำหรับงานนี้ให้ผู้ดูแลระบบใช่หรือไม่?', notice: 'ระบบจะขอตำแหน่งปัจจุบันเพื่อส่งพร้อมข้อมูลเหตุ', confirmLabel: 'ยืนยันส่ง SOS' }); }
+  finally { sosConfirming.value = false; }
+  if (answer === null || !canSendSOS()) return;
   sosLocating.value = true;
   sosMessage.value = "กำลังขอตำแหน่งสำหรับแจ้งเหตุ...";
   if (!navigator.geolocation) { sosLocating.value = false; return offerSOSWithoutLocation(); }
-  navigator.geolocation.getCurrentPosition(
-    (pos) => { sosLocating.value = false; void postSOS(pos.coords); },
-    () => { sosLocating.value = false; offerSOSWithoutLocation(); },
+  try { navigator.geolocation.getCurrentPosition(
+    (pos) => { if (!canSendSOS()) return; sosLocating.value = false; void postSOS(pos.coords); },
+    () => { if (!canSendSOS()) return; sosLocating.value = false; void offerSOSWithoutLocation(); },
     { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-  );
+  ); } catch { sosLocating.value = false; await offerSOSWithoutLocation(); }
 }
 
 function callHirer() {
@@ -459,8 +476,8 @@ function goToReview() {
               <p class="sos-title">
                 <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg> แจ้งเหตุฉุกเฉิน </p>
               <p class="sos-desc">If you're in an emergency or dangerous situation, tap the red button below to get immediate support and coordination assistance.</p>
-              <p v-if="sosMessage" role="status" class="sos-desc">{{ sosMessage }}</p>
-              <button class="btn-sos" :disabled="sosSending || sosLocating" @click="sendSOS">
+              <p v-if="sosMessage" :role="sosError ? 'alert' : 'status'" class="sos-desc sos-message">{{ sosMessage }}</p>
+              <button class="btn-sos" :disabled="sosSending || sosLocating || sosConfirming" @click="sendSOS">
                 <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z" /></svg> กดเพื่อแจ้งเหตุฉุกเฉิน </button>
             </div>
           </div>
@@ -544,6 +561,7 @@ function goToReview() {
       </div>
     </main>
     <JobReviewModal v-if="showReviewModal" role="worker" :job-id="String(job.id)" @close="showReviewModal = false" @reviewed="reviewDone = true; reviewStatusLoaded = true" />
+    <DecisionDialog v-if="decision" v-bind="decision" @confirm="confirmDecision" @cancel="cancelDecision" />
   </div>
 </template>
 

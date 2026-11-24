@@ -6,9 +6,13 @@ globalThis.Document=class {};
 globalThis.ShadowRoot=class {};
 globalThis.document=new Document();
 document.activeElement=null;
+document.body={style:{overflow:''},offsetHeight:0};
+// The test host has no CSS animations; run transition frames immediately.
+globalThis.requestAnimationFrame=callback=>{callback(0);return 0;};
 globalThis.window={prompt(){throw new Error('Native prompt must not be used');},confirm(){throw new Error('Native confirm must not be used');},alert(){throw new Error('Native alert must not be used');}};
+window.getComputedStyle=()=>({transitionDelay:'0s',transitionDuration:'0s',animationDelay:'0s',animationDuration:'0s'});
 class Node {
-  constructor(tag,text=''){this.tag=tag;this.tagName=tag.toUpperCase();this.type=tag==='textarea'?'textarea':'text';this.text=text;this.children=[];this.parentNode=null;this.props={};this.style={};this.events={};this.defaultValue='';this._inputValue='';this.isConnected=true;}
+  constructor(tag,text=''){this.tag=tag;this.tagName=tag.toUpperCase();this.type=tag==='textarea'?'textarea':'text';this.text=text;this.children=[];this.parentNode=null;this.props={};this.style={};this.events={};this.defaultValue='';this._inputValue='';this.isConnected=true;this.ownerDocument=document;this.classList={add(){},remove(){}};}
   addEventListener(type,handler){(this.events[type]??=[]).push(handler);}
   removeEventListener(type,handler){this.events[type]=(this.events[type] || []).filter(item=>item!==handler);}
   dispatchEvent(event){event.target??=this;for(const handler of this.events[event.type] || [])handler(event);return true;}
