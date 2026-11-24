@@ -10,7 +10,7 @@ function setup({ready=true,query={},payment={},post}={}){
   resetApi({get:async url=>({data:url==='/jobs/job1'?{title:'งานทดสอบ'}:
     url==='/payments/config'?{bank:{name:'ทดสอบ'}}:
     url==='/payments/stripe/status'?{ready}:
-    {id:'pay1',status:'pending',paymentMode:'stripe_test',amount:100,platformFeeAmount:5,platformFeePercent:5,totalDue:105,...payment}}),post:post || (async()=>({data:{url:'https://checkout.stripe.com/c/pay/test'}}))});
+    {id:'pay1',status:'pending',paymentMode:'stripe_test',amount:100,platformFeeAmount:7,platformFeePercent:7,totalDue:107,...payment}}),post:post || (async()=>({data:{url:'https://checkout.stripe.com/c/pay/test'}}))});
 }
 
 test('payment page disables Stripe when backend configuration is missing',async()=>{

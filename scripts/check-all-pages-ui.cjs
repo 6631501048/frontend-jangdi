@@ -12,7 +12,7 @@ let currentRole='hirer', currentRoute='', fail=false;
 const job = () => ({_id:'job-1',title:'ช่วยทำความสะอาดห้องพักช่วงบ่าย',description:'ทำความสะอาดห้องพักและจัดของให้เรียบร้อย กรุณาแจ้งเวลาที่สะดวกก่อนเริ่มงาน',category:'cleaning',status:/\/review$/.test(currentRoute)?'completed':/tracking/.test(currentRoute)?'in_progress':'waiting',hirer:['/hirer','/worker/feed'].includes(currentRoute)?{...user,_id:'other-hirer',fullName:'พลอย ใจดี'}:user,selectedWorker:worker,price:350,deliveryFee:0,locationText:'เชียงราย · รอบมหาวิทยาลัย',scheduledAt:now.toISOString(),durationStart:now.toISOString(),durationEnd:'2027-12-31T10:00:00+07:00',createdAt:now.toISOString(),applicationExpiresAt:'2027-12-30T10:00:00+07:00',applicationsCount:1});
 const service = {_id:'service-1',worker,category:'cleaning',title:'รับทำความสะอาดห้องพัก',description:'ใส่ใจทุกมุม พร้อมช่วยให้วันยุ่ง ๆ ของคุณเบาขึ้น',fee:350,status:'active',locationLabel:'เชียงราย · รอบมหาวิทยาลัย',availabilityStart:now.toISOString(),availabilityEnd:'2027-12-31T10:00:00+07:00',createdAt:now.toISOString(),maxSimultaneousOrders:3,currentOrderCount:0};
 const request = {_id:'request-1',servicePost:service,hirer:user,status:'pending',orderDetails:'ช่วยทำความสะอาดห้องพักช่วงบ่าย นัดหมายเวลาก่อนเริ่มงาน',orderData:{requirements:'นำอุปกรณ์ทำความสะอาดมาเอง'},createdAt:now.toISOString()};
-const payment = () => ({_id:'payment-1',id:'payment-1',job:job(),hirer:user,worker,status:'pending',paymentMode:'stripe_test',amount:350,platformFeeAmount:18,platformFeePercent:5,totalDue:368,netAmountToWorker:350});
+const payment = () => ({_id:'payment-1',id:'payment-1',job:job(),hirer:user,worker,status:'pending',paymentMode:'stripe_test',amount:350,platformFeeAmount:24.5,platformFeePercent:7,totalDue:374.5,netAmountToWorker:350});
 const zeros = {pending:0,held:0,disputed:0,refunded:0,awaiting_verification:0,slip_rejected:0,payout_pending:0,refund_pending:0};
 const overview = {rangeLabel:'พฤศจิกายน 2569',lifetime:{...zeros,total:0},period:{total:0,completedJobs:0,fees:0},transactions:[]};
 async function fixture(endpoint,url,req) {
@@ -24,7 +24,7 @@ async function fixture(endpoint,url,req) {
   if(endpoint==='/auth/me') return {body:{...user,currentRole,isAdmin:currentRole==='admin'}};
   if(endpoint==='/auth/verify-email') return {body:{message:'ยืนยันอีเมลแล้ว'}};
   if(endpoint==='/notifications') return {body:[{_id:'notice-1',title:'มีคำขอใช้บริการใหม่',message:'ตรวจดูรายละเอียดก่อนตอบรับคำขอได้เลย',relatedEntityType:'ServiceRequest',relatedEntityId:'request-1',createdAt:now.toISOString()}]};
-  if(endpoint==='/payments/config') return {body:{feePercent:5,platformFeePercent:5,bank:{name:'ธนาคารตัวอย่าง',accountName:'JangDi ทดสอบ',accountNumber:'0000000000'}}};
+  if(endpoint==='/payments/config') return {body:{feePercent:7,platformFeePercent:7,bank:{name:'ธนาคารตัวอย่าง',accountName:'JangDi ทดสอบ',accountNumber:'0000000000'}}};
   if(endpoint==='/payments/stripe/status') return {body:{ready:false}};
   if(endpoint==='/payments/overview') return {body:overview};
   if(/\/payments\/job-1\/mock$/.test(endpoint)) return {body:payment()};
